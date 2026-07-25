@@ -1,0 +1,3 @@
+# Anchor account balance on the bank-reported current balance, not a summed transaction ledger
+
+SimpleFIN gives us both a bank-reported current balance and a transaction history, and the two can disagree due to pending charges, holds, or gaps in the transaction feed. We considered computing balance purely by summing transactions from a starting point, but chose instead to treat the bank's reported current balance as ground truth on every sync, and derive both past balances (walking backward through transactions) and future projections (walking forward through Flows/Transfers) relative to that anchor. This avoids the app's own numbers silently drifting from what the user's real bank says "right now" — trust in that number is the whole point of a running-dry warning.
