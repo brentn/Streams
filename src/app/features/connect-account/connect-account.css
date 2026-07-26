@@ -2,6 +2,7 @@
 .confirm-signs {
   max-width: 32rem;
   margin: 0 auto;
+  padding: 0 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
