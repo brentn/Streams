@@ -1,6 +1,7 @@
 import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { CurrencyPipe } from '@angular/common';
 import { Account } from '../../core/models/account';
+import { Flow } from '../../core/models/flow';
 import { Transaction } from '../../core/models/transaction';
 import { balanceAtDate, balanceSeries } from '../../core/projection/projection-engine';
 import { BandPoint } from '../../core/charting/band-segments';
@@ -43,6 +44,7 @@ export class MultiAccountStream {
 
   private readonly accounts = signal<Account[]>([]);
   private readonly transactionsByAccount = signal<Map<string, Transaction[]>>(new Map());
+  private readonly flowsByAccount = signal<Map<string, Flow[]>>(new Map());
   protected readonly dayOffset = signal(0);
   protected readonly isSyncing = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
@@ -53,14 +55,16 @@ export class MultiAccountStream {
 
   protected readonly lanes = computed<AccountLane[]>(() => {
     const transactionsByAccount = this.transactionsByAccount();
+    const flowsByAccount = this.flowsByAccount();
     const dates = this.windowDates();
     const selectedDate = this.selectedDate();
 
     return this.accounts().map((account) => {
       const transactions = transactionsByAccount.get(account.id) ?? [];
-      const series = balanceSeries(account, transactions, dates);
+      const flows = flowsByAccount.get(account.id) ?? [];
+      const series = balanceSeries(account, transactions, dates, flows);
       const points = series.map((p, i) => ({ x: i, balance: p.balance }));
-      const balance = balanceAtDate(account, transactions, selectedDate);
+      const balance = balanceAtDate(account, transactions, selectedDate, flows);
       return {
         account,
         points,
@@ -122,13 +126,20 @@ export class MultiAccountStream {
   protected async load(): Promise<void> {
     const accounts = await this.storage.getAccounts();
     this.accounts.set(accounts);
-    const entries = await Promise.all(
+    const transactionEntries = await Promise.all(
       accounts.map(async (a): Promise<[string, Transaction[]]> => [
         a.id,
         await this.storage.getTransactionsForAccount(a.id),
       ]),
     );
-    this.transactionsByAccount.set(new Map(entries));
+    this.transactionsByAccount.set(new Map(transactionEntries));
+    const flowEntries = await Promise.all(
+      accounts.map(async (a): Promise<[string, Flow[]]> => [
+        a.id,
+        await this.storage.getFlowsForAccount(a.id),
+      ]),
+    );
+    this.flowsByAccount.set(new Map(flowEntries));
   }
 
   protected shiftDay(delta: number): void {

@@ -1,6 +1,7 @@
 import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { CurrencyPipe } from '@angular/common';
 import { Account } from '../../core/models/account';
+import { Flow } from '../../core/models/flow';
 import { Transaction } from '../../core/models/transaction';
 import { balanceAtDate, balanceSeries } from '../../core/projection/projection-engine';
 import { BandPoint } from '../../core/charting/band-segments';
@@ -18,10 +19,11 @@ import { CalendarChip } from '../../shared/calendar-chip/calendar-chip';
 import { DragScrub } from '../../shared/drag-scrub/drag-scrub.directive';
 import { StatusBanner } from '../../shared/status-banner/status-banner';
 import { StreamBand } from '../../shared/stream-band/stream-band';
+import { FlowList } from './flow-list/flow-list';
 
 @Component({
   selector: 'app-account-stream',
-  imports: [CurrencyPipe, DragScrub, CalendarChip, StatusBanner, StreamBand],
+  imports: [CurrencyPipe, DragScrub, CalendarChip, StatusBanner, StreamBand, FlowList],
   templateUrl: './account-stream.html',
   styleUrl: './account-stream.css',
 })
@@ -35,6 +37,7 @@ export class AccountStream {
 
   protected readonly account = signal<Account | null>(null);
   protected readonly transactions = signal<Transaction[]>([]);
+  protected readonly flows = signal<Flow[]>([]);
   protected readonly dayOffset = signal(0);
   protected readonly isSyncing = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
@@ -43,7 +46,9 @@ export class AccountStream {
 
   protected readonly balance = computed(() => {
     const account = this.account();
-    return account ? balanceAtDate(account, this.transactions(), this.selectedDate()) : null;
+    return account
+      ? balanceAtDate(account, this.transactions(), this.selectedDate(), this.flows())
+      : null;
   });
 
   protected readonly isActual = computed(() => {
@@ -62,10 +67,9 @@ export class AccountStream {
   protected readonly points = computed<BandPoint[]>(() => {
     const account = this.account();
     if (!account) return [];
-    return balanceSeries(account, this.transactions(), this.windowDates()).map((p, i) => ({
-      x: i,
-      balance: p.balance,
-    }));
+    return balanceSeries(account, this.transactions(), this.windowDates(), this.flows()).map(
+      (p, i) => ({ x: i, balance: p.balance }),
+    );
   });
 
   protected readonly maxAbsBalance = computed(() =>
@@ -88,6 +92,11 @@ export class AccountStream {
     const account = accounts.find((a) => a.id === id) ?? null;
     this.account.set(account);
     this.transactions.set(account ? await this.storage.getTransactionsForAccount(id) : []);
+    this.flows.set(account ? await this.storage.getFlowsForAccount(id) : []);
+  }
+
+  protected async reloadFlows(): Promise<void> {
+    this.flows.set(await this.storage.getFlowsForAccount(this.id()));
   }
 
   protected shiftDay(delta: number): void {

@@ -22,6 +22,7 @@ describe('AccountStream', () => {
   let storage: {
     getAccounts: ReturnType<typeof vi.fn>;
     getTransactionsForAccount: ReturnType<typeof vi.fn>;
+    getFlowsForAccount: ReturnType<typeof vi.fn>;
     getAccessUrl: ReturnType<typeof vi.fn>;
     upsertAccount: ReturnType<typeof vi.fn>;
     upsertTransactions: ReturnType<typeof vi.fn>;
@@ -32,6 +33,7 @@ describe('AccountStream', () => {
     storage = {
       getAccounts: vi.fn().mockResolvedValue([account]),
       getTransactionsForAccount: vi.fn().mockResolvedValue([]),
+      getFlowsForAccount: vi.fn().mockResolvedValue([]),
       getAccessUrl: vi.fn(),
       upsertAccount: vi.fn(),
       upsertTransactions: vi.fn(),

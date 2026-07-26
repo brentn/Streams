@@ -28,6 +28,7 @@ describe('MultiAccountStream', () => {
   let storage: {
     getAccounts: ReturnType<typeof vi.fn>;
     getTransactionsForAccount: ReturnType<typeof vi.fn>;
+    getFlowsForAccount: ReturnType<typeof vi.fn>;
     getAccessUrl: ReturnType<typeof vi.fn>;
     upsertAccount: ReturnType<typeof vi.fn>;
     upsertTransactions: ReturnType<typeof vi.fn>;
@@ -38,6 +39,7 @@ describe('MultiAccountStream', () => {
     storage = {
       getAccounts: vi.fn().mockResolvedValue([checking, creditCard]),
       getTransactionsForAccount: vi.fn().mockResolvedValue([]),
+      getFlowsForAccount: vi.fn().mockResolvedValue([]),
       getAccessUrl: vi.fn(),
       upsertAccount: vi.fn(),
       upsertTransactions: vi.fn(),

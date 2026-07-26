@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { DBSchema, IDBPDatabase, openDB } from 'idb';
 import { Account } from '../models/account';
+import { Flow } from '../models/flow';
 import { Transaction } from '../models/transaction';
 
 interface StreamsDb extends DBSchema {
@@ -11,6 +12,11 @@ interface StreamsDb extends DBSchema {
   transactions: {
     key: string;
     value: Transaction;
+    indexes: { accountId: string };
+  };
+  flows: {
+    key: string;
+    value: Flow;
     indexes: { accountId: string };
   };
   settings: {
@@ -27,7 +33,7 @@ export class StorageRepository {
   private readonly dbPromise: Promise<IDBPDatabase<StreamsDb>>;
 
   constructor() {
-    this.dbPromise = openDB<StreamsDb>('streams', 2, {
+    this.dbPromise = openDB<StreamsDb>('streams', 3, {
       upgrade(db, oldVersion) {
         if (oldVersion < 1) {
           db.createObjectStore('accounts', { keyPath: 'id' });
@@ -38,6 +44,10 @@ export class StorageRepository {
         // v2: Account gained `expectedSign`. No structural change — IndexedDB
         // stores are schemaless per-record — but bumped to mark the shape
         // change explicitly.
+        if (oldVersion < 3) {
+          const flows = db.createObjectStore('flows', { keyPath: 'id' });
+          flows.createIndex('accountId', 'accountId');
+        }
       },
     });
   }
@@ -74,6 +84,21 @@ export class StorageRepository {
   async getTransactionsForAccount(accountId: string): Promise<Transaction[]> {
     const db = await this.dbPromise;
     return db.getAllFromIndex('transactions', 'accountId', accountId);
+  }
+
+  async upsertFlow(flow: Flow): Promise<void> {
+    const db = await this.dbPromise;
+    await db.put('flows', flow);
+  }
+
+  async deleteFlow(id: string): Promise<void> {
+    const db = await this.dbPromise;
+    await db.delete('flows', id);
+  }
+
+  async getFlowsForAccount(accountId: string): Promise<Flow[]> {
+    const db = await this.dbPromise;
+    return db.getAllFromIndex('flows', 'accountId', accountId);
   }
 
   async close(): Promise<void> {

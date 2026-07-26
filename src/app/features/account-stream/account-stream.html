@@ -39,6 +39,8 @@
         <div class="accent-line"></div>
       </div>
     </div>
+
+    <app-flow-list [accountId]="account.id" (changed)="reloadFlows()" />
   </section>
 } @else {
   <p>Loading…</p>

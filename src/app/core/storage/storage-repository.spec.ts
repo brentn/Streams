@@ -1,6 +1,7 @@
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Account } from '../models/account';
+import { BudgetFlow, RecurringFlow } from '../models/flow';
 import { Transaction } from '../models/transaction';
 import { StorageRepository } from './storage-repository';
 
@@ -110,5 +111,72 @@ describe('StorageRepository', () => {
     await repo.upsertTransactions([t1, t2]);
 
     expect(await repo.getTransactionsForAccount('acc-1')).toEqual([t1]);
+  });
+
+  it('upserts and retrieves Flows for an account', async () => {
+    const recurring: RecurringFlow = {
+      id: 'flow-1',
+      accountId: 'acc-1',
+      name: 'Paycheck',
+      direction: 'in',
+      kind: 'recurring',
+      amount: 2000,
+      cadence: {
+        period: 'week',
+        interval: 2,
+        anchors: [{ dayOfWeek: 5 }],
+        anchorDate: new Date(2026, 0, 2),
+      },
+    };
+    const budget: BudgetFlow = {
+      id: 'flow-2',
+      accountId: 'acc-2',
+      name: 'Groceries',
+      direction: 'out',
+      kind: 'budget',
+      limit: 400,
+      period: 'month',
+    };
+
+    await repo.upsertFlow(recurring);
+    await repo.upsertFlow(budget);
+
+    expect(await repo.getFlowsForAccount('acc-1')).toEqual([recurring]);
+    expect(await repo.getFlowsForAccount('acc-2')).toEqual([budget]);
+  });
+
+  it('upserting a Flow with the same id replaces it', async () => {
+    const original: BudgetFlow = {
+      id: 'flow-1',
+      accountId: 'acc-1',
+      name: 'Groceries',
+      direction: 'out',
+      kind: 'budget',
+      limit: 400,
+      period: 'month',
+    };
+    const updated: BudgetFlow = { ...original, limit: 500 };
+
+    await repo.upsertFlow(original);
+    await repo.upsertFlow(updated);
+
+    expect(await repo.getFlowsForAccount('acc-1')).toEqual([updated]);
+  });
+
+  it('deletes a Flow by id', async () => {
+    const flow: BudgetFlow = {
+      id: 'flow-1',
+      accountId: 'acc-1',
+      name: 'Groceries',
+      direction: 'out',
+      kind: 'budget',
+      limit: 400,
+      period: 'month',
+    };
+
+    await repo.upsertFlow(flow);
+    await repo.deleteFlow('flow-1');
+
+    expect(await repo.getFlowsForAccount('acc-1')).toEqual([]);
   });
 });
