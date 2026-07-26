@@ -1,1 +1,91 @@
 /* You can add global styles to this file, and also import other style files */
+
+:root {
+  color-scheme: light;
+
+  /* Accent — Sage brand green, stepped per mode for contrast (see docs/ux-spec.md) */
+  --color-accent: #00a63e;
+
+  /* Neutrals */
+  --color-page: #f9f9f7;
+  --color-surface: #fcfcfb;
+  --color-ink-primary: #0b0b0b;
+  --color-ink-secondary: #52514e;
+  --color-ink-muted: #898781;
+  --color-gridline: #e1e0d9;
+  --color-border: rgba(11, 11, 11, 0.1);
+
+  /* Status */
+  --color-critical: #d03b3b;
+
+  /* Chart: opposite-of-expected-sign segment */
+  --color-opposite-sign: #a8611f;
+
+  /* Type scale */
+  --font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --text-eyebrow: 0.75rem;
+  --text-heading: 1.25rem;
+  --text-body: 0.875rem;
+  --text-hero-card: 2.5rem;
+  --text-hero-inline: 1.4rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme='light'])) {
+    color-scheme: dark;
+
+    --color-accent: #00d639;
+
+    --color-page: #0d0d0d;
+    --color-surface: #1a1a19;
+    --color-ink-primary: #ffffff;
+    --color-ink-secondary: #c3c2b7;
+    --color-ink-muted: #898781;
+    --color-gridline: #2c2c2a;
+    --color-border: rgba(255, 255, 255, 0.1);
+
+    --color-critical: #d03b3b;
+
+    --color-opposite-sign: #d19255;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-accent: #00d639;
+
+  --color-page: #0d0d0d;
+  --color-surface: #1a1a19;
+  --color-ink-primary: #ffffff;
+  --color-ink-secondary: #c3c2b7;
+  --color-ink-muted: #898781;
+  --color-gridline: #2c2c2a;
+  --color-border: rgba(255, 255, 255, 0.1);
+
+  --color-critical: #d03b3b;
+
+  --color-opposite-sign: #d19255;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--color-page);
+  color: var(--color-ink-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}

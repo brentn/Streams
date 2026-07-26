@@ -1,24 +1,56 @@
-<section class="connect">
-  <h1>Connect a bank Account</h1>
-  <p>
-    Paste the setup token from your SimpleFIN Bridge account to sync your real balance and
-    Transactions.
-  </p>
+@if (step() === 'connect') {
+  <section class="connect">
+    <h1>Connect a bank Account</h1>
+    <p>
+      Paste the setup token from your SimpleFIN Bridge account to sync your real balance and
+      Transactions.
+    </p>
 
-  <label for="setup-token">Setup token</label>
-  <textarea
-    id="setup-token"
-    rows="3"
-    [value]="setupToken()"
-    (input)="onSetupTokenInput($any($event.target).value)"
-    [disabled]="isConnecting()"
-  ></textarea>
+    <app-status-banner [errorMessage]="errorMessage()" [isSyncing]="isConnecting()" (retry)="connect()" />
 
-  <button type="button" (click)="connect()" [disabled]="isConnecting() || !setupToken().trim()">
-    {{ isConnecting() ? 'Connecting…' : 'Connect' }}
-  </button>
+    <label for="setup-token">Setup token</label>
+    <textarea
+      id="setup-token"
+      rows="3"
+      [value]="setupToken()"
+      (input)="onSetupTokenInput($any($event.target).value)"
+      [disabled]="isConnecting()"
+    ></textarea>
 
-  @if (errorMessage(); as message) {
-    <p class="error" role="alert">{{ message }}</p>
-  }
-</section>
+    <button type="button" (click)="connect()" [disabled]="isConnecting() || !setupToken().trim()">
+      {{ isConnecting() ? 'Connecting…' : 'Connect' }}
+    </button>
+  </section>
+} @else {
+  <section class="confirm-signs">
+    <h1>Confirm each account</h1>
+    <p>Is each account an asset (money you have) or a liability (money you owe)?</p>
+
+    <app-status-banner [errorMessage]="errorMessage()" [isSyncing]="isSaving()" (retry)="saveAndContinue()" />
+
+    <ul class="account-list">
+      @for (pending of pendingAccounts(); track pending.account.id) {
+        <li class="account-row">
+          <div class="account-info">
+            <span class="name">{{ pending.account.name }}</span>
+            <span class="institution">{{ pending.account.institutionName }}</span>
+          </div>
+          <div
+            class="toggle"
+            cdkListbox
+            [cdkListboxMultiple]="false"
+            [attr.aria-label]="pending.account.name + ' asset or liability'"
+            (cdkListboxValueChange)="chooseSign(pending.account.id, $any($event.value[0]))"
+          >
+            <div class="toggle-option" [cdkOption]="1">Asset</div>
+            <div class="toggle-option" [cdkOption]="-1">Liability</div>
+          </div>
+        </li>
+      }
+    </ul>
+
+    <button type="button" class="save" (click)="saveAndContinue()" [disabled]="!allSignsChosen() || isSaving()">
+      {{ isSaving() ? 'Saving…' : 'Save & continue' }}
+    </button>
+  </section>
+}

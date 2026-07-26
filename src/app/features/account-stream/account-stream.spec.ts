@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Account } from '../../core/models/account';
+import { SCRUB_MAX_DAYS, SCRUB_MIN_DAYS } from '../../core/charting/date-window';
 import { SimpleFinAdapter } from '../../core/simplefin/simplefin-adapter';
 import { StorageRepository } from '../../core/storage/storage-repository';
 import { AccountStream } from './account-stream';
@@ -14,6 +15,7 @@ const account: Account = {
   institutionName: 'Bank',
   balance: 1000,
   balanceDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
+  expectedSign: 1,
 };
 
 describe('AccountStream', () => {
@@ -70,13 +72,13 @@ describe('AccountStream', () => {
     const fixture = TestBed.createComponent(AccountStream);
     const component = fixture.componentInstance;
 
-    component['dayOffset'].set(component['scrubMax']);
+    component['dayOffset'].set(SCRUB_MAX_DAYS);
     component['shiftDay'](1);
-    expect(component['dayOffset']()).toBe(component['scrubMax']);
+    expect(component['dayOffset']()).toBe(SCRUB_MAX_DAYS);
 
-    component['dayOffset'].set(component['scrubMin']);
+    component['dayOffset'].set(SCRUB_MIN_DAYS);
     component['shiftDay'](-1);
-    expect(component['dayOffset']()).toBe(component['scrubMin']);
+    expect(component['dayOffset']()).toBe(SCRUB_MIN_DAYS);
   });
 
   it('re-syncs by fetching accounts and re-loading from storage', async () => {

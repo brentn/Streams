@@ -1,10 +1,16 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { SimpleFinAdapter } from '../../core/simplefin/simplefin-adapter';
+import { CdkListbox, CdkOption } from '@angular/cdk/listbox';
+import { Account, Sign } from '../../core/models/account';
+import { SimpleFinAdapter, SyncedAccount } from '../../core/simplefin/simplefin-adapter';
 import { StorageRepository } from '../../core/storage/storage-repository';
+import { StatusBanner } from '../../shared/status-banner/status-banner';
+
+type Step = 'connect' | 'confirm-signs';
 
 @Component({
   selector: 'app-connect-account',
+  imports: [StatusBanner, CdkListbox, CdkOption],
   templateUrl: './connect-account.html',
   styleUrl: './connect-account.css',
 })
@@ -15,7 +21,18 @@ export class ConnectAccount {
 
   protected readonly setupToken = signal('');
   protected readonly isConnecting = signal(false);
+  protected readonly isSaving = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
+
+  protected readonly step = signal<Step>('connect');
+  protected readonly pendingAccounts = signal<SyncedAccount[]>([]);
+  protected readonly signChoices = signal<Record<string, Sign>>({});
+
+  protected readonly allSignsChosen = computed(() =>
+    this.pendingAccounts().every((pending) => this.signChoices()[pending.account.id] !== undefined),
+  );
+
+  private accessUrl = '';
 
   protected onSetupTokenInput(value: string): void {
     this.setupToken.set(value);
@@ -28,24 +45,42 @@ export class ConnectAccount {
     this.isConnecting.set(true);
     this.errorMessage.set(null);
     try {
-      const accessUrl = await this.simplefin.claimAccessUrl(token);
-      await this.storage.saveAccessUrl(accessUrl);
+      this.accessUrl = await this.simplefin.claimAccessUrl(token);
+      const synced = await this.simplefin.fetchAccounts(this.accessUrl);
 
-      const synced = await this.simplefin.fetchAccounts(accessUrl);
-
-      for (const { account, transactions } of synced) {
-        await this.storage.upsertAccount(account);
-        await this.storage.upsertTransactions(transactions);
-      }
-
-      const firstAccountId = synced[0]?.account.id;
-      if (firstAccountId) {
-        await this.router.navigateByUrl(`/accounts/${firstAccountId}`);
-      }
+      this.pendingAccounts.set(synced);
+      this.signChoices.set({});
+      this.step.set('confirm-signs');
     } catch (err) {
       this.errorMessage.set(err instanceof Error ? err.message : 'Connection failed.');
     } finally {
       this.isConnecting.set(false);
+    }
+  }
+
+  protected chooseSign(accountId: string, sign: Sign): void {
+    this.signChoices.update((choices) => ({ ...choices, [accountId]: sign }));
+  }
+
+  protected async saveAndContinue(): Promise<void> {
+    if (!this.allSignsChosen()) return;
+
+    this.isSaving.set(true);
+    this.errorMessage.set(null);
+    try {
+      await this.storage.saveAccessUrl(this.accessUrl);
+      const choices = this.signChoices();
+      for (const { account, transactions } of this.pendingAccounts()) {
+        const expectedSign = choices[account.id];
+        const withSign: Account = { ...account, expectedSign };
+        await this.storage.upsertAccount(withSign);
+        await this.storage.upsertTransactions(transactions);
+      }
+      await this.router.navigateByUrl('/accounts');
+    } catch (err) {
+      this.errorMessage.set(err instanceof Error ? err.message : 'Saving failed.');
+    } finally {
+      this.isSaving.set(false);
     }
   }
 }

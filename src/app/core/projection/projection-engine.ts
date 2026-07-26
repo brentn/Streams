@@ -24,3 +24,17 @@ export function balanceAtDate(
 
   return account.balance - postedSinceDate;
 }
+
+export interface BalancePoint {
+  date: Date;
+  balance: number;
+}
+
+/** One balance sample per day across `dates`, for driving a chart's band. */
+export function balanceSeries(
+  account: Pick<Account, 'balance' | 'balanceDate'>,
+  transactions: Transaction[],
+  dates: Date[],
+): BalancePoint[] {
+  return dates.map((date) => ({ date, balance: balanceAtDate(account, transactions, date) }));
+}

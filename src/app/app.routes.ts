@@ -8,6 +8,13 @@ export const routes: Routes = [
       import('./features/connect-account/connect-account').then((m) => m.ConnectAccount),
   },
   {
+    path: 'accounts',
+    loadComponent: () =>
+      import('./features/multi-account-stream/multi-account-stream').then(
+        (m) => m.MultiAccountStream,
+      ),
+  },
+  {
     path: 'accounts/:id',
     loadComponent: () =>
       import('./features/account-stream/account-stream').then((m) => m.AccountStream),

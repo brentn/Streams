@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Transaction } from '../models/transaction';
-import { balanceAtDate } from './projection-engine';
+import { balanceAtDate, balanceSeries } from './projection-engine';
 
 const account = { balance: 1000, balanceDate: new Date('2026-07-25T12:00:00Z') };
 
@@ -60,5 +60,21 @@ describe('balanceAtDate', () => {
   it('returns the anchor balance flat with an empty transaction list', () => {
     const past = new Date('2020-01-01T00:00:00Z');
     expect(balanceAtDate(account, [], past)).toBe(1000);
+  });
+});
+
+describe('balanceSeries', () => {
+  it('samples the balance at each given date', () => {
+    const transactions = [txn('t1', '2026-07-24T09:00:00Z', -50)];
+    const dates = [new Date('2026-07-19T00:00:00Z'), account.balanceDate];
+
+    expect(balanceSeries(account, transactions, dates)).toEqual([
+      { date: dates[0], balance: 1050 },
+      { date: dates[1], balance: 1000 },
+    ]);
+  });
+
+  it('returns an empty series for an empty date list', () => {
+    expect(balanceSeries(account, [], [])).toEqual([]);
   });
 });

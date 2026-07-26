@@ -1,0 +1,122 @@
+.multi-account {
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+h1 {
+  font-size: var(--text-heading);
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-ink-primary);
+}
+
+.resync {
+  font: inherit;
+  font-weight: 600;
+  font-size: var(--text-body);
+  color: var(--color-accent);
+  background: transparent;
+  border: 1px solid var(--color-accent);
+  border-radius: 0.375rem;
+  padding: 0.4rem 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.resync:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.empty {
+  color: var(--color-ink-secondary);
+}
+
+.chip {
+  display: flex;
+  justify-content: center;
+  margin: 1rem 0 0.5rem;
+}
+
+.lanes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  touch-action: none;
+  cursor: grab;
+}
+
+.lanes:active {
+  cursor: grabbing;
+}
+
+.lane {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.lane-name {
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--color-ink-primary);
+}
+
+.total-lane {
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-gridline);
+}
+
+.total-lane .lane-name {
+  color: var(--color-ink-secondary);
+  text-transform: uppercase;
+  font-size: var(--text-eyebrow);
+  letter-spacing: 0.04em;
+}
+
+.lane-chart {
+  position: relative;
+}
+
+.pill {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: var(--text-body);
+  font-weight: 700;
+  color: var(--color-ink-primary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.pill.opposite {
+  color: var(--color-critical);
+}
+
+/* Must stay in sync with NARROW_BREAKPOINT_PX in core/charting/lane-heights.ts */
+@media (max-width: 480px) {
+  .chip {
+    margin-top: 0.5rem;
+  }
+
+  .lanes {
+    gap: 0.5rem;
+  }
+
+  .pill {
+    font-size: 0.75rem;
+    padding: 0.1rem 0.45rem;
+  }
+}

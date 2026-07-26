@@ -27,12 +27,17 @@ export class StorageRepository {
   private readonly dbPromise: Promise<IDBPDatabase<StreamsDb>>;
 
   constructor() {
-    this.dbPromise = openDB<StreamsDb>('streams', 1, {
-      upgrade(db) {
-        db.createObjectStore('accounts', { keyPath: 'id' });
-        const transactions = db.createObjectStore('transactions', { keyPath: 'id' });
-        transactions.createIndex('accountId', 'accountId');
-        db.createObjectStore('settings', { keyPath: 'key' });
+    this.dbPromise = openDB<StreamsDb>('streams', 2, {
+      upgrade(db, oldVersion) {
+        if (oldVersion < 1) {
+          db.createObjectStore('accounts', { keyPath: 'id' });
+          const transactions = db.createObjectStore('transactions', { keyPath: 'id' });
+          transactions.createIndex('accountId', 'accountId');
+          db.createObjectStore('settings', { keyPath: 'key' });
+        }
+        // v2: Account gained `expectedSign`. No structural change — IndexedDB
+        // stores are schemaless per-record — but bumped to mark the shape
+        // change explicitly.
       },
     });
   }

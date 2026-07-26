@@ -16,7 +16,7 @@ export class Home {
 
   private async redirect(): Promise<void> {
     const accounts = await this.storage.getAccounts();
-    const target = accounts.length > 0 ? `/accounts/${accounts[0].id}` : '/connect';
+    const target = accounts.length > 0 ? '/accounts' : '/connect';
     await this.router.navigateByUrl(target);
   }
 }

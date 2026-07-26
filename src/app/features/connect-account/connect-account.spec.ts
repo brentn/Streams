@@ -44,7 +44,7 @@ describe('ConnectAccount', () => {
     expect(simplefin.claimAccessUrl).not.toHaveBeenCalled();
   });
 
-  it('claims, saves, syncs, and navigates to the first account on success', async () => {
+  it('advances to the sign-confirmation step on a successful connect, without persisting anything yet', async () => {
     simplefin.claimAccessUrl.mockResolvedValue(
       'https://user:pass@bridge.simplefin.org/simplefin',
     );
@@ -66,15 +66,14 @@ describe('ConnectAccount', () => {
 
     await component['connect']();
 
-    expect(storage.saveAccessUrl).toHaveBeenCalledWith(
-      'https://user:pass@bridge.simplefin.org/simplefin',
-    );
-    expect(storage.upsertAccount).toHaveBeenCalledWith(expect.objectContaining({ id: 'acc-1' }));
-    expect(router.navigateByUrl).toHaveBeenCalledWith('/accounts/acc-1');
-    expect(component['errorMessage']()).toBeNull();
+    expect(component['step']()).toBe('confirm-signs');
+    expect(component['pendingAccounts']()).toHaveLength(1);
+    expect(storage.saveAccessUrl).not.toHaveBeenCalled();
+    expect(storage.upsertAccount).not.toHaveBeenCalled();
+    expect(router.navigateByUrl).not.toHaveBeenCalled();
   });
 
-  it('surfaces an error message when the claim fails', async () => {
+  it('surfaces an error message when the claim fails, staying on the connect step', async () => {
     simplefin.claimAccessUrl.mockRejectedValue(new Error('bad token'));
 
     const component = TestBed.createComponent(ConnectAccount).componentInstance;
@@ -83,6 +82,86 @@ describe('ConnectAccount', () => {
     await component['connect']();
 
     expect(component['errorMessage']()).toBe('bad token');
+    expect(component['step']()).toBe('connect');
     expect(router.navigateByUrl).not.toHaveBeenCalled();
+  });
+
+  describe('sign confirmation', () => {
+    async function connectWithTwoAccounts() {
+      simplefin.claimAccessUrl.mockResolvedValue(
+        'https://user:pass@bridge.simplefin.org/simplefin',
+      );
+      simplefin.fetchAccounts.mockResolvedValue([
+        {
+          account: {
+            id: 'acc-1',
+            name: 'Checking',
+            institutionName: 'Bank',
+            balance: 100,
+            balanceDate: new Date('2026-07-25'),
+          },
+          transactions: [],
+        },
+        {
+          account: {
+            id: 'acc-2',
+            name: 'Credit Card',
+            institutionName: 'Bank',
+            balance: -50,
+            balanceDate: new Date('2026-07-25'),
+          },
+          transactions: [{ id: 't1', accountId: 'acc-2', date: new Date('2026-07-24'), amount: -10, description: 'x' }],
+        },
+      ]);
+
+      const component = TestBed.createComponent(ConnectAccount).componentInstance;
+      component['setupToken'].set('dG9rZW4=');
+      await component['connect']();
+      return component;
+    }
+
+    it('disables save until every account has a chosen sign', async () => {
+      const component = await connectWithTwoAccounts();
+
+      expect(component['allSignsChosen']()).toBe(false);
+
+      component['chooseSign']('acc-1', 1);
+      expect(component['allSignsChosen']()).toBe(false);
+
+      component['chooseSign']('acc-2', -1);
+      expect(component['allSignsChosen']()).toBe(true);
+    });
+
+    it('does not save when signs are incomplete', async () => {
+      const component = await connectWithTwoAccounts();
+      component['chooseSign']('acc-1', 1);
+
+      await component['saveAndContinue']();
+
+      expect(storage.upsertAccount).not.toHaveBeenCalled();
+    });
+
+    it('persists every account with its chosen sign and navigates to the multi-account view', async () => {
+      const component = await connectWithTwoAccounts();
+      component['chooseSign']('acc-1', 1);
+      component['chooseSign']('acc-2', -1);
+
+      await component['saveAndContinue']();
+
+      expect(storage.saveAccessUrl).toHaveBeenCalledWith(
+        'https://user:pass@bridge.simplefin.org/simplefin',
+      );
+      expect(storage.upsertAccount).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'acc-1', expectedSign: 1 }),
+      );
+      expect(storage.upsertAccount).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'acc-2', expectedSign: -1 }),
+      );
+      expect(storage.upsertTransactions).toHaveBeenCalledWith([
+        { id: 't1', accountId: 'acc-2', date: new Date('2026-07-24'), amount: -10, description: 'x' },
+      ]);
+      expect(router.navigateByUrl).toHaveBeenCalledWith('/accounts');
+      expect(component['errorMessage']()).toBeNull();
+    });
   });
 });

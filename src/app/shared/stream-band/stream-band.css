@@ -1,0 +1,24 @@
+.band {
+  display: block;
+  width: 100%;
+}
+
+.segment {
+  fill: var(--color-accent);
+  opacity: 1;
+}
+
+.segment.neutral {
+  fill: var(--color-ink-secondary);
+}
+
+.segment.opposite {
+  fill: var(--color-opposite-sign);
+}
+
+.segment.projected {
+  opacity: 0.45;
+  stroke: currentColor;
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}

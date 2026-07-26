@@ -1,0 +1,16 @@
+<svg
+  class="band"
+  [attr.viewBox]="'0 0 ' + viewWidth() + ' ' + height()"
+  preserveAspectRatio="none"
+  [style.height.px]="height()"
+>
+  @for (segment of segments(); track $index) {
+    <polygon
+      [attr.points]="segment.polygon"
+      class="segment"
+      [class.opposite]="segment.sign === 'opposite'"
+      [class.neutral]="segment.sign === 'expected' && expectedColor() === 'neutral'"
+      [class.projected]="segment.phase === 'projected'"
+    />
+  }
+</svg>

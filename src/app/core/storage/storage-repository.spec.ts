@@ -40,6 +40,7 @@ describe('StorageRepository', () => {
       institutionName: 'First Bank',
       balance: 100,
       balanceDate: new Date('2026-01-01'),
+      expectedSign: 1,
     };
 
     await repo.upsertAccount(account);
@@ -54,6 +55,7 @@ describe('StorageRepository', () => {
       institutionName: 'First Bank',
       balance: 100,
       balanceDate: new Date('2026-01-01'),
+      expectedSign: 1,
     };
     const updated: Account = { ...original, balance: 250 };
 

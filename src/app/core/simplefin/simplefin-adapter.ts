@@ -22,8 +22,9 @@ interface SimpleFinAccountsResponse {
   accounts: SimpleFinAccount[];
 }
 
+/** SimpleFIN carries no asset/liability classifier, so a freshly synced account has no `expectedSign` yet — that's user-set in the connect flow's sign-confirmation step. */
 export interface SyncedAccount {
-  account: Account;
+  account: Omit<Account, 'expectedSign'>;
   transactions: Transaction[];
 }
 
