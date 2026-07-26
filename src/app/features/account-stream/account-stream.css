@@ -1,0 +1,30 @@
+.balance {
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.balance.projected {
+  color: #6b46c1;
+}
+
+.badge {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  margin-left: 0.5rem;
+  opacity: 0.7;
+}
+
+.scrubber {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.scrubber input[type='range'] {
+  flex: 1;
+}
+
+.error {
+  color: #c0392b;
+}

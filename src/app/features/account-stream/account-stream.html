@@ -1,0 +1,35 @@
+@if (account(); as account) {
+  <section class="stream">
+    <header>
+      <h1>{{ account.name }}</h1>
+      <p>{{ account.institutionName }}</p>
+      <button type="button" (click)="resync()" [disabled]="isSyncing()">
+        {{ isSyncing() ? 'Syncing…' : 'Re-sync' }}
+      </button>
+    </header>
+
+    <p class="balance" [class.projected]="!isActual()">
+      {{ balance() | currency }}
+      <span class="badge">{{ isActual() ? 'Actual' : 'Projected' }}</span>
+    </p>
+    <p class="date">{{ selectedDate() | date: 'longDate' }}</p>
+
+    <div class="scrubber">
+      <button type="button" (click)="shiftDay(-1)">&larr; Prev day</button>
+      <input
+        type="range"
+        [min]="scrubMin"
+        [max]="scrubMax"
+        [value]="dayOffset()"
+        (input)="onScrub($any($event.target).value)"
+      />
+      <button type="button" (click)="shiftDay(1)">Next day &rarr;</button>
+    </div>
+
+    @if (errorMessage(); as message) {
+      <p class="error" role="alert">{{ message }}</p>
+    }
+  </section>
+} @else {
+  <p>Loading…</p>
+}

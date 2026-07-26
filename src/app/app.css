@@ -1,0 +1,20 @@
+.app-header {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+main {
+  padding: 1.5rem;
+}
+
+@media (max-width: 480px) {
+  main {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}

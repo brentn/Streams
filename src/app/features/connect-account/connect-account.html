@@ -1,0 +1,24 @@
+<section class="connect">
+  <h1>Connect a bank Account</h1>
+  <p>
+    Paste the setup token from your SimpleFIN Bridge account to sync your real balance and
+    Transactions.
+  </p>
+
+  <label for="setup-token">Setup token</label>
+  <textarea
+    id="setup-token"
+    rows="3"
+    [value]="setupToken()"
+    (input)="onSetupTokenInput($any($event.target).value)"
+    [disabled]="isConnecting()"
+  ></textarea>
+
+  <button type="button" (click)="connect()" [disabled]="isConnecting() || !setupToken().trim()">
+    {{ isConnecting() ? 'Connecting…' : 'Connect' }}
+  </button>
+
+  @if (errorMessage(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+</section>
