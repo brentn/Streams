@@ -13,7 +13,13 @@
   } @else {
     <app-calendar-chip class="chip" [date]="selectedDate()" />
 
-    <div class="lanes" appDragScrub [windowDays]="windowDays" (scrubBy)="shiftDay($event)">
+    <div
+      class="lanes"
+      appDragScrub
+      [windowDays]="windowDays"
+      (scrubBy)="shiftDay($event)"
+      (tap)="onLaneTap($event)"
+    >
       <div class="lane total-lane">
         <span class="lane-name">Total</span>
         <div class="lane-chart">
@@ -33,8 +39,12 @@
       </div>
 
       @for (lane of lanes(); track lane.account.id) {
-        <div class="lane">
-          <span class="lane-name">{{ lane.account.name }}</span>
+        <div class="lane" [attr.data-account-id]="lane.account.id">
+          <a
+            class="lane-name"
+            [routerLink]="['/accounts', lane.account.id]"
+            (pointerdown)="$event.stopPropagation()"
+          >{{ lane.account.name }}</a>
           <div class="lane-chart">
             <app-stream-band
               [points]="lane.points"

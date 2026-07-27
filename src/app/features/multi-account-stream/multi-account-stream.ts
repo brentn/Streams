@@ -1,5 +1,6 @@
 import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { CurrencyPipe } from '@angular/common';
+import { Router, RouterLink } from '@angular/router';
 import { Account } from '../../core/models/account';
 import { Flow } from '../../core/models/flow';
 import { Transaction } from '../../core/models/transaction';
@@ -32,13 +33,14 @@ interface AccountLane {
 
 @Component({
   selector: 'app-multi-account-stream',
-  imports: [CurrencyPipe, DragScrub, CalendarChip, StatusBanner, StreamBand],
+  imports: [CurrencyPipe, RouterLink, DragScrub, CalendarChip, StatusBanner, StreamBand],
   templateUrl: './multi-account-stream.html',
   styleUrl: './multi-account-stream.css',
 })
 export class MultiAccountStream {
   private readonly storage = inject(StorageRepository);
   private readonly simplefin = inject(SimpleFinAdapter);
+  private readonly router = inject(Router);
 
   protected readonly windowDays = WINDOW_DAYS;
 
@@ -144,6 +146,11 @@ export class MultiAccountStream {
 
   protected shiftDay(delta: number): void {
     this.dayOffset.update((offset) => clampDayOffset(offset + delta));
+  }
+
+  protected onLaneTap(target: HTMLElement): void {
+    const accountId = target.closest<HTMLElement>('[data-account-id]')?.dataset['accountId'];
+    if (accountId) void this.router.navigateByUrl(`/accounts/${accountId}`);
   }
 
   protected async resync(): Promise<void> {

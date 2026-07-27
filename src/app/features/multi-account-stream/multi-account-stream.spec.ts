@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Account } from '../../core/models/account';
 import { HALF_WINDOW_DAYS, SCRUB_MAX_DAYS, SCRUB_MIN_DAYS } from '../../core/charting/date-window';
@@ -51,6 +52,7 @@ describe('MultiAccountStream', () => {
       providers: [
         { provide: StorageRepository, useValue: storage },
         { provide: SimpleFinAdapter, useValue: simplefin },
+        { provide: Router, useValue: { navigateByUrl: vi.fn() } },
       ],
     }).compileComponents();
   });

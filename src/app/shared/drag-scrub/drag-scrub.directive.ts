@@ -7,6 +7,9 @@ import { accumulateScrubDays } from '../../core/charting/scrub-gesture';
  * ("Scrubber: chart, not a range input") this is the only interaction — no
  * range input, no prev/next buttons.
  */
+/** Pointer movement below this, between down and up, counts as a tap rather than a drag. */
+const TAP_THRESHOLD_PX = 6;
+
 @Directive({
   selector: '[appDragScrub]',
   host: {
@@ -23,15 +26,26 @@ export class DragScrub {
   /** Total days spanned by the element's full rendered width. */
   readonly windowDays = input.required<number>();
   readonly scrubBy = output<number>();
+  /**
+   * Fires on a tap/click that didn't drag, with the element originally under the pointer —
+   * captured at pointerdown, since pointer capture retargets pointerup/click to this host.
+   */
+  readonly tap = output<HTMLElement>();
 
   private pointerId: number | null = null;
   private lastX = 0;
+  private startX = 0;
+  private startY = 0;
   private carryDays = 0;
+  private downTarget: HTMLElement | null = null;
 
   protected onPointerDown(event: PointerEvent): void {
     this.pointerId = event.pointerId;
     this.lastX = event.clientX;
+    this.startX = event.clientX;
+    this.startY = event.clientY;
     this.carryDays = 0;
+    this.downTarget = event.target as HTMLElement;
     this.el.nativeElement.setPointerCapture(event.pointerId);
   }
 
@@ -55,7 +69,14 @@ export class DragScrub {
 
   protected onPointerEnd(event: PointerEvent): void {
     if (event.pointerId !== this.pointerId) return;
+
+    const distance = Math.hypot(event.clientX - this.startX, event.clientY - this.startY);
+    if (distance < TAP_THRESHOLD_PX && this.downTarget) {
+      this.tap.emit(this.downTarget);
+    }
+
     this.pointerId = null;
     this.carryDays = 0;
+    this.downTarget = null;
   }
 }

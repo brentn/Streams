@@ -1,5 +1,6 @@
 import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { CurrencyPipe } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { Account } from '../../core/models/account';
 import { Flow } from '../../core/models/flow';
 import { Transaction } from '../../core/models/transaction';
@@ -23,7 +24,7 @@ import { FlowList } from './flow-list/flow-list';
 
 @Component({
   selector: 'app-account-stream',
-  imports: [CurrencyPipe, DragScrub, CalendarChip, StatusBanner, StreamBand, FlowList],
+  imports: [CurrencyPipe, RouterLink, DragScrub, CalendarChip, StatusBanner, StreamBand, FlowList],
   templateUrl: './account-stream.html',
   styleUrl: './account-stream.css',
 })

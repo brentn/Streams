@@ -3,6 +3,18 @@
   margin: 0 auto;
 }
 
+.back {
+  display: inline-block;
+  margin-bottom: 1rem;
+  font-size: var(--text-body);
+  color: var(--color-ink-secondary);
+  text-decoration: none;
+}
+
+.back:hover {
+  color: var(--color-accent);
+}
+
 header {
   display: flex;
   align-items: flex-start;

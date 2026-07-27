@@ -68,6 +68,13 @@ h1 {
   font-size: var(--text-body);
   font-weight: 600;
   color: var(--color-ink-primary);
+  text-decoration: none;
+  width: fit-content;
+}
+
+a.lane-name:hover {
+  color: var(--color-accent);
+  text-decoration: underline;
 }
 
 .total-lane {
