@@ -1,11 +1,12 @@
 @if (account(); as account) {
   <section class="stream">
-    <a routerLink="/accounts" class="back">← All accounts</a>
-
     <header>
-      <div>
-        <h1>{{ account.name }}</h1>
-        <p class="institution">{{ account.institutionName }}</p>
+      <div class="title">
+        <a routerLink="/accounts" class="back" aria-label="All accounts">‹</a>
+        <div>
+          <h1>{{ account.name }}</h1>
+          <p class="institution">{{ account.institutionName }}</p>
+        </div>
       </div>
       <button type="button" class="resync" (click)="resync()" [disabled]="isSyncing()">
         {{ isSyncing() ? 'Syncing…' : 'Re-sync' }}

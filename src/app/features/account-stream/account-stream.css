@@ -3,23 +3,36 @@
   margin: 0 auto;
 }
 
+header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .back {
-  display: inline-block;
-  margin-bottom: 1rem;
-  font-size: var(--text-body);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  font-size: 1.25rem;
+  line-height: 1;
   color: var(--color-ink-secondary);
   text-decoration: none;
 }
 
 .back:hover {
   color: var(--color-accent);
-}
-
-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
+  background: var(--color-surface);
 }
 
 h1 {
