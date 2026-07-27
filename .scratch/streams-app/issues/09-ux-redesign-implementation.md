@@ -1,5 +1,7 @@
 # 09 — Implement the UX redesign
 
+**Migrated:** [brentn/Streams#18](https://github.com/brentn/Streams/issues/18) (closed — done). This local file is historical; GitHub is now the source of truth.
+
 **What to build:** Replace the throwaway prototype UI (`account-stream/prototype-visual-language/`, `multi-account-stream-prototype/`, `connect-account/prototype-expected-sign/`) with a production implementation of the decisions in `docs/ux-spec.md`, from the now-closed `streams-ux-design` wayfinder map (`.scratch/wayfinder/streams-ux-design/`).
 
 **Blocked by:** 01 — Connect a bank Account via SimpleFIN and scroll its stream

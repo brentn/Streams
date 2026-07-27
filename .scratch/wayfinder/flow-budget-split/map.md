@@ -1,7 +1,7 @@
 # Flow/Budget Split
 
 **Label:** wayfinder:map
-**Tracker:** local fallback (see `docs/agents/issue-tracker.md` § Wayfinding operations → Local fallback) — `gh` isn't installed yet; migrate to a real GitHub issue once it is.
+**Tracker:** migrated to GitHub as [brentn/Streams#19](https://github.com/brentn/Streams/issues/19) (2026-07-27), with tickets 01–04 as sub-issues [#20](https://github.com/brentn/Streams/issues/20)–[#23](https://github.com/brentn/Streams/issues/23). This file remains as local reference; GitHub is the source of truth going forward.
 
 ## Destination
 

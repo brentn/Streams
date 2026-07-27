@@ -1,5 +1,7 @@
 # 08 — Variance Alerts
 
+**Migrated:** [brentn/Streams#17](https://github.com/brentn/Streams/issues/17) (open). This local file is historical; GitHub is now the source of truth.
+
 **What to build:** In-app warning when a Flow's actual spending drifts too far from what was expected.
 
 **Blocked by:** 05 — Transaction categorization — automatic and manual

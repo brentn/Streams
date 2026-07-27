@@ -1,5 +1,7 @@
 # 02 — Flows drive the projection
 
+**Migrated:** [brentn/Streams#11](https://github.com/brentn/Streams/issues/11) (closed — done). This local file is historical; GitHub is now the source of truth.
+
 **What to build:** Flows attached to an Account so the forward projection reflects expected income/expenses instead of a flat line. Every Flow is one of two kinds, fixed at creation — recurring (date/frequency-known) or budget (a period spending/income limit) — see the **Flow/Budget Split** wayfinder map (`.scratch/wayfinder/flow-budget-split/map.md`) and the updated `CONTEXT.md` Flow entry for the full domain model.
 
 **Blocked by:** 01 — Connect a bank Account via SimpleFIN and scroll its stream

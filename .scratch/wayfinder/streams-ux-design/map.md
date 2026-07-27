@@ -2,7 +2,7 @@
 
 **Label:** wayfinder:map
 **Status:** closed — all 10 tickets resolved, no fog remaining. `docs/ux-spec.md` is the handoff artifact.
-**Tracker:** local fallback (see `docs/agents/issue-tracker.md` § Wayfinding operations → Local fallback) — `gh` isn't installed yet; migrate to a real GitHub issue once it is.
+**Tracker:** migrated to GitHub as [brentn/Streams#24](https://github.com/brentn/Streams/issues/24) (2026-07-27), with tickets 01–10 as sub-issues [#25](https://github.com/brentn/Streams/issues/25)–[#34](https://github.com/brentn/Streams/issues/34) (note: ticket 06 is [#29](https://github.com/brentn/Streams/issues/29), created between tickets 04 and 05 to preserve dependency order — see #24's ticket list for the exact number-to-ticket mapping). This file remains as local reference; GitHub is the source of truth going forward.
 
 ## Destination
 

@@ -44,9 +44,11 @@ Used by `/wayfinder`. The **map** is a single issue with **child** issues as tic
 - **Claim**: `gh issue edit <n> --add-assignee @me` — the session's first write.
 - **Resolve**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far.
 
-### Local fallback (no `gh` yet)
+### Local fallback (historical — `gh` is now installed)
 
-**Temporary** — `gh` isn't installed on this machine as of 2026-07-25. Use this fallback for wayfinding only, until `gh` is available; everything else in this doc (issues/PRDs in general) stays GitHub-first, unblocked and unaffected. This mirrors the stand-in convention already used by `.scratch/streams-app/issues/01`–`08`.
+**No longer the active path.** `gh` was installed and confirmed working (`gh --version`, `origin` resolves to `brentn/Streams`) as of 2026-07-27 — don't reach for this fallback on new wayfinding work; use the GitHub-native operations above instead. `gh auth login` may still be needed before write operations (`gh issue create`, etc.) will succeed — check `gh auth status` first, and if it reports not logged in, ask the user to run `gh auth login` (interactive) rather than attempting to authenticate a token yourself.
+
+This section is kept for two reasons: (1) existing local artifacts (`.scratch/streams-app/issues/01`–`08`, and any wayfinder map whose `Tracker:` line still says "local fallback") were written against it and remain valid until someone migrates them by hand — see Migrating below; (2) it documents the convention in case `gh` ever becomes unavailable again.
 
 - **Map**: `.scratch/wayfinder/<map-slug>/map.md`, body exactly per the wayfinder map spec (Destination / Notes / Decisions so far / Not yet specified / Out of scope).
 - **Child ticket**: `.scratch/wayfinder/<map-slug>/tickets/<nn>-<slug>.md`, numbered sequentially. Header fields in place of GitHub labels/assignee:

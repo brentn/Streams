@@ -1,5 +1,7 @@
 # 06 — Running-Dry Alerts
 
+**Migrated:** [brentn/Streams#15](https://github.com/brentn/Streams/issues/15) (open). This local file is historical; GitHub is now the source of truth.
+
 **What to build:** In-app warning when an Account is projected to cross below its Dry Floor within the Projection Horizon.
 
 **Blocked by:** 02 — Flows drive the projection

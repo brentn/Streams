@@ -1,5 +1,7 @@
 # 04 — Step Changes and Recurring Rules on a Flow
 
+**Migrated:** [brentn/Streams#13](https://github.com/brentn/Streams/issues/13) (open). This local file is historical; GitHub is now the source of truth.
+
 **What to build:** The scheduling mechanics that let a Flow's amount change over time — a one-off manual Step Change, and an automated calendar-anchored Recurring Rule — composed as a single ordered timeline with no separate base amount to keep in sync.
 
 **Scope note:** applies only to recurring-kind Flow. A budget-kind Flow has no amount-change timeline — its limit is a flat value for its period, no Step Changes or Recurring Rules apply to it. See the **Flow/Budget Split** wayfinder map (`.scratch/wayfinder/flow-budget-split/map.md`, ticket 03).

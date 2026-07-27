@@ -1,5 +1,7 @@
 # 05 — Transaction categorization — automatic and manual
 
+**Migrated:** [brentn/Streams#14](https://github.com/brentn/Streams/issues/14) (open). This local file is historical; GitHub is now the source of truth.
+
 **What to build:** Synced Transactions map to a Flow automatically via Categorization Rules, with manual correction that keeps the rule set current going forward.
 
 **Blocked by:** 02 — Flows drive the projection

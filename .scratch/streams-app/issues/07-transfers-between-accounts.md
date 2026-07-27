@@ -1,5 +1,7 @@
 # 07 — Transfers between two Accounts
 
+**Migrated:** [brentn/Streams#16](https://github.com/brentn/Streams/issues/16) (open). This local file is historical; GitHub is now the source of truth.
+
 **What to build:** A Transfer entity that moves money between two of the user's own Accounts without being mis-modeled as two unrelated Flows, reusing the Step Change / Recurring Rule scheduling built for Flows.
 
 **Blocked by:** 04 — Step Changes and Recurring Rules on a Flow

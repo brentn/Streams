@@ -1,6 +1,6 @@
 # Streams — v1 Spec
 
-_Draft spec, not yet published to GitHub Issues (`gh` CLI unavailable at write time). Publish to `brentn/Streams` Issues with the `ready-for-agent` label once ready — no further triage needed._
+_Published to GitHub as [brentn/Streams#1](https://github.com/brentn/Streams/issues/1) (2026-07-27), superseding the earlier pre-Flow/Budget-split draft that had been posted there. Its user stories are tracked as implementation issues [#10](https://github.com/brentn/Streams/issues/10)–[#18](https://github.com/brentn/Streams/issues/18) (formerly the local stand-in files at `.scratch/streams-app/issues/01`–`09`, now historical) — see #1's comments for the full mapping. This file remains as local reference; GitHub is the source of truth going forward._
 
 ## Problem Statement
 
