@@ -135,3 +135,12 @@ h1 {
   color: var(--color-ink-muted);
   vertical-align: middle;
 }
+
+/* Bleed the chart to .card's edge, canceling .card's own horizontal padding. */
+@media (max-width: 480px) {
+  .chart {
+    width: calc(100% + 3rem);
+    margin-left: -1.5rem;
+    margin-right: -1.5rem;
+  }
+}
