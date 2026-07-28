@@ -1,10 +1,10 @@
 import { Account } from '../models/account';
-import { AmountChange, Cadence, Flow, signedFlowAmount } from '../models/flow';
+import { AmountChange, Cadence, Flow, Tolerance, signedFlowAmount } from '../models/flow';
 import { Transaction } from '../models/transaction';
 import { Transfer } from '../models/transfer';
 import { amountAtDate } from './amount-timeline';
-import { budgetContribution } from './budget-period';
-import { occurrencesInRange } from './cadence';
+import { budgetContribution, previousCompletedPeriod } from './budget-period';
+import { lastCompletedPeriod, occurrencesInRange } from './cadence';
 
 /** The sum of a Cadence's occurrences over `(startExclusive, endInclusive]`, each valued via its amount-change timeline. */
 function cadenceTimelineContribution(
@@ -20,18 +20,26 @@ function cadenceTimelineContribution(
   );
 }
 
+/**
+ * A Flow's expected contribution over `(startExclusive, endInclusive]` as a positive
+ * magnitude — a recurring-kind Flow's occurrence timeline, or a budget-kind Flow's prorated
+ * limit — before `direction`'s sign is applied. Shared by `flowContribution` (the projection)
+ * and `varianceAlert` (which compares this same magnitude against an actual total).
+ */
+function expectedFlowMagnitude(
+  flow: Flow,
+  changes: AmountChange[],
+  startExclusive: Date,
+  endInclusive: Date,
+): number {
+  return flow.kind === 'recurring'
+    ? cadenceTimelineContribution(flow.cadence, flow.amount, changes, startExclusive, endInclusive)
+    : budgetContribution(flow.period, flow.limit, changes, startExclusive, endInclusive);
+}
+
 function flowContribution(flow: Flow, startExclusive: Date, endInclusive: Date): number {
   const changes = flow.amountChanges ?? [];
-  const magnitude =
-    flow.kind === 'recurring'
-      ? cadenceTimelineContribution(
-          flow.cadence,
-          flow.amount,
-          changes,
-          startExclusive,
-          endInclusive,
-        )
-      : budgetContribution(flow.period, flow.limit, changes, startExclusive, endInclusive);
+  const magnitude = expectedFlowMagnitude(flow, changes, startExclusive, endInclusive);
   return signedFlowAmount(magnitude, flow.direction);
 }
 
@@ -169,4 +177,81 @@ export function runningDryAlert(
     }
   }
   return null;
+}
+
+export interface VarianceAlert {
+  flowId: string;
+  periodStart: Date;
+  periodEnd: Date;
+  expected: number;
+  actual: number;
+}
+
+function toleranceAmount(tolerance: Tolerance, expectedMagnitude: number): number {
+  return tolerance.kind === 'percent'
+    ? Math.abs(expectedMagnitude) * (tolerance.value / 100)
+    : tolerance.value;
+}
+
+/**
+ * A Flow's actual total for `(startExclusive, endInclusive]`, normalized to the same positive
+ * magnitude its expected amount is expressed in — matched Transactions summed, then flipped
+ * back through `direction`'s sign (the same multiply-by-±1 `signedFlowAmount` uses to go the
+ * other way, and self-inverse since the sign is always ±1).
+ */
+function actualFlowMagnitude(
+  flow: Flow,
+  transactions: Transaction[],
+  startExclusive: Date,
+  endInclusive: Date,
+): number {
+  const upperBoundExclusive = addDays(endInclusive, 1);
+  const signedTotal = transactions
+    .filter(
+      (txn) =>
+        txn.matchedFlowId === flow.id &&
+        txn.date.getTime() > startExclusive.getTime() &&
+        txn.date.getTime() < upperBoundExclusive.getTime(),
+    )
+    .reduce((sum, txn) => sum + txn.amount, 0);
+  return signedFlowAmount(signedTotal, flow.direction);
+}
+
+/**
+ * Compares a Flow's most recently completed period — an occurrence-to-occurrence window for a
+ * recurring-kind Flow, the prior calendar month/year for a budget-kind Flow — against its
+ * Tolerance, returning a Variance Alert if it's outside. Symmetric (either direction) for a
+ * recurring-kind Flow; for a budget-kind Flow, only the direction that hurts (over the limit
+ * for an expense Budget, under for an income Budget) — per CONTEXT.md's Tolerance entry.
+ * Returns null when the Flow has no Tolerance set or no period has completed yet.
+ */
+export function varianceAlert(
+  flow: Flow,
+  transactions: Transaction[],
+  today: Date,
+): VarianceAlert | null {
+  if (!flow.tolerance) return null;
+
+  const period =
+    flow.kind === 'recurring'
+      ? lastCompletedPeriod(flow.cadence, today)
+      : previousCompletedPeriod(flow.period, today);
+  if (!period) return null;
+
+  const { startExclusive, endInclusive } = period;
+  const changes = flow.amountChanges ?? [];
+  const expected = expectedFlowMagnitude(flow, changes, startExclusive, endInclusive);
+  const actual = actualFlowMagnitude(flow, transactions, startExclusive, endInclusive);
+
+  const tolerance = toleranceAmount(flow.tolerance, expected);
+  const diff = actual - expected;
+  const breached =
+    flow.kind === 'budget'
+      ? flow.direction === 'out'
+        ? diff > tolerance
+        : diff < -tolerance
+      : Math.abs(diff) > tolerance;
+  if (!breached) return null;
+
+  return { flowId: flow.id, periodStart: startExclusive, periodEnd: endInclusive, expected, actual };
 }

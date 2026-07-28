@@ -7,6 +7,7 @@ import {
   FlowDirection,
   FlowKind,
   RecurringFlow,
+  Tolerance,
 } from '../../../core/models/flow';
 import {
   buildCadence,
@@ -47,6 +48,9 @@ export class FlowForm {
 
   protected readonly amountChanges = signal<AmountChange[]>([]);
 
+  protected readonly toleranceKind = signal<'none' | 'percent' | 'fixed'>('none');
+  protected readonly toleranceValue = signal(0);
+
   constructor() {
     effect(() => {
       const flow = this.flow();
@@ -55,6 +59,8 @@ export class FlowForm {
       this.direction.set(flow.direction);
       this.kind.set(flow.kind);
       this.amountChanges.set(flow.amountChanges ?? []);
+      this.toleranceKind.set(flow.tolerance?.kind ?? 'none');
+      this.toleranceValue.set(flow.tolerance?.value ?? 0);
       if (flow.kind === 'recurring') {
         this.amount.set(flow.amount);
         const { option, fields } = describeCadence(flow.cadence);
@@ -74,11 +80,15 @@ export class FlowForm {
 
   protected save(): void {
     const id = this.flow()?.id ?? crypto.randomUUID();
+    const toleranceKind = this.toleranceKind();
+    const tolerance: Tolerance | undefined =
+      toleranceKind === 'none' ? undefined : { kind: toleranceKind, value: this.toleranceValue() };
     const base = {
       id,
       accountId: this.accountId(),
       name: this.name().trim(),
       direction: this.direction(),
+      tolerance,
     };
 
     const flow: Flow =

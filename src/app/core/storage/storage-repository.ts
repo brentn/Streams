@@ -44,7 +44,7 @@ export class StorageRepository {
   private readonly dbPromise: Promise<IDBPDatabase<StreamsDb>>;
 
   constructor() {
-    this.dbPromise = openDB<StreamsDb>('streams', 7, {
+    this.dbPromise = openDB<StreamsDb>('streams', 8, {
       upgrade(db, oldVersion) {
         if (oldVersion < 1) {
           db.createObjectStore('accounts', { keyPath: 'id' });
@@ -76,6 +76,9 @@ export class StorageRepository {
         // v7: Account gained `dryFloor`. No structural change, same reasoning as v2 —
         // existing Accounts read back with `dryFloor: undefined` until next resaved;
         // `account-stream`'s `load()` normalizes that to 0 on the way in.
+        // v8: Flow gained `tolerance`. No structural change, same reasoning as v2 —
+        // existing Flows read back with `tolerance: undefined`, which `varianceAlert`
+        // already treats as "no Tolerance set, no alert."
       },
     });
   }

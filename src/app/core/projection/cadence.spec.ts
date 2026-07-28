@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Cadence } from '../models/flow';
-import { occurrencesInRange } from './cadence';
+import { lastCompletedPeriod, occurrencesInRange } from './cadence';
 
 // Local-midnight parse (not `new Date(iso)`, which treats a date-only string as UTC and
 // would drift from cadence.ts's local-time `new Date(year, month, day)` construction).
@@ -152,6 +152,44 @@ describe('occurrencesInRange', () => {
       };
       const result = occurrencesInRange(cadence, d('2025-12-31'), d('2026-12-31'));
       expect(result).toEqual([d('2026-01-01'), d('2026-07-01')]);
+    });
+  });
+});
+
+describe('lastCompletedPeriod', () => {
+  const weeklyCadence: Cadence = {
+    period: 'week',
+    interval: 1,
+    anchors: [{ dayOfWeek: 5 }], // Friday
+    anchorDate: d('2026-01-02'),
+  };
+
+  it('returns null when only one occurrence is findable within the search floor', () => {
+    // Cadence math is unbounded backward (no Flow "creation date" concept), so this only
+    // exercises lastCompletedPeriod's own epoch-bounded search floor, not a real "new Flow"
+    // scenario. 1970-01-02 is the first Friday on/after the Unix epoch.
+    expect(lastCompletedPeriod(weeklyCadence, d('1970-01-02'))).toBeNull();
+  });
+
+  it('returns the window between the last two occurrences on or before asOf', () => {
+    // Fridays: ...2026-07-03, 2026-07-10, 2026-07-17. asOf is between the last two.
+    expect(lastCompletedPeriod(weeklyCadence, d('2026-07-15'))).toEqual({
+      startExclusive: d('2026-07-03'),
+      endInclusive: d('2026-07-10'),
+    });
+  });
+
+  it('treats asOf landing exactly on an occurrence as that occurrence having happened', () => {
+    expect(lastCompletedPeriod(weeklyCadence, d('2026-07-10'))).toEqual({
+      startExclusive: d('2026-07-03'),
+      endInclusive: d('2026-07-10'),
+    });
+  });
+
+  it('advances the window as asOf moves past a later occurrence', () => {
+    expect(lastCompletedPeriod(weeklyCadence, d('2026-07-17'))).toEqual({
+      startExclusive: d('2026-07-10'),
+      endInclusive: d('2026-07-17'),
     });
   });
 });

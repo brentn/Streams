@@ -182,6 +182,79 @@ describe('FlowForm', () => {
     ]);
   });
 
+  it('omits tolerance on save by default', async () => {
+    const component = await createComponent();
+    const saved = vi.fn();
+    component.saved.subscribe(saved);
+
+    component['name'].set('Paycheck');
+    component['kind'].set('recurring');
+    component['amount'].set(2000);
+
+    component['save']();
+
+    expect(saved.mock.calls[0][0].tolerance).toBeUndefined();
+  });
+
+  it('includes a fixed Tolerance on save when set', async () => {
+    const component = await createComponent();
+    const saved = vi.fn();
+    component.saved.subscribe(saved);
+
+    component['name'].set('Paycheck');
+    component['kind'].set('recurring');
+    component['amount'].set(2000);
+    component['toleranceKind'].set('fixed');
+    component['toleranceValue'].set(50);
+
+    component['save']();
+
+    expect(saved).toHaveBeenCalledWith(
+      expect.objectContaining({ tolerance: { kind: 'fixed', value: 50 } }),
+    );
+  });
+
+  it('includes a percent Tolerance on save when set', async () => {
+    const component = await createComponent();
+    const saved = vi.fn();
+    component.saved.subscribe(saved);
+
+    component['name'].set('Groceries');
+    component['kind'].set('budget');
+    component['amount'].set(400);
+    component['toleranceKind'].set('percent');
+    component['toleranceValue'].set(10);
+
+    component['save']();
+
+    expect(saved).toHaveBeenCalledWith(
+      expect.objectContaining({ tolerance: { kind: 'percent', value: 10 } }),
+    );
+  });
+
+  it('pre-fills Tolerance from an existing Flow', async () => {
+    const flow: RecurringFlow = {
+      id: 'flow-1',
+      accountId: 'acc-1',
+      name: 'Paycheck',
+      direction: 'in',
+      kind: 'recurring',
+      amount: 2000,
+      cadence: {
+        period: 'month',
+        interval: 1,
+        anchors: [{ day: 1 }],
+        anchorDate: new Date(2026, 0, 1),
+      },
+      tolerance: { kind: 'fixed', value: 50 },
+    };
+
+    const component = await createComponent('acc-1', flow);
+
+    expect(component['toleranceKind']()).toBe('fixed');
+    expect(component['toleranceValue']()).toBe(50);
+  });
+
   it('emits cancelled without emitting saved', async () => {
     const component = await createComponent();
     const saved = vi.fn();

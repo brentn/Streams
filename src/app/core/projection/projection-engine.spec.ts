@@ -7,6 +7,7 @@ import {
   balanceSeries,
   PROJECTION_HORIZON_DAYS,
   runningDryAlert,
+  varianceAlert,
 } from './projection-engine';
 
 const account = { id: 'acc-1', balance: 1000, balanceDate: new Date('2026-07-25T12:00:00Z') };
@@ -344,6 +345,144 @@ describe('runningDryAlert', () => {
     expect(runningDryAlert(dryAccount, [], [], transfers, today)).toEqual({
       date: new Date('2026-07-31T12:00:00Z'),
       balance: 900,
+    });
+  });
+});
+
+function matchedTxn(id: string, date: string, amount: number, flowId: string): Transaction {
+  return { ...txn(id, date, amount), matchedFlowId: flowId };
+}
+
+describe('varianceAlert', () => {
+  // Fridays in range: 2026-07-03, 07-10, 07-17 — the last completed period as of `today`
+  // is (07-03, 07-10]. The prior completed calendar month is June (05-31, 06-30].
+  const today = new Date('2026-07-15T12:00:00Z');
+
+  it('returns null when the Flow has no Tolerance set', () => {
+    const flow = recurringFlow({ amount: 100, direction: 'in' });
+    const transactions = [matchedTxn('t1', '2026-07-08T09:00:00Z', 130, flow.id)];
+    expect(varianceAlert(flow, transactions, today)).toBeNull();
+  });
+
+  it('returns null when no completed period has happened yet', () => {
+    const flow = recurringFlow({
+      amount: 100,
+      direction: 'in',
+      tolerance: { kind: 'fixed', value: 10 },
+    });
+    // Only one occurrence findable this close to the epoch — see cadence.spec.ts.
+    expect(varianceAlert(flow, [], new Date('1970-01-02T12:00:00Z'))).toBeNull();
+  });
+
+  describe('recurring-kind Flow (symmetric)', () => {
+    it('returns null when the actual total is within Tolerance', () => {
+      const flow = recurringFlow({
+        amount: 100,
+        direction: 'in',
+        tolerance: { kind: 'fixed', value: 10 },
+      });
+      const transactions = [matchedTxn('t1', '2026-07-08T09:00:00Z', 105, flow.id)];
+      expect(varianceAlert(flow, transactions, today)).toBeNull();
+    });
+
+    it('alerts when the actual total is too high', () => {
+      const flow = recurringFlow({
+        amount: 100,
+        direction: 'in',
+        tolerance: { kind: 'fixed', value: 10 },
+      });
+      const transactions = [matchedTxn('t1', '2026-07-08T09:00:00Z', 130, flow.id)];
+      expect(varianceAlert(flow, transactions, today)).toEqual({
+        flowId: 'flow-1',
+        periodStart: new Date(2026, 6, 3),
+        periodEnd: new Date(2026, 6, 10),
+        expected: 100,
+        actual: 130,
+      });
+    });
+
+    it('alerts when the actual total is too low — same Tolerance, either direction', () => {
+      const flow = recurringFlow({
+        amount: 100,
+        direction: 'in',
+        tolerance: { kind: 'fixed', value: 10 },
+      });
+      const transactions = [matchedTxn('t1', '2026-07-08T09:00:00Z', 60, flow.id)];
+      expect(varianceAlert(flow, transactions, today)).toEqual({
+        flowId: 'flow-1',
+        periodStart: new Date(2026, 6, 3),
+        periodEnd: new Date(2026, 6, 10),
+        expected: 100,
+        actual: 60,
+      });
+    });
+
+    it('supports a percentage Tolerance', () => {
+      const flow = recurringFlow({
+        amount: 100,
+        direction: 'out',
+        tolerance: { kind: 'percent', value: 10 },
+      });
+      const within = [matchedTxn('t1', '2026-07-08T09:00:00Z', -95, flow.id)];
+      expect(varianceAlert(flow, within, today)).toBeNull();
+
+      const outside = [matchedTxn('t2', '2026-07-08T09:00:00Z', -140, flow.id)];
+      expect(varianceAlert(flow, outside, today)?.actual).toBe(140);
+    });
+
+    it('ignores Transactions matched to a different Flow', () => {
+      const flow = recurringFlow({
+        amount: 100,
+        direction: 'in',
+        tolerance: { kind: 'fixed', value: 10 },
+      });
+      const transactions = [
+        matchedTxn('t1', '2026-07-08T09:00:00Z', 100, flow.id),
+        matchedTxn('t2', '2026-07-08T09:00:00Z', 5000, 'other-flow'),
+      ];
+      expect(varianceAlert(flow, transactions, today)).toBeNull();
+    });
+  });
+
+  describe('budget-kind Flow (single-directional, mirroring direction)', () => {
+    it('alerts an expense budget only when actual spend exceeds the limit beyond Tolerance', () => {
+      const flow = budgetFlow({
+        limit: 310,
+        direction: 'out',
+        tolerance: { kind: 'fixed', value: 50 },
+      });
+
+      const overspent = [matchedTxn('t1', '2026-06-15T09:00:00Z', -400, flow.id)];
+      expect(varianceAlert(flow, overspent, today)).toEqual({
+        flowId: 'flow-2',
+        periodStart: new Date(2026, 4, 31),
+        periodEnd: new Date(2026, 5, 30),
+        expected: 310,
+        actual: 400,
+      });
+
+      const underspent = [matchedTxn('t2', '2026-06-15T09:00:00Z', -100, flow.id)];
+      expect(varianceAlert(flow, underspent, today)).toBeNull();
+    });
+
+    it('alerts an income budget only when actual income falls short of the target beyond Tolerance', () => {
+      const flow = budgetFlow({
+        limit: 2000,
+        direction: 'in',
+        tolerance: { kind: 'fixed', value: 100 },
+      });
+
+      const shortfall = [matchedTxn('t1', '2026-06-15T09:00:00Z', 1500, flow.id)];
+      expect(varianceAlert(flow, shortfall, today)).toEqual({
+        flowId: 'flow-2',
+        periodStart: new Date(2026, 4, 31),
+        periodEnd: new Date(2026, 5, 30),
+        expected: 2000,
+        actual: 1500,
+      });
+
+      const surplus = [matchedTxn('t2', '2026-06-15T09:00:00Z', 2500, flow.id)];
+      expect(varianceAlert(flow, surplus, today)).toBeNull();
     });
   });
 });

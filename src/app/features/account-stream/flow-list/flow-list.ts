@@ -1,7 +1,9 @@
-import { CurrencyPipe } from '@angular/common';
+import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, inject, input, output, signal } from '@angular/core';
 import { Flow } from '../../../core/models/flow';
+import { Transaction } from '../../../core/models/transaction';
 import { CADENCE_OPTIONS, describeCadence } from '../../../core/projection/cadence-options';
+import { VarianceAlert, varianceAlert } from '../../../core/projection/projection-engine';
 import { StorageRepository } from '../../../core/storage/storage-repository';
 import { FlowForm } from '../flow-form/flow-form';
 
@@ -14,7 +16,7 @@ import { FlowForm } from '../flow-form/flow-form';
  */
 @Component({
   selector: 'app-flow-list',
-  imports: [CurrencyPipe, FlowForm],
+  imports: [CurrencyPipe, DatePipe, FlowForm],
   templateUrl: './flow-list.html',
   styleUrl: './flow-list.css',
 })
@@ -23,10 +25,16 @@ export class FlowList {
 
   readonly accountId = input.required<string>();
   readonly flows = input.required<Flow[]>();
+  readonly transactions = input<Transaction[]>([]);
   readonly changed = output<void>();
 
   protected readonly isFormOpen = signal(false);
   protected readonly editingFlow = signal<Flow | null>(null);
+
+  /** Recomputed from whatever Transactions the parent hands down, so a Variance Alert appears/clears automatically as Transactions sync in and get categorized. */
+  protected varianceAlertFor(flow: Flow): VarianceAlert | null {
+    return varianceAlert(flow, this.transactions(), new Date());
+  }
 
   protected summarize(flow: Flow): string {
     if (flow.kind === 'budget') {

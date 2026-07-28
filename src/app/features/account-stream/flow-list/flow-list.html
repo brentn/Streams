@@ -20,6 +20,14 @@
             {{ flow.kind === 'recurring' ? (flow.amount | currency) : (flow.limit | currency) }} ·
             {{ summarize(flow) }}
           </span>
+          @if (varianceAlertFor(flow); as alert) {
+            <span class="variance-alert" role="alert">
+              Variance Alert: expected {{ alert.expected | currency }}, actual
+              {{ alert.actual | currency }} for {{ alert.periodStart | date: 'mediumDate' }}–{{
+                alert.periodEnd | date: 'mediumDate'
+              }}
+            </span>
+          }
         </div>
         <div class="actions">
           <button type="button" (click)="openEditForm(flow)">Edit</button>

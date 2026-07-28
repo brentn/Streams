@@ -128,3 +128,20 @@ export function occurrencesInRange(cadence: Cadence, startExclusive: Date, endIn
   }
   return results.sort((a, b) => a.getTime() - b.getTime());
 }
+
+/**
+ * The `(previousOccurrence, mostRecentOccurrence]` window for the latest occurrence at or
+ * before `asOf`, or `null` if fewer than two occurrences have happened yet — a Variance
+ * Alert needs a prior occurrence to bound the completed period's start.
+ */
+export function lastCompletedPeriod(
+  cadence: Cadence,
+  asOf: Date,
+): { startExclusive: Date; endInclusive: Date } | null {
+  const occurrences = occurrencesInRange(cadence, new Date(0), asOf);
+  if (occurrences.length < 2) return null;
+  return {
+    startExclusive: occurrences[occurrences.length - 2],
+    endInclusive: occurrences[occurrences.length - 1],
+  };
+}

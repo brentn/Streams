@@ -74,3 +74,18 @@ export function budgetContribution(
 
   return total;
 }
+
+/**
+ * The `(startExclusive, endInclusive]` window of the last full calendar period (month or
+ * year) that ended before `today`'s in-progress period started — the "completed period" a
+ * Variance Alert compares a budget-kind Flow's actual total against.
+ */
+export function previousCompletedPeriod(
+  period: BudgetPeriod,
+  today: Date,
+): { startExclusive: Date; endInclusive: Date } {
+  const currentPeriodStart = periodBounds(period, today).start;
+  const dayBeforeCurrentPeriod = addDays(currentPeriodStart, -1);
+  const { start: prevStart, end: prevEnd } = periodBounds(period, dayBeforeCurrentPeriod);
+  return { startExclusive: addDays(prevStart, -1), endInclusive: addDays(prevEnd, -1) };
+}

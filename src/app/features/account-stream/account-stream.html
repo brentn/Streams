@@ -75,7 +75,12 @@
       </div>
     </div>
 
-    <app-flow-list [accountId]="account.id" [flows]="flows()" (changed)="reloadFlows()" />
+    <app-flow-list
+      [accountId]="account.id"
+      [flows]="flows()"
+      [transactions]="transactions()"
+      (changed)="reloadFlows()"
+    />
 
     <app-transfer-list
       [accountId]="account.id"

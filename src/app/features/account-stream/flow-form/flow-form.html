@@ -63,6 +63,30 @@
     </label>
   }
 
+  <label>
+    Tolerance
+    <select
+      [value]="toleranceKind()"
+      (change)="toleranceKind.set($any($event.target).value)"
+    >
+      <option value="none">None</option>
+      <option value="percent">Percentage</option>
+      <option value="fixed">Fixed amount</option>
+    </select>
+  </label>
+
+  @if (toleranceKind() !== 'none') {
+    <label>
+      {{ toleranceKind() === 'percent' ? 'Tolerance (%)' : 'Tolerance ($)' }}
+      <input
+        type="number"
+        step="0.01"
+        [value]="toleranceValue()"
+        (input)="toleranceValue.set($any($event.target).valueAsNumber)"
+      />
+    </label>
+  }
+
   <div class="form-actions">
     <button type="submit">{{ flow() === null ? 'Create' : 'Save' }}</button>
     <button type="button" (click)="cancel()">Cancel</button>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AmountChange } from '../models/flow';
-import { budgetContribution } from './budget-period';
+import { budgetContribution, previousCompletedPeriod } from './budget-period';
 
 function d(iso: string): Date {
   const [year, month, day] = iso.split('-').map(Number);
@@ -69,5 +69,35 @@ describe('budgetContribution', () => {
     expect(budgetContribution('month', 300, changes, d('2025-12-31'), d('2026-01-31'))).toBeCloseTo(
       expected,
     );
+  });
+});
+
+describe('previousCompletedPeriod', () => {
+  it('returns the prior whole month for a mid-month "today"', () => {
+    expect(previousCompletedPeriod('month', d('2026-07-15'))).toEqual({
+      startExclusive: d('2026-05-31'),
+      endInclusive: d('2026-06-30'),
+    });
+  });
+
+  it('returns the prior whole month when "today" falls exactly on the 1st', () => {
+    expect(previousCompletedPeriod('month', d('2026-07-01'))).toEqual({
+      startExclusive: d('2026-05-31'),
+      endInclusive: d('2026-06-30'),
+    });
+  });
+
+  it('rolls back across a year boundary', () => {
+    expect(previousCompletedPeriod('month', d('2026-01-10'))).toEqual({
+      startExclusive: d('2025-11-30'),
+      endInclusive: d('2025-12-31'),
+    });
+  });
+
+  it('returns the prior whole year for the year period', () => {
+    expect(previousCompletedPeriod('year', d('2026-07-15'))).toEqual({
+      startExclusive: d('2024-12-31'),
+      endInclusive: d('2025-12-31'),
+    });
   });
 });

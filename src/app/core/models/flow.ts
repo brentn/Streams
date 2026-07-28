@@ -48,12 +48,20 @@ export interface RecurringRule {
  */
 export type AmountChange = StepChange | RecurringRule;
 
+/**
+ * A per-Flow Variance Alert bound: how far a completed period's actual total may
+ * differ from the expected amount before it's flagged. Either a percentage of the
+ * expected amount or a flat dollar amount.
+ */
+export type Tolerance = { kind: 'percent'; value: number } | { kind: 'fixed'; value: number };
+
 interface FlowBase {
   id: string;
   accountId: string;
   name: string;
   direction: FlowDirection;
   amountChanges?: AmountChange[];
+  tolerance?: Tolerance;
 }
 
 export interface RecurringFlow extends FlowBase {
