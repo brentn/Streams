@@ -129,4 +129,41 @@ export class StorageRepository {
     const db = await this.dbPromise;
     db.close();
   }
+
+  /**
+   * Dumps every object store by name, generically — not a hardcoded store
+   * list — so newly added stores are picked up automatically without
+   * touching this method.
+   */
+  async exportAll(): Promise<{ dbVersion: number; stores: Record<string, unknown[]> }> {
+    const db = (await this.dbPromise) as unknown as IDBPDatabase;
+    const stores: Record<string, unknown[]> = {};
+    for (const name of Array.from(db.objectStoreNames)) {
+      stores[name] = await db.getAll(name);
+    }
+    return { dbVersion: db.version, stores };
+  }
+
+  /**
+   * Replaces the contents of every store named in `stores` with the given
+   * records. Store names in `stores` that don't exist in the current schema
+   * are ignored (e.g. importing a backup from a newer app version); stores
+   * not named in `stores` are left untouched.
+   */
+  async importAll(stores: Record<string, unknown[]>): Promise<void> {
+    const db = (await this.dbPromise) as unknown as IDBPDatabase;
+    const storeNames = Array.from(db.objectStoreNames).filter((name) => name in stores);
+    if (storeNames.length === 0) return;
+
+    const tx = db.transaction(storeNames, 'readwrite');
+    const operations: Promise<unknown>[] = [tx.done];
+    for (const name of storeNames) {
+      const store = tx.objectStore(name);
+      operations.push(store.clear());
+      for (const record of stores[name]) {
+        operations.push(store.put(record));
+      }
+    }
+    await Promise.all(operations);
+  }
 }

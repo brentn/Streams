@@ -19,4 +19,8 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/account-stream/account-stream').then((m) => m.AccountStream),
   },
+  {
+    path: 'settings',
+    loadComponent: () => import('./features/settings/settings').then((m) => m.Settings),
+  },
 ];

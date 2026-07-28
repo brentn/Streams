@@ -1,0 +1,98 @@
+.settings {
+  max-width: 32rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+h1 {
+  font-size: var(--text-heading);
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-ink-primary);
+}
+
+h2 {
+  font-size: var(--text-body);
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  color: var(--color-ink-primary);
+}
+
+.backup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+p {
+  margin: 0;
+  font-size: var(--text-body);
+  color: var(--color-ink-secondary);
+}
+
+label {
+  font-size: var(--text-eyebrow);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-ink-muted);
+}
+
+button {
+  font: inherit;
+}
+
+button[type='button'] {
+  align-self: flex-start;
+  font-weight: 600;
+  font-size: var(--text-body);
+  color: #fff;
+  background: var(--color-accent);
+  border: none;
+  border-radius: 0.375rem;
+  padding: 0.5rem 1.1rem;
+  cursor: pointer;
+}
+
+button[type='button']:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+button.secondary {
+  color: var(--color-ink-secondary);
+  background: transparent;
+  border: 1px solid var(--color-border);
+}
+
+.import-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.confirm-import {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+}
+
+.confirm-import ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.warning {
+  font-weight: 600;
+  color: var(--color-ink-primary);
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}

@@ -200,4 +200,100 @@ describe('StorageRepository', () => {
     const rules = await repo.getCategorizationRules();
     expect(rules).toEqual([{ matchText: 'amazon prime', flowId: 'flow-2' }]);
   });
+
+  describe('exportAll / importAll', () => {
+    it('exports every object store currently in the schema, keyed by store name', async () => {
+      const account: Account = {
+        id: 'acc-1',
+        name: 'Checking',
+        institutionName: 'First Bank',
+        balance: 100,
+        balanceDate: new Date('2026-01-01'),
+        expectedSign: 1,
+      };
+      await repo.upsertAccount(account);
+      await repo.saveAccessUrl('https://user:pass@bridge.simplefin.org/simplefin');
+
+      const { stores } = await repo.exportAll();
+
+      expect(Object.keys(stores).sort()).toEqual(
+        ['accounts', 'categorizationRules', 'flows', 'settings', 'transactions'].sort(),
+      );
+      expect(stores['accounts']).toEqual([account]);
+      expect(stores['settings']).toEqual([
+        { key: 'simplefinAccessUrl', value: 'https://user:pass@bridge.simplefin.org/simplefin' },
+      ]);
+      expect(stores['transactions']).toEqual([]);
+    });
+
+    it('reports the current database version alongside the dumped stores', async () => {
+      const { dbVersion } = await repo.exportAll();
+
+      expect(dbVersion).toBe(4);
+    });
+
+    it('importAll replaces the contents of every named store, leaving stores absent from the bundle untouched', async () => {
+      const staleAccount: Account = {
+        id: 'stale',
+        name: 'Old',
+        institutionName: 'Old Bank',
+        balance: 1,
+        balanceDate: new Date('2020-01-01'),
+        expectedSign: 1,
+      };
+      await repo.upsertAccount(staleAccount);
+      const rule: CategorizationRule = { matchText: 'kept rule', flowId: 'flow-x' };
+      await repo.upsertCategorizationRule(rule);
+
+      const incomingAccount: Account = {
+        id: 'acc-2',
+        name: 'Savings',
+        institutionName: 'New Bank',
+        balance: 500,
+        balanceDate: new Date('2026-02-01'),
+        expectedSign: 1,
+      };
+      await repo.importAll({ accounts: [incomingAccount], transactions: [] });
+
+      expect(await repo.getAccounts()).toEqual([incomingAccount]);
+      expect(await repo.getCategorizationRules()).toEqual([rule]);
+    });
+
+    it('ignores store names in the bundle that do not exist in the current schema', async () => {
+      await expect(
+        repo.importAll({ accounts: [], somethingFromAFutureVersion: [{ id: 'x' }] }),
+      ).resolves.toBeUndefined();
+      expect(await repo.getAccounts()).toEqual([]);
+    });
+
+    it('round-trips a full export through import', async () => {
+      const account: Account = {
+        id: 'acc-1',
+        name: 'Checking',
+        institutionName: 'First Bank',
+        balance: 100,
+        balanceDate: new Date('2026-01-01'),
+        expectedSign: 1,
+      };
+      const transaction: Transaction = {
+        id: 'txn-1',
+        accountId: 'acc-1',
+        date: new Date('2026-01-02'),
+        amount: -10,
+        description: 'Coffee',
+        matchedFlowId: null,
+      };
+      await repo.upsertAccount(account);
+      await repo.upsertTransactions([transaction]);
+      const { stores } = await repo.exportAll();
+
+      await repo.close();
+      await resetDb();
+      repo = new StorageRepository();
+      await repo.importAll(stores);
+
+      expect(await repo.getAccounts()).toEqual([account]);
+      expect(await repo.getTransactionsForAccount('acc-1')).toEqual([transaction]);
+    });
+  });
 });
