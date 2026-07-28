@@ -1,0 +1,149 @@
+<label>
+  Cadence
+  <select (change)="onOptionChange($any($event.target).value)">
+    @for (opt of cadenceOptions; track opt.value) {
+      <option [value]="opt.value" [selected]="opt.value === option()">
+        {{ opt.label }}
+      </option>
+    }
+  </select>
+</label>
+
+@if (option() === 'weekly' || option() === 'biweekly') {
+  <label>
+    Day of week
+    <select (change)="updateField('dayOfWeek', $any(selectNumber($event)))">
+      @for (day of dayOfWeekOptions; track day.value) {
+        <option [value]="day.value" [selected]="day.value === fields().dayOfWeek">
+          {{ day.label }}
+        </option>
+      }
+    </select>
+  </label>
+} @else if (option() === 'monthly' || option() === 'bi-monthly') {
+  <label>
+    Day of month
+    <input
+      type="number"
+      min="1"
+      max="31"
+      [value]="fields().day"
+      (input)="updateField('day', $any($event.target).valueAsNumber)"
+    />
+  </label>
+} @else if (option() === 'semi-monthly') {
+  <label>
+    First day of month
+    <input
+      type="number"
+      min="1"
+      max="31"
+      [value]="fields().day"
+      (input)="updateField('day', $any($event.target).valueAsNumber)"
+    />
+  </label>
+  <label>
+    Second day of month
+    <input
+      type="number"
+      min="1"
+      max="31"
+      [value]="fields().day2"
+      (input)="updateField('day2', $any($event.target).valueAsNumber)"
+    />
+  </label>
+} @else if (option() === 'annually') {
+  <label>
+    Month
+    <input
+      type="number"
+      min="1"
+      max="12"
+      [value]="fields().month"
+      (input)="updateField('month', $any($event.target).valueAsNumber)"
+    />
+  </label>
+  <label>
+    Day
+    <input
+      type="number"
+      min="1"
+      max="31"
+      [value]="fields().day"
+      (input)="updateField('day', $any($event.target).valueAsNumber)"
+    />
+  </label>
+} @else if (option() === 'semi-annually') {
+  <label>
+    First month
+    <input
+      type="number"
+      min="1"
+      max="12"
+      [value]="fields().month"
+      (input)="updateField('month', $any($event.target).valueAsNumber)"
+    />
+  </label>
+  <label>
+    First day
+    <input
+      type="number"
+      min="1"
+      max="31"
+      [value]="fields().day"
+      (input)="updateField('day', $any($event.target).valueAsNumber)"
+    />
+  </label>
+  <label>
+    Second month
+    <input
+      type="number"
+      min="1"
+      max="12"
+      [value]="fields().month2"
+      (input)="updateField('month2', $any($event.target).valueAsNumber)"
+    />
+  </label>
+  <label>
+    Second day
+    <input
+      type="number"
+      min="1"
+      max="31"
+      [value]="fields().day2"
+      (input)="updateField('day2', $any($event.target).valueAsNumber)"
+    />
+  </label>
+} @else if (option() === 'nth-weekday-monthly') {
+  <label>
+    Occurrence
+    <select (change)="updateField('nth', $any(selectNumber($event)))">
+      @for (opt of nthOptions; track opt.value) {
+        <option [value]="opt.value" [selected]="opt.value === fields().nth">
+          {{ opt.label }}
+        </option>
+      }
+    </select>
+  </label>
+  <label>
+    Day of week
+    <select (change)="updateField('dayOfWeek', $any(selectNumber($event)))">
+      @for (day of dayOfWeekOptions; track day.value) {
+        <option [value]="day.value" [selected]="day.value === fields().dayOfWeek">
+          {{ day.label }}
+        </option>
+      }
+    </select>
+  </label>
+}
+
+@if (needsAnchorDate(option())) {
+  <label>
+    Reference date (fixes which week/month is "on")
+    <input
+      type="date"
+      [value]="dateInputValue(fields().anchorDate)"
+      (input)="onAnchorDateInput($any($event.target).value)"
+    />
+  </label>
+}

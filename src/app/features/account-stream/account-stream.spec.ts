@@ -23,6 +23,7 @@ describe('AccountStream', () => {
     getAccounts: ReturnType<typeof vi.fn>;
     getTransactionsForAccount: ReturnType<typeof vi.fn>;
     getFlowsForAccount: ReturnType<typeof vi.fn>;
+    getTransfersForAccount: ReturnType<typeof vi.fn>;
     getAccessUrl: ReturnType<typeof vi.fn>;
     upsertAccount: ReturnType<typeof vi.fn>;
     upsertTransactions: ReturnType<typeof vi.fn>;
@@ -35,6 +36,7 @@ describe('AccountStream', () => {
       getAccounts: vi.fn().mockResolvedValue([account]),
       getTransactionsForAccount: vi.fn().mockResolvedValue([]),
       getFlowsForAccount: vi.fn().mockResolvedValue([]),
+      getTransfersForAccount: vi.fn().mockResolvedValue([]),
       getAccessUrl: vi.fn(),
       upsertAccount: vi.fn(),
       upsertTransactions: vi.fn(),
@@ -60,6 +62,16 @@ describe('AccountStream', () => {
     expect(component['account']()).toEqual(account);
     expect(component['balance']()).toBe(1000);
     expect(component['isActual']()).toBe(true);
+  });
+
+  it('loads Transfers for the account alongside its Flows', async () => {
+    const fixture = TestBed.createComponent(AccountStream);
+    const component = fixture.componentInstance;
+
+    await component['load']('acc-1');
+
+    expect(storage.getTransfersForAccount).toHaveBeenCalledWith('acc-1');
+    expect(component['transfers']()).toEqual([]);
   });
 
   it('leaves the account unset when no account matches the id', async () => {

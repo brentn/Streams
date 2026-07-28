@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { Account } from '../../core/models/account';
 import { Flow } from '../../core/models/flow';
 import { Transaction } from '../../core/models/transaction';
+import { Transfer } from '../../core/models/transfer';
 import { balanceAtDate, balanceSeries } from '../../core/projection/projection-engine';
 import { BandPoint } from '../../core/charting/band-segments';
 import {
@@ -22,6 +23,7 @@ import { StatusBanner } from '../../shared/status-banner/status-banner';
 import { StreamBand } from '../../shared/stream-band/stream-band';
 import { FlowList } from './flow-list/flow-list';
 import { TransactionReview } from './transaction-review/transaction-review';
+import { TransferList } from './transfer-list/transfer-list';
 
 @Component({
   selector: 'app-account-stream',
@@ -33,6 +35,7 @@ import { TransactionReview } from './transaction-review/transaction-review';
     StatusBanner,
     StreamBand,
     FlowList,
+    TransferList,
     TransactionReview,
   ],
   templateUrl: './account-stream.html',
@@ -47,8 +50,10 @@ export class AccountStream {
   protected readonly windowDays = WINDOW_DAYS;
 
   protected readonly account = signal<Account | null>(null);
+  protected readonly allAccounts = signal<Account[]>([]);
   protected readonly transactions = signal<Transaction[]>([]);
   protected readonly flows = signal<Flow[]>([]);
+  protected readonly transfers = signal<Transfer[]>([]);
   protected readonly dayOffset = signal(0);
   protected readonly isSyncing = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
@@ -58,7 +63,13 @@ export class AccountStream {
   protected readonly balance = computed(() => {
     const account = this.account();
     return account
-      ? balanceAtDate(account, this.transactions(), this.selectedDate(), this.flows())
+      ? balanceAtDate(
+          account,
+          this.transactions(),
+          this.selectedDate(),
+          this.flows(),
+          this.transfers(),
+        )
       : null;
   });
 
@@ -78,9 +89,13 @@ export class AccountStream {
   protected readonly points = computed<BandPoint[]>(() => {
     const account = this.account();
     if (!account) return [];
-    return balanceSeries(account, this.transactions(), this.windowDates(), this.flows()).map(
-      (p, i) => ({ x: i, balance: p.balance }),
-    );
+    return balanceSeries(
+      account,
+      this.transactions(),
+      this.windowDates(),
+      this.flows(),
+      this.transfers(),
+    ).map((p, i) => ({ x: i, balance: p.balance }));
   });
 
   protected readonly maxAbsBalance = computed(() =>
@@ -102,12 +117,18 @@ export class AccountStream {
     const accounts = await this.storage.getAccounts();
     const account = accounts.find((a) => a.id === id) ?? null;
     this.account.set(account);
+    this.allAccounts.set(accounts);
     this.transactions.set(account ? await this.storage.getTransactionsForAccount(id) : []);
     this.flows.set(account ? await this.storage.getFlowsForAccount(id) : []);
+    this.transfers.set(account ? await this.storage.getTransfersForAccount(id) : []);
   }
 
   protected async reloadFlows(): Promise<void> {
     this.flows.set(await this.storage.getFlowsForAccount(this.id()));
+  }
+
+  protected async reloadTransfers(): Promise<void> {
+    this.transfers.set(await this.storage.getTransfersForAccount(this.id()));
   }
 
   protected async reloadTransactions(): Promise<void> {

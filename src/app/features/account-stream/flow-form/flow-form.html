@@ -1,4 +1,4 @@
-<form class="flow-form" (submit)="onSubmit($event)">
+<form class="entity-form" (submit)="onSubmit($event)">
   <label>
     Name
     <input type="text" [value]="name()" (input)="name.set($any($event.target).value)" />
@@ -37,213 +37,19 @@
     />
   </label>
 
-  <fieldset class="amount-changes">
-    <legend>Step Changes &amp; Recurring Rules</legend>
-
-    @if (amountChanges().length > 0) {
-      <ul>
-        @for (change of amountChanges(); track $index) {
-          <li>
-            {{ describeAmountChange(change) }}
-            <button type="button" (click)="removeAmountChange($index)">Remove</button>
-          </li>
-        }
-      </ul>
-    }
-
-    <div class="add-step-change">
-      <label>
-        Step Change date
-        <input
-          type="date"
-          [value]="dateInputValue(newStepDate())"
-          (input)="onNewStepDateInput($any($event.target).value)"
-        />
-      </label>
-      <label>
-        New {{ kind() === 'recurring' ? 'amount' : 'limit' }}
-        <input
-          type="number"
-          step="0.01"
-          [value]="newStepAmount()"
-          (input)="newStepAmount.set($any($event.target).valueAsNumber)"
-        />
-      </label>
-      <button type="button" (click)="addStepChange()">Add Step Change</button>
-    </div>
-
-    <div class="add-recurring-rule">
-      <label>
-        Recurring Rule date
-        <input
-          type="date"
-          [value]="dateInputValue(newRuleDate())"
-          (input)="onNewRuleDateInput($any($event.target).value)"
-        />
-      </label>
-      <label>
-        Delta
-        <input
-          type="number"
-          step="0.01"
-          [value]="newRuleDelta()"
-          (input)="newRuleDelta.set($any($event.target).valueAsNumber)"
-        />
-      </label>
-      <button type="button" (click)="addRecurringRule()">Add Recurring Rule</button>
-    </div>
-  </fieldset>
+  <app-amount-changes-editor
+    [changes]="amountChanges()"
+    [amountLabel]="kind() === 'recurring' ? 'amount' : 'limit'"
+    (changesUpdated)="amountChanges.set($event)"
+  />
 
   @if (kind() === 'recurring') {
-    <label>
-      Cadence
-      <select (change)="cadenceOption.set($any($event.target).value)">
-        @for (option of cadenceOptions; track option.value) {
-          <option [value]="option.value" [selected]="option.value === cadenceOption()">
-            {{ option.label }}
-          </option>
-        }
-      </select>
-    </label>
-
-    @if (cadenceOption() === 'weekly' || cadenceOption() === 'biweekly') {
-      <label>
-        Day of week
-        <select (change)="updateCadenceField('dayOfWeek', $any(selectNumber($event)))">
-          @for (day of dayOfWeekOptions; track day.value) {
-            <option [value]="day.value" [selected]="day.value === cadenceFields().dayOfWeek">
-              {{ day.label }}
-            </option>
-          }
-        </select>
-      </label>
-    } @else if (cadenceOption() === 'monthly' || cadenceOption() === 'bi-monthly') {
-      <label>
-        Day of month
-        <input
-          type="number"
-          min="1"
-          max="31"
-          [value]="cadenceFields().day"
-          (input)="updateCadenceField('day', $any($event.target).valueAsNumber)"
-        />
-      </label>
-    } @else if (cadenceOption() === 'semi-monthly') {
-      <label>
-        First day of month
-        <input
-          type="number"
-          min="1"
-          max="31"
-          [value]="cadenceFields().day"
-          (input)="updateCadenceField('day', $any($event.target).valueAsNumber)"
-        />
-      </label>
-      <label>
-        Second day of month
-        <input
-          type="number"
-          min="1"
-          max="31"
-          [value]="cadenceFields().day2"
-          (input)="updateCadenceField('day2', $any($event.target).valueAsNumber)"
-        />
-      </label>
-    } @else if (cadenceOption() === 'annually') {
-      <label>
-        Month
-        <input
-          type="number"
-          min="1"
-          max="12"
-          [value]="cadenceFields().month"
-          (input)="updateCadenceField('month', $any($event.target).valueAsNumber)"
-        />
-      </label>
-      <label>
-        Day
-        <input
-          type="number"
-          min="1"
-          max="31"
-          [value]="cadenceFields().day"
-          (input)="updateCadenceField('day', $any($event.target).valueAsNumber)"
-        />
-      </label>
-    } @else if (cadenceOption() === 'semi-annually') {
-      <label>
-        First month
-        <input
-          type="number"
-          min="1"
-          max="12"
-          [value]="cadenceFields().month"
-          (input)="updateCadenceField('month', $any($event.target).valueAsNumber)"
-        />
-      </label>
-      <label>
-        First day
-        <input
-          type="number"
-          min="1"
-          max="31"
-          [value]="cadenceFields().day"
-          (input)="updateCadenceField('day', $any($event.target).valueAsNumber)"
-        />
-      </label>
-      <label>
-        Second month
-        <input
-          type="number"
-          min="1"
-          max="12"
-          [value]="cadenceFields().month2"
-          (input)="updateCadenceField('month2', $any($event.target).valueAsNumber)"
-        />
-      </label>
-      <label>
-        Second day
-        <input
-          type="number"
-          min="1"
-          max="31"
-          [value]="cadenceFields().day2"
-          (input)="updateCadenceField('day2', $any($event.target).valueAsNumber)"
-        />
-      </label>
-    } @else if (cadenceOption() === 'nth-weekday-monthly') {
-      <label>
-        Occurrence
-        <select (change)="updateCadenceField('nth', $any(selectNumber($event)))">
-          @for (opt of nthOptions; track opt.value) {
-            <option [value]="opt.value" [selected]="opt.value === cadenceFields().nth">
-              {{ opt.label }}
-            </option>
-          }
-        </select>
-      </label>
-      <label>
-        Day of week
-        <select (change)="updateCadenceField('dayOfWeek', $any(selectNumber($event)))">
-          @for (day of dayOfWeekOptions; track day.value) {
-            <option [value]="day.value" [selected]="day.value === cadenceFields().dayOfWeek">
-              {{ day.label }}
-            </option>
-          }
-        </select>
-      </label>
-    }
-
-    @if (needsAnchorDate(cadenceOption())) {
-      <label>
-        Reference date (fixes which week/month is "on")
-        <input
-          type="date"
-          [value]="dateInputValue(cadenceFields().anchorDate)"
-          (input)="onAnchorDateInput($any($event.target).value)"
-        />
-      </label>
-    }
+    <app-cadence-picker
+      [option]="cadenceOption()"
+      [fields]="cadenceFields()"
+      (optionChanged)="cadenceOption.set($event)"
+      (fieldsChanged)="cadenceFields.set($event)"
+    />
   } @else {
     <label>
       Period

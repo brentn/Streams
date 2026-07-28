@@ -1,0 +1,56 @@
+<fieldset class="amount-changes">
+  <legend>Step Changes &amp; Recurring Rules</legend>
+
+  @if (changes().length > 0) {
+    <ul>
+      @for (change of changes(); track $index) {
+        <li>
+          {{ describeAmountChange(change) }}
+          <button type="button" (click)="removeAmountChange($index)">Remove</button>
+        </li>
+      }
+    </ul>
+  }
+
+  <div class="add-step-change">
+    <label>
+      Step Change date
+      <input
+        type="date"
+        [value]="dateInputValue(newStepDate())"
+        (input)="onNewStepDateInput($any($event.target).value)"
+      />
+    </label>
+    <label>
+      New {{ amountLabel() }}
+      <input
+        type="number"
+        step="0.01"
+        [value]="newStepAmount()"
+        (input)="newStepAmount.set($any($event.target).valueAsNumber)"
+      />
+    </label>
+    <button type="button" (click)="addStepChange()">Add Step Change</button>
+  </div>
+
+  <div class="add-recurring-rule">
+    <label>
+      Recurring Rule date
+      <input
+        type="date"
+        [value]="dateInputValue(newRuleDate())"
+        (input)="onNewRuleDateInput($any($event.target).value)"
+      />
+    </label>
+    <label>
+      Delta
+      <input
+        type="number"
+        step="0.01"
+        [value]="newRuleDelta()"
+        (input)="newRuleDelta.set($any($event.target).valueAsNumber)"
+      />
+    </label>
+    <button type="button" (click)="addRecurringRule()">Add Recurring Rule</button>
+  </div>
+</fieldset>

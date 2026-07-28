@@ -5,6 +5,7 @@ import { Account } from '../models/account';
 import { CategorizationRule } from '../models/categorization-rule';
 import { Flow } from '../models/flow';
 import { Transaction } from '../models/transaction';
+import { Transfer } from '../models/transfer';
 
 interface StreamsDb extends DBSchema {
   accounts: {
@@ -20,6 +21,10 @@ interface StreamsDb extends DBSchema {
     key: string;
     value: Flow;
     indexes: { accountId: string };
+  };
+  transfers: {
+    key: string;
+    value: Transfer;
   };
   categorizationRules: {
     key: string;
@@ -39,7 +44,7 @@ export class StorageRepository {
   private readonly dbPromise: Promise<IDBPDatabase<StreamsDb>>;
 
   constructor() {
-    this.dbPromise = openDB<StreamsDb>('streams', 5, {
+    this.dbPromise = openDB<StreamsDb>('streams', 6, {
       upgrade(db, oldVersion) {
         if (oldVersion < 1) {
           db.createObjectStore('accounts', { keyPath: 'id' });
@@ -64,6 +69,10 @@ export class StorageRepository {
         // v5: Flow gained `amountChanges` (Step Change / Recurring Rule
         // timeline, applying to both kinds). No structural change, same
         // reasoning as v2.
+        // v6: new Transfer entity, its own store since it isn't scoped to a single Account.
+        if (oldVersion < 6) {
+          db.createObjectStore('transfers', { keyPath: 'id' });
+        }
       },
     });
   }
@@ -115,6 +124,27 @@ export class StorageRepository {
   async getFlowsForAccount(accountId: string): Promise<Flow[]> {
     const db = await this.dbPromise;
     return db.getAllFromIndex('flows', 'accountId', accountId);
+  }
+
+  async upsertTransfer(transfer: Transfer): Promise<void> {
+    const db = await this.dbPromise;
+    await db.put('transfers', transfer);
+  }
+
+  async deleteTransfer(id: string): Promise<void> {
+    const db = await this.dbPromise;
+    await db.delete('transfers', id);
+  }
+
+  async getTransfers(): Promise<Transfer[]> {
+    const db = await this.dbPromise;
+    return db.getAll('transfers');
+  }
+
+  /** A Transfer has no single owning Account, so this filters the full set rather than using an index. */
+  async getTransfersForAccount(accountId: string): Promise<Transfer[]> {
+    const transfers = await this.getTransfers();
+    return transfers.filter((t) => t.fromAccountId === accountId || t.toAccountId === accountId);
   }
 
   /** Keyed on normalized matchText, so saving a rule for text that already has one overwrites it in place. */

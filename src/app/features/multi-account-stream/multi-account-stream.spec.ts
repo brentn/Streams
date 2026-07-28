@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Account } from '../../core/models/account';
+import { Transfer } from '../../core/models/transfer';
 import { HALF_WINDOW_DAYS, SCRUB_MAX_DAYS, SCRUB_MIN_DAYS } from '../../core/charting/date-window';
 import { SimpleFinAdapter } from '../../core/simplefin/simplefin-adapter';
 import { StorageRepository } from '../../core/storage/storage-repository';
@@ -30,6 +31,7 @@ describe('MultiAccountStream', () => {
     getAccounts: ReturnType<typeof vi.fn>;
     getTransactionsForAccount: ReturnType<typeof vi.fn>;
     getFlowsForAccount: ReturnType<typeof vi.fn>;
+    getTransfersForAccount: ReturnType<typeof vi.fn>;
     getAccessUrl: ReturnType<typeof vi.fn>;
     upsertAccount: ReturnType<typeof vi.fn>;
     upsertTransactions: ReturnType<typeof vi.fn>;
@@ -42,6 +44,7 @@ describe('MultiAccountStream', () => {
       getAccounts: vi.fn().mockResolvedValue([checking, creditCard]),
       getTransactionsForAccount: vi.fn().mockResolvedValue([]),
       getFlowsForAccount: vi.fn().mockResolvedValue([]),
+      getTransfersForAccount: vi.fn().mockResolvedValue([]),
       getAccessUrl: vi.fn(),
       upsertAccount: vi.fn(),
       upsertTransactions: vi.fn(),
@@ -99,6 +102,41 @@ describe('MultiAccountStream', () => {
 
     expect(component['totalBalance']()).toBe(-200);
     expect(component['totalIsOpposite']()).toBe(true);
+  });
+
+  it('applies a Transfer symmetrically: the from-lane loses exactly what the to-lane gains, leaving the Total unchanged', async () => {
+    // Anchors on every day of the week so at least one occurrence is guaranteed to fire
+    // somewhere in the projected range, regardless of exactly when "today" falls.
+    const allDays = [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({ dayOfWeek: dayOfWeek as 0 }));
+    const transfer: Transfer = {
+      id: 'transfer-1',
+      fromAccountId: 'acc-checking',
+      toAccountId: 'acc-credit',
+      amount: 10,
+      cadence: { period: 'week', interval: 1, anchors: allDays, anchorDate: new Date() },
+    };
+
+    const baselineFixture = TestBed.createComponent(MultiAccountStream);
+    const baseline = baselineFixture.componentInstance;
+    await baseline['load']();
+    baseline['dayOffset'].set(5);
+    const baselineLanes = baseline['lanes']();
+
+    storage.getTransfersForAccount.mockImplementation((accountId: string) =>
+      Promise.resolve(accountId === 'acc-checking' || accountId === 'acc-credit' ? [transfer] : []),
+    );
+    const fixture = TestBed.createComponent(MultiAccountStream);
+    const component = fixture.componentInstance;
+    await component['load']();
+    component['dayOffset'].set(5);
+    const lanes = component['lanes']();
+
+    const checkingDelta = lanes[0].balance - baselineLanes[0].balance;
+    const creditDelta = lanes[1].balance - baselineLanes[1].balance;
+    expect(checkingDelta).toBeLessThan(0);
+    expect(creditDelta).toBe(-checkingDelta);
+    // Net worth is unaffected by a Transfer between two of the group's own Accounts.
+    expect(component['totalBalance']()).toBe(baseline['totalBalance']());
   });
 
   it('clamps day offset shifts within the scrub bounds', () => {

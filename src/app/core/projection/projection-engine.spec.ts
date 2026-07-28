@@ -1,9 +1,29 @@
 import { describe, expect, it } from 'vitest';
-import { BudgetFlow, RecurringFlow } from '../models/flow';
+import { BudgetFlow, Cadence, RecurringFlow } from '../models/flow';
 import { Transaction } from '../models/transaction';
+import { Transfer } from '../models/transfer';
 import { balanceAtDate, balanceSeries } from './projection-engine';
 
-const account = { balance: 1000, balanceDate: new Date('2026-07-25T12:00:00Z') };
+const account = { id: 'acc-1', balance: 1000, balanceDate: new Date('2026-07-25T12:00:00Z') };
+const otherAccount = { id: 'acc-2', balance: 500, balanceDate: new Date('2026-07-25T12:00:00Z') };
+
+const weeklyCadence: Cadence = {
+  period: 'week',
+  interval: 1,
+  anchors: [{ dayOfWeek: 5 }], // Friday
+  anchorDate: new Date(2026, 0, 2),
+};
+
+function transfer(overrides: Partial<Transfer> = {}): Transfer {
+  return {
+    id: 'transfer-1',
+    fromAccountId: 'acc-1',
+    toAccountId: 'acc-2',
+    amount: 100,
+    cadence: weeklyCadence,
+    ...overrides,
+  };
+}
 
 function txn(id: string, date: string, amount: number): Transaction {
   return { id, accountId: 'acc-1', date: new Date(date), amount, description: `txn-${id}`, matchedFlowId: null };
@@ -170,6 +190,66 @@ describe('balanceAtDate', () => {
   });
 });
 
+describe('balanceAtDate with Transfers', () => {
+  it('subtracts a Transfer’s occurrences from the from-Account’s forward projection', () => {
+    // Fridays after 2026-07-25 through 2026-08-08: 7/31 and 8/7 — two occurrences.
+    const future = new Date('2026-08-08T12:00:00Z');
+    const transfers = [transfer({ amount: 100 })];
+    expect(balanceAtDate(account, [], future, [], transfers)).toBe(1000 - 100 * 2);
+  });
+
+  it('adds a Transfer’s occurrences to the to-Account’s forward projection', () => {
+    const future = new Date('2026-08-08T12:00:00Z');
+    const transfers = [transfer({ amount: 100 })];
+    expect(balanceAtDate(otherAccount, [], future, [], transfers)).toBe(500 + 100 * 2);
+  });
+
+  it('applies symmetrically: the from- and to-Account sides move by the same magnitude in opposite directions', () => {
+    const future = new Date('2026-08-08T12:00:00Z');
+    const transfers = [transfer({ amount: 100 })];
+    const fromDelta = balanceAtDate(account, [], future, [], transfers) - account.balance;
+    const toDelta = balanceAtDate(otherAccount, [], future, [], transfers) - otherAccount.balance;
+    expect(fromDelta).toBe(-toDelta);
+  });
+
+  it('ignores a Transfer that touches neither Account', () => {
+    const future = new Date('2026-08-08T12:00:00Z');
+    const unrelated = { id: 'acc-3', balance: 50, balanceDate: account.balanceDate };
+    const transfers = [transfer()];
+    expect(balanceAtDate(unrelated, [], future, [], transfers)).toBe(50);
+  });
+
+  it('ignores Transfers entirely for a past date — only actual transactions drive history', () => {
+    const past = new Date('2026-07-19T00:00:00Z');
+    const transfers = [transfer({ amount: 99999 })];
+    expect(balanceAtDate(account, [], past, [], transfers)).toBe(1000);
+  });
+
+  it('combines a Transfer with the Account’s other Flows', () => {
+    const future = new Date('2026-08-01T12:00:00Z'); // one Friday (7/31) in range
+    const flows = [recurringFlow({ amount: 50, direction: 'in' })];
+    const transfers = [transfer({ amount: 100 })];
+    expect(balanceAtDate(account, [], future, flows, transfers)).toBe(1000 + 50 - 100);
+  });
+
+  it('applies a Step Change to a Transfer’s occurrences from its effective date forward', () => {
+    // Fridays after 2026-07-25 through 2026-08-08: 7/31 (still 100) and 8/7 (Step Change to 150).
+    const future = new Date('2026-08-08T12:00:00Z');
+    const transfers = [
+      transfer({
+        amount: 100,
+        amountChanges: [{ type: 'step', effectiveDate: new Date(2026, 7, 1), amount: 150 }],
+      }),
+    ];
+    expect(balanceAtDate(account, [], future, [], transfers)).toBe(1000 - (100 + 150));
+  });
+
+  it('defaults to no Transfers when the parameter is omitted', () => {
+    const future = new Date('2026-08-08T12:00:00Z');
+    expect(balanceAtDate(account, [], future, [])).toBe(1000);
+  });
+});
+
 describe('balanceSeries', () => {
   it('samples the balance at each given date', () => {
     const transactions = [txn('t1', '2026-07-24T09:00:00Z', -50)];
@@ -192,6 +272,16 @@ describe('balanceSeries', () => {
     expect(balanceSeries(account, [], dates, flows)).toEqual([
       { date: dates[0], balance: 1000 },
       { date: dates[1], balance: 1100 },
+    ]);
+  });
+
+  it('reflects a Transfer’s occurrences as the sampled dates move forward', () => {
+    const dates = [new Date('2026-07-25T12:00:00Z'), new Date('2026-07-31T12:00:00Z')];
+    const transfers = [transfer({ amount: 100 })];
+
+    expect(balanceSeries(account, [], dates, [], transfers)).toEqual([
+      { date: dates[0], balance: 1000 },
+      { date: dates[1], balance: 900 },
     ]);
   });
 });

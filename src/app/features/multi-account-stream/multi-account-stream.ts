@@ -4,6 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { Account } from '../../core/models/account';
 import { Flow } from '../../core/models/flow';
 import { Transaction } from '../../core/models/transaction';
+import { Transfer } from '../../core/models/transfer';
 import { balanceAtDate, balanceSeries } from '../../core/projection/projection-engine';
 import { BandPoint } from '../../core/charting/band-segments';
 import {
@@ -47,6 +48,7 @@ export class MultiAccountStream {
   private readonly accounts = signal<Account[]>([]);
   private readonly transactionsByAccount = signal<Map<string, Transaction[]>>(new Map());
   private readonly flowsByAccount = signal<Map<string, Flow[]>>(new Map());
+  private readonly transfersByAccount = signal<Map<string, Transfer[]>>(new Map());
   protected readonly dayOffset = signal(0);
   protected readonly isSyncing = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
@@ -58,15 +60,17 @@ export class MultiAccountStream {
   protected readonly lanes = computed<AccountLane[]>(() => {
     const transactionsByAccount = this.transactionsByAccount();
     const flowsByAccount = this.flowsByAccount();
+    const transfersByAccount = this.transfersByAccount();
     const dates = this.windowDates();
     const selectedDate = this.selectedDate();
 
     return this.accounts().map((account) => {
       const transactions = transactionsByAccount.get(account.id) ?? [];
       const flows = flowsByAccount.get(account.id) ?? [];
-      const series = balanceSeries(account, transactions, dates, flows);
+      const transfers = transfersByAccount.get(account.id) ?? [];
+      const series = balanceSeries(account, transactions, dates, flows, transfers);
       const points = series.map((p, i) => ({ x: i, balance: p.balance }));
-      const balance = balanceAtDate(account, transactions, selectedDate, flows);
+      const balance = balanceAtDate(account, transactions, selectedDate, flows, transfers);
       return {
         account,
         points,
@@ -142,6 +146,13 @@ export class MultiAccountStream {
       ]),
     );
     this.flowsByAccount.set(new Map(flowEntries));
+    const transferEntries = await Promise.all(
+      accounts.map(async (a): Promise<[string, Transfer[]]> => [
+        a.id,
+        await this.storage.getTransfersForAccount(a.id),
+      ]),
+    );
+    this.transfersByAccount.set(new Map(transferEntries));
   }
 
   protected shiftDay(delta: number): void {

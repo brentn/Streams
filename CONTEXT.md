@@ -11,7 +11,7 @@ A single expected movement of money into or out of one Account, matched to Trans
 _Avoid_: Category, budget item (as a synonym for Flow in general — Budget is one specific kind of Flow, not the umbrella term)
 
 **Transfer**:
-A single expected movement of money between two Accounts (a from-Account and a to-Account), scheduled with the same Step Change / Recurring Rule machinery as a Flow, applied symmetrically to both Accounts' projections at once. Distinct from a Flow, which touches only one Account.
+A single expected movement of money between two Accounts (a from-Account and a to-Account), scheduled the same way a recurring-kind Flow is — a Cadence plus the same Step Change / Recurring Rule amount-change machinery — applied symmetrically to both Accounts' projections at once (the from-Account's projection decreases, the to-Account's increases, by the same amount at the same time). Distinct from a Flow, which touches only one Account and can be either kind; a Transfer has no kind and no budget-style analog.
 _Avoid_: Linked flows, paired flows
 
 ### Scheduling

@@ -4,6 +4,7 @@ import { Account } from '../models/account';
 import { CategorizationRule } from '../models/categorization-rule';
 import { BudgetFlow, RecurringFlow } from '../models/flow';
 import { Transaction } from '../models/transaction';
+import { Transfer } from '../models/transfer';
 import { StorageRepository } from './storage-repository';
 
 async function resetDb(): Promise<void> {
@@ -210,6 +211,89 @@ describe('StorageRepository', () => {
     expect(await repo.getFlowsForAccount('acc-1')).toEqual([]);
   });
 
+  it('upserts and retrieves Transfers', async () => {
+    const transfer: Transfer = {
+      id: 'transfer-1',
+      fromAccountId: 'acc-1',
+      toAccountId: 'acc-2',
+      amount: 500,
+      cadence: {
+        period: 'month',
+        interval: 1,
+        anchors: [{ day: 1 }],
+        anchorDate: new Date(2026, 0, 1),
+      },
+    };
+
+    await repo.upsertTransfer(transfer);
+
+    expect(await repo.getTransfers()).toEqual([transfer]);
+  });
+
+  it('upserting a Transfer with the same id replaces it', async () => {
+    const original: Transfer = {
+      id: 'transfer-1',
+      fromAccountId: 'acc-1',
+      toAccountId: 'acc-2',
+      amount: 500,
+      cadence: { period: 'month', interval: 1, anchors: [{ day: 1 }], anchorDate: new Date(2026, 0, 1) },
+    };
+    const updated: Transfer = { ...original, amount: 750 };
+
+    await repo.upsertTransfer(original);
+    await repo.upsertTransfer(updated);
+
+    expect(await repo.getTransfers()).toEqual([updated]);
+  });
+
+  it('scopes getTransfersForAccount to Transfers where the account is either the from- or to-side', async () => {
+    const outgoing: Transfer = {
+      id: 'transfer-1',
+      fromAccountId: 'acc-1',
+      toAccountId: 'acc-2',
+      amount: 500,
+      cadence: { period: 'month', interval: 1, anchors: [{ day: 1 }], anchorDate: new Date(2026, 0, 1) },
+    };
+    const incoming: Transfer = {
+      id: 'transfer-2',
+      fromAccountId: 'acc-3',
+      toAccountId: 'acc-1',
+      amount: 200,
+      cadence: { period: 'month', interval: 1, anchors: [{ day: 15 }], anchorDate: new Date(2026, 0, 1) },
+    };
+    const unrelated: Transfer = {
+      id: 'transfer-3',
+      fromAccountId: 'acc-2',
+      toAccountId: 'acc-3',
+      amount: 50,
+      cadence: { period: 'month', interval: 1, anchors: [{ day: 1 }], anchorDate: new Date(2026, 0, 1) },
+    };
+
+    await repo.upsertTransfer(outgoing);
+    await repo.upsertTransfer(incoming);
+    await repo.upsertTransfer(unrelated);
+
+    const forAcc1 = await repo.getTransfersForAccount('acc-1');
+    expect(forAcc1).toHaveLength(2);
+    expect(forAcc1).toContainEqual(outgoing);
+    expect(forAcc1).toContainEqual(incoming);
+  });
+
+  it('deletes a Transfer by id', async () => {
+    const transfer: Transfer = {
+      id: 'transfer-1',
+      fromAccountId: 'acc-1',
+      toAccountId: 'acc-2',
+      amount: 500,
+      cadence: { period: 'month', interval: 1, anchors: [{ day: 1 }], anchorDate: new Date(2026, 0, 1) },
+    };
+
+    await repo.upsertTransfer(transfer);
+    await repo.deleteTransfer('transfer-1');
+
+    expect(await repo.getTransfers()).toEqual([]);
+  });
+
   it('upserts and retrieves Categorization Rules', async () => {
     const rule: CategorizationRule = { matchText: 'amazon prime', flowId: 'flow-1' };
 
@@ -242,7 +326,7 @@ describe('StorageRepository', () => {
       const { stores } = await repo.exportAll();
 
       expect(Object.keys(stores).sort()).toEqual(
-        ['accounts', 'categorizationRules', 'flows', 'settings', 'transactions'].sort(),
+        ['accounts', 'categorizationRules', 'flows', 'settings', 'transactions', 'transfers'].sort(),
       );
       expect(stores['accounts']).toEqual([account]);
       expect(stores['settings']).toEqual([
@@ -254,7 +338,7 @@ describe('StorageRepository', () => {
     it('reports the current database version alongside the dumped stores', async () => {
       const { dbVersion } = await repo.exportAll();
 
-      expect(dbVersion).toBe(5);
+      expect(dbVersion).toBe(6);
     });
 
     it('importAll replaces the contents of every named store, leaving stores absent from the bundle untouched', async () => {

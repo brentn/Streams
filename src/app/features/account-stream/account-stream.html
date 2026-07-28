@@ -45,6 +45,13 @@
 
     <app-flow-list [accountId]="account.id" [flows]="flows()" (changed)="reloadFlows()" />
 
+    <app-transfer-list
+      [accountId]="account.id"
+      [accounts]="allAccounts()"
+      [transfers]="transfers()"
+      (changed)="reloadTransfers()"
+    />
+
     <app-transaction-review
       [transactions]="transactions()"
       [flows]="flows()"

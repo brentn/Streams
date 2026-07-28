@@ -3,26 +3,20 @@ import {
   AmountChange,
   BudgetFlow,
   BudgetPeriod,
-  DayOfWeek,
   Flow,
   FlowDirection,
   FlowKind,
-  NthWeek,
   RecurringFlow,
-  RecurringRule,
-  StepChange,
 } from '../../../core/models/flow';
 import {
   buildCadence,
-  CADENCE_OPTIONS,
   CadenceFields,
   CadenceOption,
   defaultCadenceFields,
   describeCadence,
-  needsAnchorDate,
 } from '../../../core/projection/cadence-options';
-
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+import { AmountChangesEditor } from '../../../shared/amount-changes-editor/amount-changes-editor';
+import { CadencePicker } from '../../../shared/cadence-picker/cadence-picker';
 
 /**
  * Collects a Flow's fields and emits a fully-built Flow object — it doesn't
@@ -33,6 +27,7 @@ const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frid
  */
 @Component({
   selector: 'app-flow-form',
+  imports: [CadencePicker, AmountChangesEditor],
   templateUrl: './flow-form.html',
   styleUrl: './flow-form.css',
 })
@@ -51,13 +46,6 @@ export class FlowForm {
   protected readonly budgetPeriod = signal<BudgetPeriod>('month');
 
   protected readonly amountChanges = signal<AmountChange[]>([]);
-  protected readonly newStepDate = signal(new Date());
-  protected readonly newStepAmount = signal(0);
-  protected readonly newRuleDate = signal(new Date());
-  protected readonly newRuleDelta = signal(0);
-
-  protected readonly dayNames = DAY_NAMES;
-  protected readonly cadenceOptions = CADENCE_OPTIONS;
 
   constructor() {
     effect(() => {
@@ -77,69 +65,6 @@ export class FlowForm {
         this.budgetPeriod.set(flow.period);
       }
     });
-  }
-
-  protected updateCadenceField<K extends keyof CadenceFields>(key: K, value: CadenceFields[K]): void {
-    this.cadenceFields.update((fields) => ({ ...fields, [key]: value }));
-  }
-
-  protected dateInputValue(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-
-  private static parseDateInput(value: string): Date {
-    const [year, month, day] = value.split('-').map(Number);
-    return new Date(year, month - 1, day);
-  }
-
-  protected onAnchorDateInput(value: string): void {
-    this.updateCadenceField('anchorDate', FlowForm.parseDateInput(value));
-  }
-
-  protected onNewStepDateInput(value: string): void {
-    this.newStepDate.set(FlowForm.parseDateInput(value));
-  }
-
-  protected onNewRuleDateInput(value: string): void {
-    this.newRuleDate.set(FlowForm.parseDateInput(value));
-  }
-
-  protected addStepChange(): void {
-    const change: StepChange = {
-      type: 'step',
-      effectiveDate: this.newStepDate(),
-      amount: this.newStepAmount(),
-    };
-    this.amountChanges.update((changes) => [...changes, change]);
-    this.newStepAmount.set(0);
-  }
-
-  protected addRecurringRule(): void {
-    const rule: RecurringRule = {
-      type: 'recurring-rule',
-      anniversaryDate: this.newRuleDate(),
-      delta: this.newRuleDelta(),
-    };
-    this.amountChanges.update((changes) => [...changes, rule]);
-    this.newRuleDelta.set(0);
-  }
-
-  protected removeAmountChange(index: number): void {
-    this.amountChanges.update((changes) => changes.filter((_, i) => i !== index));
-  }
-
-  protected describeAmountChange(change: AmountChange): string {
-    return change.type === 'step'
-      ? `Step Change to ${change.amount} from ${this.dateInputValue(change.effectiveDate)}`
-      : `Recurring Rule: ${change.delta >= 0 ? '+' : ''}${change.delta} every ${this.dateInputValue(change.anniversaryDate)}`;
-  }
-
-  /** `<select>` has no `valueAsNumber` (that's an `<input type="number">` property). */
-  protected selectNumber(event: Event): number {
-    return Number((event.target as HTMLSelectElement).value);
   }
 
   protected onSubmit(event: Event): void {
@@ -179,18 +104,4 @@ export class FlowForm {
   protected cancel(): void {
     this.cancelled.emit();
   }
-
-  protected readonly dayOfWeekOptions: { value: DayOfWeek; label: string }[] = DAY_NAMES.map(
-    (label, value) => ({ value: value as DayOfWeek, label }),
-  );
-
-  protected readonly nthOptions: { value: NthWeek; label: string }[] = [
-    { value: 1, label: 'First' },
-    { value: 2, label: 'Second' },
-    { value: 3, label: 'Third' },
-    { value: 4, label: 'Fourth' },
-    { value: -1, label: 'Last' },
-  ];
-
-  protected readonly needsAnchorDate = needsAnchorDate;
 }

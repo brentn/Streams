@@ -1,0 +1,37 @@
+<section class="entity-list">
+  <header>
+    <h2>Transfers</h2>
+    @if (!isFormOpen()) {
+      <button type="button" class="add" (click)="openCreateForm()">Add Transfer</button>
+    }
+  </header>
+
+  @if (transfers().length === 0 && !isFormOpen()) {
+    <p class="empty">No Transfers yet — add one to move money between your Accounts.</p>
+  }
+
+  <ul class="rows">
+    @for (transfer of transfers(); track transfer.id) {
+      <li class="row">
+        <div class="info">
+          <span class="name">{{ transfer.amount | currency }}</span>
+          <span class="detail">{{ summarize(transfer) }}</span>
+        </div>
+        <div class="actions">
+          <button type="button" (click)="openEditForm(transfer)">Edit</button>
+          <button type="button" class="delete" (click)="remove(transfer)">Delete</button>
+        </div>
+      </li>
+    }
+  </ul>
+
+  @if (isFormOpen()) {
+    <app-transfer-form
+      [accountId]="accountId()"
+      [accounts]="accounts()"
+      [transfer]="editingTransfer()"
+      (saved)="onTransferSaved($event)"
+      (cancelled)="cancelForm()"
+    />
+  }
+</section>
