@@ -21,10 +21,20 @@ import { DragScrub } from '../../shared/drag-scrub/drag-scrub.directive';
 import { StatusBanner } from '../../shared/status-banner/status-banner';
 import { StreamBand } from '../../shared/stream-band/stream-band';
 import { FlowList } from './flow-list/flow-list';
+import { TransactionReview } from './transaction-review/transaction-review';
 
 @Component({
   selector: 'app-account-stream',
-  imports: [CurrencyPipe, RouterLink, DragScrub, CalendarChip, StatusBanner, StreamBand, FlowList],
+  imports: [
+    CurrencyPipe,
+    RouterLink,
+    DragScrub,
+    CalendarChip,
+    StatusBanner,
+    StreamBand,
+    FlowList,
+    TransactionReview,
+  ],
   templateUrl: './account-stream.html',
   styleUrl: './account-stream.css',
 })
@@ -98,6 +108,15 @@ export class AccountStream {
 
   protected async reloadFlows(): Promise<void> {
     this.flows.set(await this.storage.getFlowsForAccount(this.id()));
+  }
+
+  protected async reloadTransactions(): Promise<void> {
+    this.transactions.set(await this.storage.getTransactionsForAccount(this.id()));
+  }
+
+  /** A Transaction assignment can also create a Flow inline (AssignFlowDialog), so reload both. */
+  protected async reloadAll(): Promise<void> {
+    await Promise.all([this.reloadFlows(), this.reloadTransactions()]);
   }
 
   protected shiftDay(delta: number): void {

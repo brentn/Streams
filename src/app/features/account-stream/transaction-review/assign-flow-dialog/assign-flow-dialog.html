@@ -1,0 +1,49 @@
+<div class="dialog">
+  <h2>{{ data.transaction.matchedFlowId ? 'Correct Flow' : 'Assign Flow' }}</h2>
+  <p class="txn-summary">
+    {{ data.transaction.description }} · {{ data.transaction.date | date: 'mediumDate' }} ·
+    {{ data.transaction.amount | currency }}
+  </p>
+
+  @if (!isCreatingFlow()) {
+    @if (formError(); as error) {
+      <p class="form-error">{{ error }}</p>
+    }
+
+    <form (submit)="onSubmit($event)">
+      <label>
+        Match text
+        <input
+          type="text"
+          [value]="matchText()"
+          (input)="matchText.set($any($event.target).value)"
+        />
+      </label>
+      <label>
+        Flow
+        <select
+          [value]="selectedFlowId()"
+          (change)="selectedFlowId.set($any($event.target).value)"
+        >
+          @for (flow of flows(); track flow.id) {
+            <option [value]="flow.id" [selected]="flow.id === selectedFlowId()">
+              {{ flow.name || '(unnamed)' }}
+            </option>
+          }
+        </select>
+      </label>
+      <button type="button" class="new-flow" (click)="startCreatingFlow()">+ New Flow</button>
+
+      <div class="form-actions">
+        <button type="submit">Save</button>
+        <button type="button" (click)="cancel()">Cancel</button>
+      </div>
+    </form>
+  } @else {
+    <app-flow-form
+      [accountId]="data.transaction.accountId"
+      (saved)="onFlowCreated($event)"
+      (cancelled)="onFlowCreationCancelled()"
+    />
+  }
+</div>

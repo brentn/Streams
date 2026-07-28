@@ -1,0 +1,58 @@
+.flow-form {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.flow-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: var(--text-body);
+  color: var(--color-ink-secondary);
+}
+
+.flow-form input,
+.flow-form select {
+  font: inherit;
+  font-size: var(--text-body);
+  color: var(--color-ink-primary);
+  background: var(--color-page);
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  padding: 0.4rem 0.6rem;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.form-actions button[type='submit'] {
+  font-weight: 600;
+  color: var(--color-page);
+  background: var(--color-accent);
+  border: none;
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+}
+
+.form-actions button[type='button'] {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+  color: var(--color-ink-secondary);
+}
+
+.flow-form button {
+  font: inherit;
+  font-size: var(--text-body);
+  cursor: pointer;
+}

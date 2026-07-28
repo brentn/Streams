@@ -22,6 +22,14 @@ interface SimpleFinAccountsResponse {
   accounts: SimpleFinAccount[];
 }
 
+/**
+ * How far back to request transaction history on every fetch. SimpleFIN's
+ * `start-date` param is what actually scopes which transactions come back —
+ * the protocol leaves the default (no `start-date`) implementation-defined,
+ * and in practice bridges commonly return none at all without it.
+ */
+const TRANSACTION_LOOKBACK_DAYS = 90;
+
 /** SimpleFIN carries no asset/liability classifier, so a freshly synced account has no `expectedSign` yet — that's user-set in the connect flow's sign-confirmation step. */
 export interface SyncedAccount {
   account: Omit<Account, 'expectedSign'>;
@@ -46,7 +54,8 @@ export class SimpleFinAdapter {
 
   async fetchAccounts(accessUrl: string): Promise<SyncedAccount[]> {
     const { baseUrl, username, password } = parseAccessUrl(accessUrl);
-    const response = await fetch(`${baseUrl}/accounts`, {
+    const startDate = Math.floor(Date.now() / 1000) - TRANSACTION_LOOKBACK_DAYS * 24 * 60 * 60;
+    const response = await fetch(`${baseUrl}/accounts?start-date=${startDate}`, {
       headers: { Authorization: `Basic ${btoa(`${username}:${password}`)}` },
     });
     if (!response.ok) {
@@ -81,6 +90,7 @@ function toSyncedAccount(raw: SimpleFinAccount): SyncedAccount {
       date: new Date(txn.posted * 1000),
       amount: Number(txn.amount),
       description: txn.description,
+      matchedFlowId: null,
     })),
   };
 }

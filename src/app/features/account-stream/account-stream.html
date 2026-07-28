@@ -43,7 +43,13 @@
       </div>
     </div>
 
-    <app-flow-list [accountId]="account.id" (changed)="reloadFlows()" />
+    <app-flow-list [accountId]="account.id" [flows]="flows()" (changed)="reloadFlows()" />
+
+    <app-transaction-review
+      [transactions]="transactions()"
+      [flows]="flows()"
+      (changed)="reloadAll()"
+    />
   </section>
 } @else {
   <p>Loading…</p>

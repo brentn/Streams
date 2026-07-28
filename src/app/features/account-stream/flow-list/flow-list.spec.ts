@@ -1,19 +1,17 @@
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { BudgetFlow, RecurringFlow } from '../../../core/models/flow';
+import { BudgetFlow, Flow, RecurringFlow } from '../../../core/models/flow';
 import { StorageRepository } from '../../../core/storage/storage-repository';
 import { FlowList } from './flow-list';
 
 describe('FlowList', () => {
   let storage: {
-    getFlowsForAccount: ReturnType<typeof vi.fn>;
     upsertFlow: ReturnType<typeof vi.fn>;
     deleteFlow: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
     storage = {
-      getFlowsForAccount: vi.fn().mockResolvedValue([]),
       upsertFlow: vi.fn(),
       deleteFlow: vi.fn(),
     };
@@ -24,13 +22,14 @@ describe('FlowList', () => {
     }).compileComponents();
   });
 
-  function createComponent(accountId = 'acc-1') {
+  function createComponent(flows: Flow[] = [], accountId = 'acc-1') {
     const fixture = TestBed.createComponent(FlowList);
     fixture.componentRef.setInput('accountId', accountId);
+    fixture.componentRef.setInput('flows', flows);
     return fixture.componentInstance;
   }
 
-  it('loads Flows for the given account', async () => {
+  it('renders the Flows given via input', () => {
     const flow: BudgetFlow = {
       id: 'flow-1',
       accountId: 'acc-1',
@@ -40,72 +39,49 @@ describe('FlowList', () => {
       limit: 400,
       period: 'month',
     };
-    storage.getFlowsForAccount.mockResolvedValue([flow]);
 
-    const component = createComponent();
-    await component['load']('acc-1');
+    const component = createComponent([flow]);
 
     expect(component['flows']()).toEqual([flow]);
   });
 
-  it('creates a new recurring Flow and emits changed', async () => {
+  it('opens the form in create mode with no Flow to edit', () => {
     const component = createComponent();
-    const changed = vi.fn();
-    component.changed.subscribe(changed);
 
     component['openCreateForm']();
-    component['name'].set('Paycheck');
-    component['direction'].set('in');
-    component['kind'].set('recurring');
-    component['amount'].set(2000);
-    component['cadenceOption'].set('monthly');
-    component['updateCadenceField']('day', 1);
 
-    await component['save']();
+    expect(component['isFormOpen']()).toBe(true);
+    expect(component['editingFlow']()).toBeNull();
+  });
 
-    expect(storage.upsertFlow).toHaveBeenCalledWith(
-      expect.objectContaining({
-        accountId: 'acc-1',
-        name: 'Paycheck',
-        direction: 'in',
-        kind: 'recurring',
-        amount: 2000,
-        cadence: expect.objectContaining({
-          period: 'month',
-          interval: 1,
-          anchors: [{ day: 1 }],
-        }),
-      }),
-    );
+  it('opens the form in edit mode with the given Flow', () => {
+    const flow: BudgetFlow = {
+      id: 'flow-1',
+      accountId: 'acc-1',
+      name: 'Groceries',
+      direction: 'out',
+      kind: 'budget',
+      limit: 400,
+      period: 'month',
+    };
+    const component = createComponent();
+
+    component['openEditForm'](flow);
+
+    expect(component['isFormOpen']()).toBe(true);
+    expect(component['editingFlow']()).toEqual(flow);
+  });
+
+  it('closes the form on cancel', () => {
+    const component = createComponent();
+    component['openCreateForm']();
+
+    component['cancelForm']();
+
     expect(component['isFormOpen']()).toBe(false);
-    expect(changed).toHaveBeenCalled();
   });
 
-  it('creates a new budget Flow', async () => {
-    const component = createComponent();
-
-    component['openCreateForm']();
-    component['name'].set('Groceries');
-    component['direction'].set('out');
-    component['kind'].set('budget');
-    component['amount'].set(400);
-    component['budgetPeriod'].set('month');
-
-    await component['save']();
-
-    expect(storage.upsertFlow).toHaveBeenCalledWith(
-      expect.objectContaining({
-        accountId: 'acc-1',
-        name: 'Groceries',
-        direction: 'out',
-        kind: 'budget',
-        limit: 400,
-        period: 'month',
-      }),
-    );
-  });
-
-  it('pre-fills the form from an existing recurring Flow when editing', () => {
+  it('persists a Flow emitted by the form, closes the form, and emits changed', async () => {
     const flow: RecurringFlow = {
       id: 'flow-1',
       accountId: 'acc-1',
@@ -114,43 +90,22 @@ describe('FlowList', () => {
       kind: 'recurring',
       amount: 2000,
       cadence: {
-        period: 'week',
-        interval: 2,
-        anchors: [{ dayOfWeek: 5 }],
-        anchorDate: new Date(2026, 0, 2),
+        period: 'month',
+        interval: 1,
+        anchors: [{ day: 1 }],
+        anchorDate: new Date(2026, 0, 1),
       },
     };
-
     const component = createComponent();
-    component['openEditForm'](flow);
+    component['openCreateForm']();
+    const changed = vi.fn();
+    component.changed.subscribe(changed);
 
-    expect(component['editingFlowId']()).toBe('flow-1');
-    expect(component['name']()).toBe('Paycheck');
-    expect(component['amount']()).toBe(2000);
-    expect(component['cadenceOption']()).toBe('biweekly');
-    expect(component['cadenceFields']().dayOfWeek).toBe(5);
-  });
+    await component['onFlowSaved'](flow);
 
-  it('saves an edited Flow with the same id, keeping its kind fixed', async () => {
-    const flow: BudgetFlow = {
-      id: 'flow-1',
-      accountId: 'acc-1',
-      name: 'Groceries',
-      direction: 'out',
-      kind: 'budget',
-      limit: 400,
-      period: 'month',
-    };
-
-    const component = createComponent();
-    component['openEditForm'](flow);
-    component['amount'].set(500);
-
-    await component['save']();
-
-    expect(storage.upsertFlow).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'flow-1', kind: 'budget', limit: 500 }),
-    );
+    expect(storage.upsertFlow).toHaveBeenCalledWith(flow);
+    expect(component['isFormOpen']()).toBe(false);
+    expect(changed).toHaveBeenCalled();
   });
 
   it('deletes a Flow and emits changed', async () => {

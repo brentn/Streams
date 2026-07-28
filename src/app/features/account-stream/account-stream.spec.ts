@@ -26,6 +26,7 @@ describe('AccountStream', () => {
     getAccessUrl: ReturnType<typeof vi.fn>;
     upsertAccount: ReturnType<typeof vi.fn>;
     upsertTransactions: ReturnType<typeof vi.fn>;
+    getCategorizationRules: ReturnType<typeof vi.fn>;
   };
   let simplefin: { fetchAccounts: ReturnType<typeof vi.fn> };
 
@@ -37,6 +38,7 @@ describe('AccountStream', () => {
       getAccessUrl: vi.fn(),
       upsertAccount: vi.fn(),
       upsertTransactions: vi.fn(),
+      getCategorizationRules: vi.fn().mockResolvedValue([]),
     };
     simplefin = { fetchAccounts: vi.fn() };
 

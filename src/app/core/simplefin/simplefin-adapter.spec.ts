@@ -1,5 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SimpleFinAdapter } from './simplefin-adapter';
+
+const NOW = new Date('2026-07-25T12:00:00Z');
+const NINETY_DAYS_SECONDS = 90 * 24 * 60 * 60;
 
 const ACCOUNTS_FIXTURE = {
   errors: [],
@@ -34,6 +37,12 @@ describe('SimpleFinAdapter', () => {
   beforeEach(() => {
     adapter = new SimpleFinAdapter();
     vi.stubGlobal('fetch', vi.fn());
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe('claimAccessUrl', () => {
@@ -70,9 +79,11 @@ describe('SimpleFinAdapter', () => {
         'https://user123:pass456@bridge.simplefin.org/simplefin',
       );
 
-      expect(fetch).toHaveBeenCalledWith('https://bridge.simplefin.org/simplefin/accounts', {
-        headers: { Authorization: `Basic ${btoa('user123:pass456')}` },
-      });
+      const expectedStartDate = Math.floor(NOW.getTime() / 1000) - NINETY_DAYS_SECONDS;
+      expect(fetch).toHaveBeenCalledWith(
+        `https://bridge.simplefin.org/simplefin/accounts?start-date=${expectedStartDate}`,
+        { headers: { Authorization: `Basic ${btoa('user123:pass456')}` } },
+      );
 
       expect(result).toEqual([
         {
@@ -90,6 +101,7 @@ describe('SimpleFinAdapter', () => {
               date: new Date(1753363200 * 1000),
               amount: -42.1,
               description: 'COFFEE SHOP',
+              matchedFlowId: null,
             },
             {
               id: 'TXN-2',
@@ -97,6 +109,7 @@ describe('SimpleFinAdapter', () => {
               date: new Date(1753276800 * 1000),
               amount: 2000,
               description: 'PAYROLL',
+              matchedFlowId: null,
             },
           ],
         },

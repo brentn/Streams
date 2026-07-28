@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { CdkListbox, CdkOption } from '@angular/cdk/listbox';
+import { categorizeTransactions } from '../../core/categorization/categorization';
 import { Account, Sign } from '../../core/models/account';
 import { SimpleFinAdapter, SyncedAccount } from '../../core/simplefin/simplefin-adapter';
 import { StorageRepository } from '../../core/storage/storage-repository';
@@ -70,11 +71,12 @@ export class ConnectAccount {
     try {
       await this.storage.saveAccessUrl(this.accessUrl);
       const choices = this.signChoices();
+      const rules = await this.storage.getCategorizationRules();
       for (const { account, transactions } of this.pendingAccounts()) {
         const expectedSign = choices[account.id];
         const withSign: Account = { ...account, expectedSign };
         await this.storage.upsertAccount(withSign);
-        await this.storage.upsertTransactions(transactions);
+        await this.storage.upsertTransactions(categorizeTransactions(transactions, rules));
       }
       await this.router.navigateByUrl('/accounts');
     } catch (err) {

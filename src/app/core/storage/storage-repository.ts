@@ -1,6 +1,8 @@
 import { Injectable } from '@angular/core';
 import { DBSchema, IDBPDatabase, openDB } from 'idb';
+import { normalizeMatchText } from '../categorization/categorization';
 import { Account } from '../models/account';
+import { CategorizationRule } from '../models/categorization-rule';
 import { Flow } from '../models/flow';
 import { Transaction } from '../models/transaction';
 
@@ -19,6 +21,10 @@ interface StreamsDb extends DBSchema {
     value: Flow;
     indexes: { accountId: string };
   };
+  categorizationRules: {
+    key: string;
+    value: CategorizationRule;
+  };
   settings: {
     key: string;
     value: { key: string; value: string };
@@ -33,7 +39,7 @@ export class StorageRepository {
   private readonly dbPromise: Promise<IDBPDatabase<StreamsDb>>;
 
   constructor() {
-    this.dbPromise = openDB<StreamsDb>('streams', 3, {
+    this.dbPromise = openDB<StreamsDb>('streams', 4, {
       upgrade(db, oldVersion) {
         if (oldVersion < 1) {
           db.createObjectStore('accounts', { keyPath: 'id' });
@@ -47,6 +53,13 @@ export class StorageRepository {
         if (oldVersion < 3) {
           const flows = db.createObjectStore('flows', { keyPath: 'id' });
           flows.createIndex('accountId', 'accountId');
+        }
+        // v4: Transaction gained `matchedFlowId` (no structural change, same
+        // reasoning as v2) plus the new categorizationRules store, keyed on
+        // normalized matchText so saving a rule for existing text overwrites
+        // it in place.
+        if (oldVersion < 4) {
+          db.createObjectStore('categorizationRules', { keyPath: 'matchText' });
         }
       },
     });
@@ -99,6 +112,17 @@ export class StorageRepository {
   async getFlowsForAccount(accountId: string): Promise<Flow[]> {
     const db = await this.dbPromise;
     return db.getAllFromIndex('flows', 'accountId', accountId);
+  }
+
+  /** Keyed on normalized matchText, so saving a rule for text that already has one overwrites it in place. */
+  async upsertCategorizationRule(rule: CategorizationRule): Promise<void> {
+    const db = await this.dbPromise;
+    await db.put('categorizationRules', { ...rule, matchText: normalizeMatchText(rule.matchText) });
+  }
+
+  async getCategorizationRules(): Promise<CategorizationRule[]> {
+    const db = await this.dbPromise;
+    return db.getAll('categorizationRules');
   }
 
   async close(): Promise<void> {

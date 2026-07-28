@@ -6,7 +6,7 @@ import { balanceAtDate, balanceSeries } from './projection-engine';
 const account = { balance: 1000, balanceDate: new Date('2026-07-25T12:00:00Z') };
 
 function txn(id: string, date: string, amount: number): Transaction {
-  return { id, accountId: 'acc-1', date: new Date(date), amount, description: `txn-${id}` };
+  return { id, accountId: 'acc-1', date: new Date(date), amount, description: `txn-${id}`, matchedFlowId: null };
 }
 
 function recurringFlow(overrides: Partial<RecurringFlow> = {}): RecurringFlow {

@@ -1,6 +1,7 @@
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Account } from '../models/account';
+import { CategorizationRule } from '../models/categorization-rule';
 import { BudgetFlow, RecurringFlow } from '../models/flow';
 import { Transaction } from '../models/transaction';
 import { StorageRepository } from './storage-repository';
@@ -73,6 +74,7 @@ describe('StorageRepository', () => {
       date: new Date('2026-01-01'),
       amount: -10,
       description: 'Coffee',
+      matchedFlowId: null,
     };
     const t1Updated: Transaction = { ...t1, amount: -12 };
     const t2: Transaction = {
@@ -81,6 +83,7 @@ describe('StorageRepository', () => {
       date: new Date('2026-01-02'),
       amount: 500,
       description: 'Payroll',
+      matchedFlowId: null,
     };
 
     await repo.upsertTransactions([t1]);
@@ -99,6 +102,7 @@ describe('StorageRepository', () => {
       date: new Date('2026-01-01'),
       amount: -10,
       description: 'Coffee',
+      matchedFlowId: null,
     };
     const t2: Transaction = {
       id: 'txn-2',
@@ -106,6 +110,7 @@ describe('StorageRepository', () => {
       date: new Date('2026-01-02'),
       amount: 500,
       description: 'Payroll',
+      matchedFlowId: null,
     };
 
     await repo.upsertTransactions([t1, t2]);
@@ -178,5 +183,21 @@ describe('StorageRepository', () => {
     await repo.deleteFlow('flow-1');
 
     expect(await repo.getFlowsForAccount('acc-1')).toEqual([]);
+  });
+
+  it('upserts and retrieves Categorization Rules', async () => {
+    const rule: CategorizationRule = { matchText: 'amazon prime', flowId: 'flow-1' };
+
+    await repo.upsertCategorizationRule(rule);
+
+    expect(await repo.getCategorizationRules()).toEqual([rule]);
+  });
+
+  it('normalizes matchText so re-saving the same text (any case/whitespace) overwrites the rule in place', async () => {
+    await repo.upsertCategorizationRule({ matchText: 'Amazon Prime', flowId: 'flow-1' });
+    await repo.upsertCategorizationRule({ matchText: '  AMAZON PRIME  ', flowId: 'flow-2' });
+
+    const rules = await repo.getCategorizationRules();
+    expect(rules).toEqual([{ matchText: 'amazon prime', flowId: 'flow-2' }]);
   });
 });

@@ -14,6 +14,7 @@ describe('ConnectAccount', () => {
     saveAccessUrl: ReturnType<typeof vi.fn>;
     upsertAccount: ReturnType<typeof vi.fn>;
     upsertTransactions: ReturnType<typeof vi.fn>;
+    getCategorizationRules: ReturnType<typeof vi.fn>;
   };
   let router: { navigateByUrl: ReturnType<typeof vi.fn> };
 
@@ -23,6 +24,7 @@ describe('ConnectAccount', () => {
       saveAccessUrl: vi.fn(),
       upsertAccount: vi.fn(),
       upsertTransactions: vi.fn(),
+      getCategorizationRules: vi.fn().mockResolvedValue([]),
     };
     router = { navigateByUrl: vi.fn() };
 
@@ -110,7 +112,16 @@ describe('ConnectAccount', () => {
             balance: -50,
             balanceDate: new Date('2026-07-25'),
           },
-          transactions: [{ id: 't1', accountId: 'acc-2', date: new Date('2026-07-24'), amount: -10, description: 'x' }],
+          transactions: [
+            {
+              id: 't1',
+              accountId: 'acc-2',
+              date: new Date('2026-07-24'),
+              amount: -10,
+              description: 'x',
+              matchedFlowId: null,
+            },
+          ],
         },
       ]);
 
@@ -158,7 +169,14 @@ describe('ConnectAccount', () => {
         expect.objectContaining({ id: 'acc-2', expectedSign: -1 }),
       );
       expect(storage.upsertTransactions).toHaveBeenCalledWith([
-        { id: 't1', accountId: 'acc-2', date: new Date('2026-07-24'), amount: -10, description: 'x' },
+        {
+          id: 't1',
+          accountId: 'acc-2',
+          date: new Date('2026-07-24'),
+          amount: -10,
+          description: 'x',
+          matchedFlowId: null,
+        },
       ]);
       expect(router.navigateByUrl).toHaveBeenCalledWith('/accounts');
       expect(component['errorMessage']()).toBeNull();
