@@ -17,8 +17,16 @@ _Avoid_: Linked flows, paired flows
 ### Scheduling
 
 **Cadence**:
-A recurring-kind Flow's schedule: `{ period: week | month | year, interval, anchors }`. `anchors` holds one or more values shaped by `period` — a day-of-week (week), a day-of-month or nth-weekday-of-month pattern like "last Wednesday" (month), or a month-and-day (year). Named options a user picks from (weekly, biweekly, monthly, bi-monthly, semi-monthly, annually, semi-annually, "Nth weekday of month") each resolve to one shape of this recurrence rather than being separate schema branches. Applies only to a recurring-kind Flow — a budget-kind Flow has no Cadence, only a Budget Period.
+A recurring-kind Flow's or a Transfer's schedule: `{ period: week | month | year, interval, anchors }`, or `{ period: once, date }` for a single, non-repeating occurrence. `anchors` holds one or more values shaped by `period` — a day-of-week (week), a day-of-month or nth-weekday-of-month pattern like "last Wednesday" (month), or a month-and-day (year); the `once` shape has no `interval`, `anchors`, or Anchor Date, since none of them describe a single occurrence. Named options a user picks from (weekly, biweekly, monthly, bi-monthly, semi-monthly, annually, semi-annually, "Nth weekday of month", One-time) each resolve to one shape of this recurrence rather than being separate schema branches. A repeating Cadence (any shape but `once`) may optionally carry an End Date; One-time doesn't offer one, since a single occurrence already terminates itself. Applies to a recurring-kind Flow and to a Transfer — a budget-kind Flow has no Cadence, only a Budget Period.
 _Avoid_: Frequency, recurrence rule (reserve "Recurring Rule" below for the distinct amount-change mechanism)
+
+**Anchor Date**:
+A Cadence's reference point for fixing interval parity — e.g. which Friday is "on" for a biweekly Cadence, which month is "on" for bi-monthly. Only surfaced in the form for the two Cadence options where that parity is ambiguous (biweekly, bi-monthly); for every other option it's still set underneath, defaulted to the record's creation date. Also serves as the lower bound an End Date must fall on/after.
+_Avoid_: Start date (it isn't when the Flow/Transfer "starts" in any user-facing sense — see End Date)
+
+**End Date**:
+An optional bound on a repeating Cadence (any shape but One-time): the last date on which an occurrence may still fire — inclusive, so an occurrence landing exactly on the End Date still happens. Leaving it unset means the Cadence repeats indefinitely, same as before End Date existed. Must fall on or after the Cadence's Anchor Date — the form blocks saving and warns otherwise. This holds even for the Cadence options that don't surface Anchor Date in the form (it's still set underneath, defaulted to the record's creation date) — a deliberate choice to keep the rule uniform across every repeating option rather than validating some and not others.
+_Avoid_: Expiration, stop date
 
 **Budget Period**:
 A budget-kind Flow's `month | year` window over which its limit applies. Resets cleanly at each boundary — no rollover of unused or overspent amounts into the next period.
@@ -37,6 +45,16 @@ _Avoid_: Seasonal template, schedule override
 **Categorization Rule**:
 A case-insensitive substring match on a Transaction's merchant/description text, mapping it to a Flow. Exactly one rule exists per match text — correcting a Transaction's Flow overwrites that rule in place rather than adding a competing one. When multiple rules' match text fits the same Transaction, the longest (most specific) match wins.
 _Avoid_: Mapping, auto-tag
+
+### Sync
+
+**Needs Reauthentication**:
+An Account whose SimpleFIN sync is blocked because its stored credentials have been revoked or are otherwise invalid — signaled by a `con.auth`/`gen.auth` error code or an HTTP 403 on the accounts fetch, never inferred from error message text. A connection-level failure marks every Account under that connection this way at once, rather than being tracked as a separate Connection entity. Persists until the user reconnects via the SimpleFIN connect flow.
+_Avoid_: Broken connection, expired token (the protocol doesn't distinguish expiry from revocation — both surface identically)
+
+**Sync Issue**:
+An Account whose most recent SimpleFIN sync reported a transient, non-blocking problem (an `act.failed`/`act.missingdata` error code, or an unrecognized one) — informational, no user action implied, expected to clear on a later sync. Distinct from Needs Reauthentication, which is blocking and actionable.
+_Avoid_: Warning (ambiguous with other in-app warnings), sync error (too close to the blocking case)
 
 ### Alerts
 
