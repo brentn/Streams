@@ -24,11 +24,36 @@ export type Cadence =
 
 export type BudgetPeriod = 'month' | 'year';
 
+/** A one-time, manually entered change to a Flow's (or Transfer's) amount, effective from `effectiveDate` forward until superseded. */
+export interface StepChange {
+  type: 'step';
+  effectiveDate: Date;
+  amount: number;
+}
+
+/**
+ * An automated, calendar-anchored Step Change that fires every year on `anniversaryDate`'s
+ * month/day, applying `delta` to whatever the amount is at that moment.
+ */
+export interface RecurringRule {
+  type: 'recurring-rule';
+  anniversaryDate: Date;
+  delta: number;
+}
+
+/**
+ * Step Changes and Recurring Rules form one ordered timeline of amount-changes — there is
+ * no separate "base" amount they reconcile against. Applies to a Flow of either kind (a
+ * recurring-kind Flow's expected amount or a budget-kind Flow's limit).
+ */
+export type AmountChange = StepChange | RecurringRule;
+
 interface FlowBase {
   id: string;
   accountId: string;
   name: string;
   direction: FlowDirection;
+  amountChanges?: AmountChange[];
 }
 
 export interface RecurringFlow extends FlowBase {

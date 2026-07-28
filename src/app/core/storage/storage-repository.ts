@@ -39,7 +39,7 @@ export class StorageRepository {
   private readonly dbPromise: Promise<IDBPDatabase<StreamsDb>>;
 
   constructor() {
-    this.dbPromise = openDB<StreamsDb>('streams', 4, {
+    this.dbPromise = openDB<StreamsDb>('streams', 5, {
       upgrade(db, oldVersion) {
         if (oldVersion < 1) {
           db.createObjectStore('accounts', { keyPath: 'id' });
@@ -61,6 +61,9 @@ export class StorageRepository {
         if (oldVersion < 4) {
           db.createObjectStore('categorizationRules', { keyPath: 'matchText' });
         }
+        // v5: Flow gained `amountChanges` (Step Change / Recurring Rule
+        // timeline, applying to both kinds). No structural change, same
+        // reasoning as v2.
       },
     });
   }

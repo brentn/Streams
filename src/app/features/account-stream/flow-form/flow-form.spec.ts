@@ -115,6 +115,90 @@ describe('FlowForm', () => {
     );
   });
 
+  it('adds a Step Change and includes it on save, for a recurring Flow', async () => {
+    const component = await createComponent();
+    const saved = vi.fn();
+    component.saved.subscribe(saved);
+
+    component['name'].set('Paycheck');
+    component['kind'].set('recurring');
+    component['amount'].set(2000);
+    component['newStepDate'].set(new Date(2027, 0, 1));
+    component['newStepAmount'].set(2200);
+    component['addStepChange']();
+
+    component['save']();
+
+    expect(saved).toHaveBeenCalledWith(
+      expect.objectContaining({
+        amountChanges: [{ type: 'step', effectiveDate: new Date(2027, 0, 1), amount: 2200 }],
+      }),
+    );
+  });
+
+  it('adds a Recurring Rule and includes it on save, for a budget Flow', async () => {
+    const component = await createComponent();
+    const saved = vi.fn();
+    component.saved.subscribe(saved);
+
+    component['name'].set('Groceries');
+    component['kind'].set('budget');
+    component['amount'].set(400);
+    component['newRuleDate'].set(new Date(2027, 0, 1));
+    component['newRuleDelta'].set(25);
+    component['addRecurringRule']();
+
+    component['save']();
+
+    expect(saved).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'budget',
+        amountChanges: [{ type: 'recurring-rule', anniversaryDate: new Date(2027, 0, 1), delta: 25 }],
+      }),
+    );
+  });
+
+  it('removes an amount change by index', async () => {
+    const component = await createComponent();
+
+    component['newStepDate'].set(new Date(2027, 0, 1));
+    component['newStepAmount'].set(2200);
+    component['addStepChange']();
+    component['newStepDate'].set(new Date(2028, 0, 1));
+    component['newStepAmount'].set(2400);
+    component['addStepChange']();
+
+    component['removeAmountChange'](0);
+
+    expect(component['amountChanges']()).toEqual([
+      { type: 'step', effectiveDate: new Date(2028, 0, 1), amount: 2400 },
+    ]);
+  });
+
+  it('pre-fills amountChanges from an existing Flow', async () => {
+    const flow: RecurringFlow = {
+      id: 'flow-1',
+      accountId: 'acc-1',
+      name: 'Paycheck',
+      direction: 'in',
+      kind: 'recurring',
+      amount: 2000,
+      cadence: {
+        period: 'month',
+        interval: 1,
+        anchors: [{ day: 1 }],
+        anchorDate: new Date(2026, 0, 1),
+      },
+      amountChanges: [{ type: 'step', effectiveDate: new Date(2027, 0, 1), amount: 2200 }],
+    };
+
+    const component = await createComponent('acc-1', flow);
+
+    expect(component['amountChanges']()).toEqual([
+      { type: 'step', effectiveDate: new Date(2027, 0, 1), amount: 2200 },
+    ]);
+  });
+
   it('emits cancelled without emitting saved', async () => {
     const component = await createComponent();
     const saved = vi.fn();

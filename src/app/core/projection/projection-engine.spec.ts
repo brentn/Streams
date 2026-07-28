@@ -129,6 +129,45 @@ describe('balanceAtDate', () => {
     const expected = 1000 + 100 * 1 - ((310 * 6) / 31 + (310 * 1) / 31);
     expect(balanceAtDate(account, [], future, flows)).toBeCloseTo(expected);
   });
+
+  it('applies a Step Change to a recurring Flow’s occurrences from its effective date forward', () => {
+    // Fridays after 2026-07-25 through 2026-08-08: 7/31 (still 100) and 8/7 (Step Change to 150).
+    const future = new Date('2026-08-08T12:00:00Z');
+    const flows = [
+      recurringFlow({
+        amount: 100,
+        direction: 'in',
+        amountChanges: [{ type: 'step', effectiveDate: new Date(2026, 7, 1), amount: 150 }],
+      }),
+    ];
+    expect(balanceAtDate(account, [], future, flows)).toBe(1000 + 100 + 150);
+  });
+
+  it('applies a Recurring Rule to a recurring Flow’s occurrences from its anniversary forward', () => {
+    const future = new Date('2026-08-08T12:00:00Z');
+    const flows = [
+      recurringFlow({
+        amount: 100,
+        direction: 'in',
+        amountChanges: [{ type: 'recurring-rule', anniversaryDate: new Date(2026, 7, 1), delta: 10 }],
+      }),
+    ];
+    expect(balanceAtDate(account, [], future, flows)).toBe(1000 + 100 + 110);
+  });
+
+  it('applies a Step Change to a budget-kind Flow’s limit, prorating each sub-slice against it', () => {
+    // balanceDate 2026-07-25, projecting to 2026-07-31: days 26-30 at 310, day 31 at 620.
+    const future = new Date('2026-07-31T12:00:00Z');
+    const flows = [
+      budgetFlow({
+        limit: 310,
+        direction: 'out',
+        amountChanges: [{ type: 'step', effectiveDate: new Date(2026, 6, 31), amount: 620 }],
+      }),
+    ];
+    const expected = 1000 - ((310 * 5) / 31 + (620 * 1) / 31);
+    expect(balanceAtDate(account, [], future, flows)).toBeCloseTo(expected);
+  });
 });
 
 describe('balanceSeries', () => {

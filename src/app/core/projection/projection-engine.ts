@@ -1,14 +1,19 @@
 import { Account } from '../models/account';
 import { Flow, signedFlowAmount } from '../models/flow';
 import { Transaction } from '../models/transaction';
+import { amountAtDate } from './amount-timeline';
 import { budgetContribution } from './budget-period';
 import { occurrencesInRange } from './cadence';
 
 function flowContribution(flow: Flow, startExclusive: Date, endInclusive: Date): number {
+  const changes = flow.amountChanges ?? [];
   const magnitude =
     flow.kind === 'recurring'
-      ? flow.amount * occurrencesInRange(flow.cadence, startExclusive, endInclusive).length
-      : budgetContribution(flow.period, flow.limit, startExclusive, endInclusive);
+      ? occurrencesInRange(flow.cadence, startExclusive, endInclusive).reduce(
+          (sum, occurrence) => sum + amountAtDate(flow.amount, changes, occurrence),
+          0,
+        )
+      : budgetContribution(flow.period, flow.limit, changes, startExclusive, endInclusive);
   return signedFlowAmount(magnitude, flow.direction);
 }
 

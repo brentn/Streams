@@ -168,6 +168,31 @@ describe('StorageRepository', () => {
     expect(await repo.getFlowsForAccount('acc-1')).toEqual([updated]);
   });
 
+  it('round-trips a Flow carrying Step Changes and Recurring Rules', async () => {
+    const flow: RecurringFlow = {
+      id: 'flow-1',
+      accountId: 'acc-1',
+      name: 'Paycheck',
+      direction: 'in',
+      kind: 'recurring',
+      amount: 2000,
+      cadence: {
+        period: 'month',
+        interval: 1,
+        anchors: [{ day: 1 }],
+        anchorDate: new Date(2026, 0, 1),
+      },
+      amountChanges: [
+        { type: 'step', effectiveDate: new Date('2027-01-01'), amount: 2200 },
+        { type: 'recurring-rule', anniversaryDate: new Date('2026-10-01'), delta: 50 },
+      ],
+    };
+
+    await repo.upsertFlow(flow);
+
+    expect(await repo.getFlowsForAccount('acc-1')).toEqual([flow]);
+  });
+
   it('deletes a Flow by id', async () => {
     const flow: BudgetFlow = {
       id: 'flow-1',
@@ -229,7 +254,7 @@ describe('StorageRepository', () => {
     it('reports the current database version alongside the dumped stores', async () => {
       const { dbVersion } = await repo.exportAll();
 
-      expect(dbVersion).toBe(4);
+      expect(dbVersion).toBe(5);
     });
 
     it('importAll replaces the contents of every named store, leaving stores absent from the bundle untouched', async () => {

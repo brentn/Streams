@@ -1,4 +1,5 @@
-import { BudgetPeriod } from '../models/flow';
+import { AmountChange, BudgetPeriod } from '../models/flow';
+import { amountAtDate, changeDatesInRange } from './amount-timeline';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -29,7 +30,10 @@ function periodBounds(period: BudgetPeriod, date: Date): { start: Date; end: Dat
 /**
  * A budget-kind Flow's expected contribution over `(startExclusive, endInclusive]`, prorated
  * by the fraction of each calendar period's days the range covers. No rollover: each period's
- * proration is against its own full limit, independent of any other period's over/under-spend.
+ * proration is against its own limit, independent of any other period's over/under-spend —
+ * a Step Change or Recurring Rule changing the limit mid-period is a deliberate edit to the
+ * limit, not rollover, so each sub-slice of a period is prorated against whatever limit was
+ * in effect during it.
  *
  * The spec doesn't say when within a period a budget's spend is expected to land, so this
  * spreads it evenly across the period's days rather than assuming a lump sum at either edge —
@@ -37,7 +41,8 @@ function periodBounds(period: BudgetPeriod, date: Date): { start: Date; end: Dat
  */
 export function budgetContribution(
   period: BudgetPeriod,
-  limit: number,
+  initialLimit: number,
+  changes: AmountChange[],
   startExclusive: Date,
   endInclusive: Date,
 ): number {
@@ -50,12 +55,20 @@ export function budgetContribution(
   let cursor = periodBounds(period, rangeStart).start;
   while (cursor.getTime() < rangeEnd.getTime()) {
     const { start, end } = periodBounds(period, cursor);
-    const overlapStart = Math.max(start.getTime(), rangeStart.getTime());
-    const overlapEnd = Math.min(end.getTime(), rangeEnd.getTime());
-    const overlapDays = Math.max(0, (overlapEnd - overlapStart) / MS_PER_DAY);
     const totalDaysInPeriod = (end.getTime() - start.getTime()) / MS_PER_DAY;
 
-    total += limit * (overlapDays / totalDaysInPeriod);
+    const boundaries = [start, ...changeDatesInRange(changes, start, end), end];
+    for (let i = 0; i < boundaries.length - 1; i++) {
+      const segStart = boundaries[i];
+      const segEnd = boundaries[i + 1];
+      const overlapStart = Math.max(segStart.getTime(), rangeStart.getTime());
+      const overlapEnd = Math.min(segEnd.getTime(), rangeEnd.getTime());
+      const overlapDays = Math.max(0, (overlapEnd - overlapStart) / MS_PER_DAY);
+      if (overlapDays === 0) continue;
+
+      total += amountAtDate(initialLimit, changes, segStart) * (overlapDays / totalDaysInPeriod);
+    }
+
     cursor = end;
   }
 
