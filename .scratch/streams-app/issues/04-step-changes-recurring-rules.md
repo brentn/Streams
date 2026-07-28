@@ -4,7 +4,7 @@
 
 **What to build:** The scheduling mechanics that let a Flow's amount change over time — a one-off manual Step Change, and an automated calendar-anchored Recurring Rule — composed as a single ordered timeline with no separate base amount to keep in sync.
 
-**Scope note:** applies only to recurring-kind Flow. A budget-kind Flow has no amount-change timeline — its limit is a flat value for its period, no Step Changes or Recurring Rules apply to it. See the **Flow/Budget Split** wayfinder map (`.scratch/wayfinder/flow-budget-split/map.md`, ticket 03).
+**Scope note:** applies to a Flow of either kind — a recurring-kind Flow's expected amount or a budget-kind Flow's limit both carry the same Step Change/Recurring Rule timeline. (Earlier drafts of this note restricted it to recurring-kind only; that restriction was inherited by assumption from the Cadence scope decision rather than argued on its own merits, and was corrected on 2026-07-27 — see [brentn/Streams#13](https://github.com/brentn/Streams/issues/13).)
 
 **Blocked by:** 02 — Flows drive the projection
 

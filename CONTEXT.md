@@ -5,9 +5,9 @@ A personal finance app that models bank accounts as streams you scroll through t
 ## Language
 
 **Flow**:
-A single expected movement of money into or out of one Account, matched to Transactions via Categorization Rules, with a Tolerance for how far actuals can vary before it's flagged. Every Flow is one of two kinds, fixed at creation (not convertible afterward — changing kind means deleting and recreating the Flow):
-- **Recurring** — a movement whose date and frequency are known almost to the day (a paycheck, rent, a subscription), scheduled via a Cadence and optionally adjusted over time by Step Changes / Recurring Rules.
-- **Budget** — a spending or income limit for a period (month or year), agnostic to when within that period Transactions land. Resets cleanly at each period boundary; no rollover of unused or overspent amounts.
+A single expected movement of money into or out of one Account, matched to Transactions via Categorization Rules, with a Tolerance for how far actuals can vary before it's flagged, and an amount that can be adjusted over time via Step Changes / Recurring Rules regardless of kind. Every Flow is one of two kinds, fixed at creation (not convertible afterward — changing kind means deleting and recreating the Flow):
+- **Recurring** — a movement whose date and frequency are known almost to the day (a paycheck, rent, a subscription), scheduled via a Cadence.
+- **Budget** — a spending or income limit for a period (month or year), agnostic to when within that period Transactions land. Resets cleanly at each period boundary — no rollover of unused or overspent amounts from one period to the next — though the limit itself can still carry a Step Change or Recurring Rule (e.g. raising a grocery budget starting next month), since that's a deliberate edit to the limit, not a rollover.
 _Avoid_: Category, budget item (as a synonym for Flow in general — Budget is one specific kind of Flow, not the umbrella term)
 
 **Transfer**:
@@ -25,11 +25,11 @@ A budget-kind Flow's `month | year` window over which its limit applies. Resets 
 _Avoid_: Cadence (deliberately simpler — no anchors, no timing within the period)
 
 **Step Change**:
-A one-time, manually entered change to a Flow's (or Transfer's) amount, effective from a chosen date forward until superseded.
+A one-time, manually entered change to a Flow's (or Transfer's) amount, effective from a chosen date forward until superseded. Applies to a Flow of either kind — a recurring Flow's expected amount or a budget Flow's limit.
 _Avoid_: Adjustment, override
 
 **Recurring Rule**:
-An automated, calendar-anchored Step Change that fires every year (e.g. "every October 1st") and applies as a delta to whatever the amount is at that moment. Recurring Rules and manual Step Changes form one ordered timeline of amount-changes — there is no separate "base" amount they reconcile against. Independent of Cadence: Cadence governs how often a recurring-kind Flow's amount is expected, Recurring Rule governs how the amount itself changes over time — a semi-monthly rent Flow can still carry an annual Recurring Rule that bumps the amount every October.
+An automated, calendar-anchored Step Change that fires every year (e.g. "every October 1st") and applies as a delta to whatever the amount is at that moment. Recurring Rules and manual Step Changes form one ordered timeline of amount-changes — there is no separate "base" amount they reconcile against — and, like Step Change, apply to a Flow of either kind. Independent of Cadence: Cadence governs how often a recurring-kind Flow's amount is expected, Recurring Rule governs how the amount itself changes over time — a semi-monthly rent Flow can still carry an annual Recurring Rule that bumps the amount every October, and a budget Flow's limit can carry one the same way.
 _Avoid_: Seasonal template, schedule override
 
 ### Categorization
