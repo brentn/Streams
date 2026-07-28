@@ -1,10 +1,12 @@
-import { Component, input, output } from '@angular/core';
+import { Component, computed, input, output } from '@angular/core';
 import { DayOfWeek, NthWeek } from '../../core/models/flow';
 import {
   CADENCE_OPTIONS,
+  cadenceEndDateError,
   CadenceFields,
   CadenceOption,
   needsAnchorDate,
+  showsEndDate,
 } from '../../core/projection/cadence-options';
 import { dateInputValue, parseDateInput } from '../date-input';
 
@@ -27,7 +29,9 @@ export class CadencePicker {
 
   protected readonly cadenceOptions = CADENCE_OPTIONS;
   protected readonly needsAnchorDate = needsAnchorDate;
+  protected readonly showsEndDate = showsEndDate;
   protected readonly dateInputValue = dateInputValue;
+  protected readonly endDateError = computed(() => cadenceEndDateError(this.option(), this.fields()));
 
   protected readonly dayOfWeekOptions: { value: DayOfWeek; label: string }[] = DAY_NAMES.map(
     (label, value) => ({ value: value as DayOfWeek, label }),
@@ -51,6 +55,14 @@ export class CadencePicker {
 
   protected onAnchorDateInput(value: string): void {
     this.updateField('anchorDate', parseDateInput(value));
+  }
+
+  protected onDateInput(value: string): void {
+    this.updateField('date', parseDateInput(value));
+  }
+
+  protected onEndDateInput(value: string): void {
+    this.updateField('endDate', value ? parseDateInput(value) : undefined);
   }
 
   /** `<select>` has no `valueAsNumber` (that's an `<input type="number">` property). */

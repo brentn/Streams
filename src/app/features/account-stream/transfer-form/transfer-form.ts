@@ -4,6 +4,7 @@ import { AmountChange } from '../../../core/models/flow';
 import { Transfer } from '../../../core/models/transfer';
 import {
   buildCadence,
+  cadenceEndDateError,
   CadenceFields,
   CadenceOption,
   defaultCadenceFields,
@@ -44,7 +45,10 @@ export class TransferForm {
   );
 
   protected readonly isValid = computed(
-    () => this.otherAccountId() !== '' && this.otherAccountId() !== this.accountId(),
+    () =>
+      this.otherAccountId() !== '' &&
+      this.otherAccountId() !== this.accountId() &&
+      cadenceEndDateError(this.cadenceOption(), this.cadenceFields()) === null,
   );
 
   constructor() {

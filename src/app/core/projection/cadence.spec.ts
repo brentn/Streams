@@ -128,6 +128,62 @@ describe('occurrencesInRange', () => {
     });
   });
 
+  describe('one-time (period: once)', () => {
+    it('returns its single date when that date falls within the range', () => {
+      const cadence: Cadence = { period: 'once', date: d('2026-07-10') };
+      expect(occurrencesInRange(cadence, d('2026-07-01'), d('2026-07-31'))).toEqual([d('2026-07-10')]);
+    });
+
+    it('excludes the range start and includes the range end, like the repeating shapes', () => {
+      const cadence: Cadence = { period: 'once', date: d('2026-07-10') };
+      expect(occurrencesInRange(cadence, d('2026-07-10'), d('2026-07-31'))).toEqual([]);
+      expect(occurrencesInRange(cadence, d('2026-07-01'), d('2026-07-10'))).toEqual([d('2026-07-10')]);
+    });
+
+    it('returns an empty list when its date falls outside the range', () => {
+      const cadence: Cadence = { period: 'once', date: d('2026-08-01') };
+      expect(occurrencesInRange(cadence, d('2026-07-01'), d('2026-07-31'))).toEqual([]);
+    });
+  });
+
+  describe('end date', () => {
+    it('produces no occurrences past an End Date, inclusive of the End Date itself', () => {
+      const cadence: Cadence = {
+        period: 'week',
+        interval: 1,
+        anchors: [{ dayOfWeek: 5 }], // Friday
+        anchorDate: d('2026-01-02'),
+        endDate: d('2026-07-10'),
+      };
+      const result = occurrencesInRange(cadence, d('2026-06-30'), d('2026-07-21'));
+      expect(result).toEqual([d('2026-07-03'), d('2026-07-10')]);
+    });
+
+    it('includes an occurrence landing exactly on the End Date', () => {
+      const cadence: Cadence = {
+        period: 'month',
+        interval: 1,
+        anchors: [{ day: 15 }],
+        anchorDate: d('2026-01-15'),
+        endDate: d('2026-07-15'),
+      };
+      const result = occurrencesInRange(cadence, d('2026-06-30'), d('2026-07-31'));
+      expect(result).toEqual([d('2026-07-15')]);
+    });
+
+    it('has no effect when the End Date is after the queried range', () => {
+      const cadence: Cadence = {
+        period: 'week',
+        interval: 1,
+        anchors: [{ dayOfWeek: 5 }],
+        anchorDate: d('2026-01-02'),
+        endDate: d('2027-01-01'),
+      };
+      const result = occurrencesInRange(cadence, d('2026-06-30'), d('2026-07-21'));
+      expect(result).toEqual([d('2026-07-03'), d('2026-07-10'), d('2026-07-17')]);
+    });
+  });
+
   describe('yearly (period: year)', () => {
     it('finds one occurrence per year for a month+day anchor', () => {
       const cadence: Cadence = {

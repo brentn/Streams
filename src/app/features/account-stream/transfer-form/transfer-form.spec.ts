@@ -166,6 +166,25 @@ describe('TransferForm', () => {
     );
   });
 
+  it('blocks save when the cadence has an End Date before its anchor date', async () => {
+    const component = await createComponent('acc-1');
+    const saved = vi.fn();
+    component.saved.subscribe(saved);
+
+    component['direction'].set('out');
+    component['otherAccountId'].set('acc-2');
+    component['cadenceOption'].set('monthly');
+    component['cadenceFields'].set({
+      ...component['cadenceFields'](),
+      anchorDate: new Date(2026, 5, 1),
+      endDate: new Date(2026, 0, 1),
+    });
+
+    component['save']();
+
+    expect(saved).not.toHaveBeenCalled();
+  });
+
   it('emits cancelled without emitting saved', async () => {
     const component = await createComponent('acc-1');
     const saved = vi.fn();

@@ -1,4 +1,4 @@
-import { Component, effect, input, output, signal } from '@angular/core';
+import { Component, computed, effect, input, output, signal } from '@angular/core';
 import {
   AmountChange,
   BudgetFlow,
@@ -11,6 +11,7 @@ import {
 } from '../../../core/models/flow';
 import {
   buildCadence,
+  cadenceEndDateError,
   CadenceFields,
   CadenceOption,
   defaultCadenceFields,
@@ -51,6 +52,10 @@ export class FlowForm {
   protected readonly toleranceKind = signal<'none' | 'percent' | 'fixed'>('none');
   protected readonly toleranceValue = signal(0);
 
+  protected readonly isValid = computed(
+    () => this.kind() !== 'recurring' || cadenceEndDateError(this.cadenceOption(), this.cadenceFields()) === null,
+  );
+
   constructor() {
     effect(() => {
       const flow = this.flow();
@@ -79,6 +84,8 @@ export class FlowForm {
   }
 
   protected save(): void {
+    if (!this.isValid()) return;
+
     const id = this.flow()?.id ?? crypto.randomUUID();
     const toleranceKind = this.toleranceKind();
     const tolerance: Tolerance | undefined =

@@ -44,7 +44,7 @@ export class StorageRepository {
   private readonly dbPromise: Promise<IDBPDatabase<StreamsDb>>;
 
   constructor() {
-    this.dbPromise = openDB<StreamsDb>('streams', 8, {
+    this.dbPromise = openDB<StreamsDb>('streams', 9, {
       upgrade(db, oldVersion) {
         if (oldVersion < 1) {
           db.createObjectStore('accounts', { keyPath: 'id' });
@@ -79,6 +79,10 @@ export class StorageRepository {
         // v8: Flow gained `tolerance`. No structural change, same reasoning as v2 —
         // existing Flows read back with `tolerance: undefined`, which `varianceAlert`
         // already treats as "no Tolerance set, no alert."
+        // v9: Cadence gained the `once` period shape and an optional `endDate` on the
+        // repeating shapes. No structural change, same reasoning as v2 — existing
+        // Flows/Transfers read back with no `endDate`, which `occurrencesInRange`
+        // already treats as "repeats indefinitely."
       },
     });
   }

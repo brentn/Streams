@@ -255,6 +255,45 @@ describe('FlowForm', () => {
     expect(component['toleranceValue']()).toBe(50);
   });
 
+  it('blocks save when the recurring Flow cadence has an End Date before its anchor date', async () => {
+    const component = await createComponent();
+    const saved = vi.fn();
+    component.saved.subscribe(saved);
+
+    component['name'].set('Paycheck');
+    component['kind'].set('recurring');
+    component['amount'].set(2000);
+    component['cadenceOption'].set('monthly');
+    component['cadenceFields'].set({
+      ...component['cadenceFields'](),
+      anchorDate: new Date(2026, 5, 1),
+      endDate: new Date(2026, 0, 1),
+    });
+
+    component['save']();
+
+    expect(saved).not.toHaveBeenCalled();
+  });
+
+  it('allows save for a budget Flow regardless of leftover cadence field state', async () => {
+    const component = await createComponent();
+    const saved = vi.fn();
+    component.saved.subscribe(saved);
+
+    component['name'].set('Groceries');
+    component['kind'].set('budget');
+    component['amount'].set(400);
+    component['cadenceFields'].set({
+      ...component['cadenceFields'](),
+      anchorDate: new Date(2026, 5, 1),
+      endDate: new Date(2026, 0, 1),
+    });
+
+    component['save']();
+
+    expect(saved).toHaveBeenCalled();
+  });
+
   it('emits cancelled without emitting saved', async () => {
     const component = await createComponent();
     const saved = vi.fn();

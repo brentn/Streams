@@ -110,20 +110,27 @@ function yearOccurrences(cadence: Cadence & { period: 'year' }, startExclusive: 
 /**
  * All of a recurring-kind Flow's expected occurrence dates in `(startExclusive, endInclusive]`.
  * `cadence.anchorDate` fixes interval parity (which week/month is "on") — see the Flow model.
+ * A repeating cadence's `endDate`, if set, clamps the effective range end (inclusive).
  */
 export function occurrencesInRange(cadence: Cadence, startExclusive: Date, endInclusive: Date): Date[] {
-  if (endInclusive.getTime() <= startExclusive.getTime()) return [];
+  if (cadence.period === 'once') {
+    return inRange(cadence.date, startExclusive, endInclusive) ? [cadence.date] : [];
+  }
+
+  const effectiveEnd =
+    cadence.endDate && cadence.endDate.getTime() < endInclusive.getTime() ? cadence.endDate : endInclusive;
+  if (effectiveEnd.getTime() <= startExclusive.getTime()) return [];
 
   let results: Date[];
   switch (cadence.period) {
     case 'week':
-      results = weekOccurrences(cadence, startExclusive, endInclusive);
+      results = weekOccurrences(cadence, startExclusive, effectiveEnd);
       break;
     case 'month':
-      results = monthOccurrences(cadence, startExclusive, endInclusive);
+      results = monthOccurrences(cadence, startExclusive, effectiveEnd);
       break;
     case 'year':
-      results = yearOccurrences(cadence, startExclusive, endInclusive);
+      results = yearOccurrences(cadence, startExclusive, effectiveEnd);
       break;
   }
   return results.sort((a, b) => a.getTime() - b.getTime());

@@ -9,7 +9,16 @@
   </select>
 </label>
 
-@if (option() === 'weekly' || option() === 'biweekly') {
+@if (option() === 'once') {
+  <label>
+    Date
+    <input
+      type="date"
+      [value]="dateInputValue(fields().date)"
+      (input)="onDateInput($any($event.target).value)"
+    />
+  </label>
+} @else if (option() === 'weekly' || option() === 'biweekly') {
   <label>
     Day of week
     <select (change)="updateField('dayOfWeek', $any(selectNumber($event)))">
@@ -146,4 +155,18 @@
       (input)="onAnchorDateInput($any($event.target).value)"
     />
   </label>
+}
+
+@if (showsEndDate(option())) {
+  <label>
+    End Date
+    <input
+      type="date"
+      [value]="fields().endDate ? dateInputValue(fields().endDate!) : ''"
+      (input)="onEndDateInput($any($event.target).value)"
+    />
+  </label>
+  @if (endDateError(); as error) {
+    <p class="field-error">{{ error }}</p>
+  }
 }

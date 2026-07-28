@@ -45,4 +45,49 @@ describe('CadencePicker', () => {
       expect.objectContaining({ anchorDate: new Date(2026, 2, 15) }),
     );
   });
+
+  it('emits an updated date parsed from a date input value for the one-time option', async () => {
+    const component = await createComponent('once');
+    const changed = vi.fn();
+    component.fieldsChanged.subscribe(changed);
+
+    component['onDateInput']('2026-03-15');
+
+    expect(changed).toHaveBeenCalledWith(expect.objectContaining({ date: new Date(2026, 2, 15) }));
+  });
+
+  it('emits an updated endDate parsed from a date input value', async () => {
+    const component = await createComponent('monthly');
+    const changed = vi.fn();
+    component.fieldsChanged.subscribe(changed);
+
+    component['onEndDateInput']('2026-12-31');
+
+    expect(changed).toHaveBeenCalledWith(expect.objectContaining({ endDate: new Date(2026, 11, 31) }));
+  });
+
+  it('clears endDate when the End Date input is emptied', async () => {
+    const fields = { ...defaultCadenceFields(), endDate: new Date(2026, 11, 31) };
+    const component = await createComponent('monthly', fields);
+    const changed = vi.fn();
+    component.fieldsChanged.subscribe(changed);
+
+    component['onEndDateInput']('');
+
+    expect(changed).toHaveBeenCalledWith(expect.objectContaining({ endDate: undefined }));
+  });
+
+  it('surfaces no End Date error when fields are valid', async () => {
+    const fields = { ...defaultCadenceFields(), anchorDate: new Date(2026, 0, 1), endDate: new Date(2026, 5, 1) };
+    const component = await createComponent('monthly', fields);
+
+    expect(component['endDateError']()).toBeNull();
+  });
+
+  it('surfaces an End Date error when End Date falls before the anchor date', async () => {
+    const fields = { ...defaultCadenceFields(), anchorDate: new Date(2026, 5, 1), endDate: new Date(2026, 0, 1) };
+    const component = await createComponent('monthly', fields);
+
+    expect(component['endDateError']()).toEqual(expect.any(String));
+  });
 });

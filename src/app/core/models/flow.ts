@@ -15,12 +15,16 @@ export type Anchor = WeekAnchor | MonthAnchor | YearAnchor;
 /**
  * A recurring-kind Flow's schedule, patterned on iCalendar's RRULE.
  * `anchorDate` fixes interval parity (e.g. which Friday is "on" for a
- * biweekly cadence) — irrelevant when interval is 1.
+ * biweekly cadence) — irrelevant when interval is 1. `endDate`, if set,
+ * is the last date an occurrence may still fire (inclusive). The `once`
+ * shape describes a single, non-repeating occurrence and so carries
+ * neither `interval`/`anchors`/`anchorDate` nor `endDate`.
  */
 export type Cadence =
-  | { period: 'week'; interval: number; anchors: WeekAnchor[]; anchorDate: Date }
-  | { period: 'month'; interval: number; anchors: MonthAnchor[]; anchorDate: Date }
-  | { period: 'year'; interval: number; anchors: YearAnchor[]; anchorDate: Date };
+  | { period: 'week'; interval: number; anchors: WeekAnchor[]; anchorDate: Date; endDate?: Date }
+  | { period: 'month'; interval: number; anchors: MonthAnchor[]; anchorDate: Date; endDate?: Date }
+  | { period: 'year'; interval: number; anchors: YearAnchor[]; anchorDate: Date; endDate?: Date }
+  | { period: 'once'; date: Date };
 
 export type BudgetPeriod = 'month' | 'year';
 

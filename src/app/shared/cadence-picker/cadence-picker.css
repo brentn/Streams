@@ -20,3 +20,9 @@ select {
   border-radius: 0.375rem;
   padding: 0.4rem 0.6rem;
 }
+
+.field-error {
+  margin: -0.25rem 0 0;
+  color: var(--color-critical);
+  font-size: var(--text-body);
+}
