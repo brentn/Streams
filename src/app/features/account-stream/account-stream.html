@@ -19,6 +19,34 @@
       (retry)="resync()"
     />
 
+    @if (dryAlert(); as alert) {
+      <div class="dry-alert" role="alert">
+        <span class="message">
+          Projected to drop below your {{ account.dryFloor | currency }} Dry Floor on
+          {{ alert.date | date: 'mediumDate' }} ({{ alert.balance | currency }}).
+        </span>
+      </div>
+    }
+
+    <form class="entity-form dry-floor-form" (submit)="onDryFloorSubmit($event)">
+      <label>
+        Dry Floor
+        <input
+          type="number"
+          step="0.01"
+          [value]="dryFloorInput()"
+          (input)="dryFloorInput.set($any($event.target).valueAsNumber)"
+        />
+      </label>
+      @if (dryFloorDirty()) {
+        <div class="form-actions">
+          <button type="submit" [disabled]="isSavingDryFloor()">
+            {{ isSavingDryFloor() ? 'Saving…' : 'Save' }}
+          </button>
+        </div>
+      }
+    </form>
+
     <div class="card">
       <div class="rhythm">
         <app-calendar-chip class="chip" [date]="selectedDate()" />
@@ -34,7 +62,11 @@
           />
         </div>
 
-        <p class="balance tabular-nums" [class.projected]="!isActual()" [class.opposite]="isOppositeSign()">
+        <p
+          class="balance tabular-nums"
+          [class.projected]="!isActual()"
+          [class.opposite]="isOppositeSign()"
+        >
           {{ balance() | currency }}
           <span class="badge">{{ isActual() ? 'Actual' : 'Projected' }}</span>
         </p>

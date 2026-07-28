@@ -44,7 +44,7 @@ export class StorageRepository {
   private readonly dbPromise: Promise<IDBPDatabase<StreamsDb>>;
 
   constructor() {
-    this.dbPromise = openDB<StreamsDb>('streams', 6, {
+    this.dbPromise = openDB<StreamsDb>('streams', 7, {
       upgrade(db, oldVersion) {
         if (oldVersion < 1) {
           db.createObjectStore('accounts', { keyPath: 'id' });
@@ -73,6 +73,9 @@ export class StorageRepository {
         if (oldVersion < 6) {
           db.createObjectStore('transfers', { keyPath: 'id' });
         }
+        // v7: Account gained `dryFloor`. No structural change, same reasoning as v2 —
+        // existing Accounts read back with `dryFloor: undefined` until next resaved;
+        // `account-stream`'s `load()` normalizes that to 0 on the way in.
       },
     });
   }

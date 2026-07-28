@@ -1,3 +1,5 @@
+@import '../../shared/styles/entity-form.css';
+
 .stream {
   max-width: 40rem;
   margin: 0 auto;
@@ -64,6 +66,33 @@ h1 {
 .resync:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+.dry-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.75rem 1rem;
+  background: color-mix(in srgb, var(--color-critical) 12%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-critical) 35%, transparent);
+  border-radius: 0.5rem;
+  color: var(--color-critical);
+  margin: 0.75rem 0;
+}
+
+.dry-alert .message {
+  font-size: var(--text-body);
+  color: var(--color-ink-primary);
+}
+
+.dry-floor-form {
+  flex-direction: row;
+  align-items: flex-end;
+}
+
+.dry-floor-form label {
+  flex: 1;
+  max-width: 12rem;
 }
 
 .card {

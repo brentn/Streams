@@ -4,7 +4,8 @@ import { StorageRepository } from '../storage/storage-repository';
 
 /**
  * Re-syncs every already-confirmed account from SimpleFIN, preserving each
- * account's previously chosen `expectedSign`. Shared by `account-stream` and
+ * account's previously chosen `expectedSign` and `dryFloor` — SimpleFIN knows
+ * neither. Shared by `account-stream` and
  * the multi-account view — resync only refreshes accounts the user has
  * already been through the connect flow's sign-confirmation step for; an
  * account SimpleFIN returns that isn't stored locally is skipped, since
@@ -32,7 +33,11 @@ export async function resyncKnownAccounts(
   for (const { account, transactions } of synced) {
     const previous = existing.find((a) => a.id === account.id);
     if (!previous) continue;
-    await storage.upsertAccount({ ...account, expectedSign: previous.expectedSign });
+    await storage.upsertAccount({
+      ...account,
+      expectedSign: previous.expectedSign,
+      dryFloor: previous.dryFloor,
+    });
     await storage.upsertTransactions(categorizeTransactions(transactions, rules));
   }
 }

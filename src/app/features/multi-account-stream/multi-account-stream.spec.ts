@@ -15,6 +15,7 @@ const checking: Account = {
   balance: 1000,
   balanceDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
   expectedSign: 1,
+  dryFloor: 0,
 };
 
 const creditCard: Account = {
@@ -24,6 +25,7 @@ const creditCard: Account = {
   balance: -300,
   balanceDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
   expectedSign: -1,
+  dryFloor: 0,
 };
 
 describe('MultiAccountStream', () => {
@@ -94,7 +96,10 @@ describe('MultiAccountStream', () => {
   });
 
   it('flags the Total as opposite-sign only when net worth goes negative', async () => {
-    storage.getAccounts.mockResolvedValue([{ ...checking, balance: 100 }, { ...creditCard, balance: -300 }]);
+    storage.getAccounts.mockResolvedValue([
+      { ...checking, balance: 100 },
+      { ...creditCard, balance: -300 },
+    ]);
     const fixture = TestBed.createComponent(MultiAccountStream);
     const component = fixture.componentInstance;
 
@@ -180,8 +185,20 @@ describe('MultiAccountStream', () => {
   it('re-syncs only accounts already known locally, preserving their expectedSign', async () => {
     storage.getAccessUrl.mockResolvedValue('https://user:pass@bridge.simplefin.org/simplefin');
     simplefin.fetchAccounts.mockResolvedValue([
-      { account: { ...checking, expectedSign: undefined as never, balance: 1200 }, transactions: [] },
-      { account: { id: 'acc-new', name: 'New', institutionName: 'Bank', balance: 5, balanceDate: new Date() }, transactions: [] },
+      {
+        account: { ...checking, expectedSign: undefined as never, balance: 1200 },
+        transactions: [],
+      },
+      {
+        account: {
+          id: 'acc-new',
+          name: 'New',
+          institutionName: 'Bank',
+          balance: 5,
+          balanceDate: new Date(),
+        },
+        transactions: [],
+      },
     ]);
 
     const fixture = TestBed.createComponent(MultiAccountStream);

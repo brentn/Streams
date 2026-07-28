@@ -1,11 +1,15 @@
 import { Component, computed, effect, inject, input, signal } from '@angular/core';
-import { CurrencyPipe } from '@angular/common';
+import { CurrencyPipe, DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { Account } from '../../core/models/account';
 import { Flow } from '../../core/models/flow';
 import { Transaction } from '../../core/models/transaction';
 import { Transfer } from '../../core/models/transfer';
-import { balanceAtDate, balanceSeries } from '../../core/projection/projection-engine';
+import {
+  balanceAtDate,
+  balanceSeries,
+  runningDryAlert,
+} from '../../core/projection/projection-engine';
 import { BandPoint } from '../../core/charting/band-segments';
 import {
   boundaryXFor,
@@ -29,6 +33,7 @@ import { TransferList } from './transfer-list/transfer-list';
   selector: 'app-account-stream',
   imports: [
     CurrencyPipe,
+    DatePipe,
     RouterLink,
     DragScrub,
     CalendarChip,
@@ -57,8 +62,29 @@ export class AccountStream {
   protected readonly dayOffset = signal(0);
   protected readonly isSyncing = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
+  protected readonly dryFloorInput = signal(0);
+  protected readonly isSavingDryFloor = signal(false);
 
   protected readonly selectedDate = computed(() => selectedDateFor(this.dayOffset()));
+
+  protected readonly dryFloorDirty = computed(() => {
+    const account = this.account();
+    const input = this.dryFloorInput();
+    return account !== null && Number.isFinite(input) && input !== account.dryFloor;
+  });
+
+  /** Recomputed from the current Account/Flow/Transfer/Transaction state, so it updates automatically as new Transactions sync in and the projection shifts. */
+  protected readonly dryAlert = computed(() => {
+    const account = this.account();
+    if (!account) return null;
+    return runningDryAlert(
+      account,
+      this.transactions(),
+      this.flows(),
+      this.transfers(),
+      new Date(),
+    );
+  });
 
   protected readonly balance = computed(() => {
     const account = this.account();
@@ -115,12 +141,36 @@ export class AccountStream {
 
   protected async load(id: string): Promise<void> {
     const accounts = await this.storage.getAccounts();
-    const account = accounts.find((a) => a.id === id) ?? null;
+    const found = accounts.find((a) => a.id === id) ?? null;
+    // A record stored before the Dry Floor migration has no `dryFloor` yet — treat it as 0,
+    // same default a freshly connected Account gets.
+    const account = found ? { ...found, dryFloor: found.dryFloor ?? 0 } : null;
     this.account.set(account);
     this.allAccounts.set(accounts);
+    this.dryFloorInput.set(account?.dryFloor ?? 0);
     this.transactions.set(account ? await this.storage.getTransactionsForAccount(id) : []);
     this.flows.set(account ? await this.storage.getFlowsForAccount(id) : []);
     this.transfers.set(account ? await this.storage.getTransfersForAccount(id) : []);
+  }
+
+  protected onDryFloorSubmit(event: Event): void {
+    event.preventDefault();
+    void this.saveDryFloor();
+  }
+
+  protected async saveDryFloor(): Promise<void> {
+    const account = this.account();
+    const dryFloor = this.dryFloorInput();
+    if (!account || !Number.isFinite(dryFloor)) return;
+
+    this.isSavingDryFloor.set(true);
+    try {
+      const updated: Account = { ...account, dryFloor };
+      await this.storage.upsertAccount(updated);
+      this.account.set(updated);
+    } finally {
+      this.isSavingDryFloor.set(false);
+    }
   }
 
   protected async reloadFlows(): Promise<void> {

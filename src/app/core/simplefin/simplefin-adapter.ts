@@ -30,9 +30,13 @@ interface SimpleFinAccountsResponse {
  */
 const TRANSACTION_LOOKBACK_DAYS = 90;
 
-/** SimpleFIN carries no asset/liability classifier, so a freshly synced account has no `expectedSign` yet — that's user-set in the connect flow's sign-confirmation step. */
+/**
+ * SimpleFIN carries no asset/liability classifier, so a freshly synced account has no
+ * `expectedSign` yet — that's user-set in the connect flow's sign-confirmation step. It
+ * likewise knows nothing of Dry Floor, a Streams-only concept the user sets after connecting.
+ */
 export interface SyncedAccount {
-  account: Omit<Account, 'expectedSign'>;
+  account: Omit<Account, 'expectedSign' | 'dryFloor'>;
   transactions: Transaction[];
 }
 
@@ -66,7 +70,11 @@ export class SimpleFinAdapter {
   }
 }
 
-function parseAccessUrl(accessUrl: string): { baseUrl: string; username: string; password: string } {
+function parseAccessUrl(accessUrl: string): {
+  baseUrl: string;
+  username: string;
+  password: string;
+} {
   const url = new URL(accessUrl);
   const username = decodeURIComponent(url.username);
   const password = decodeURIComponent(url.password);

@@ -24,13 +24,23 @@ function flowContribution(flow: Flow, startExclusive: Date, endInclusive: Date):
   const changes = flow.amountChanges ?? [];
   const magnitude =
     flow.kind === 'recurring'
-      ? cadenceTimelineContribution(flow.cadence, flow.amount, changes, startExclusive, endInclusive)
+      ? cadenceTimelineContribution(
+          flow.cadence,
+          flow.amount,
+          changes,
+          startExclusive,
+          endInclusive,
+        )
       : budgetContribution(flow.period, flow.limit, changes, startExclusive, endInclusive);
   return signedFlowAmount(magnitude, flow.direction);
 }
 
 /** Every active Flow's expected contribution over `(startExclusive, endInclusive]`. */
-function projectedFlowContribution(flows: Flow[], startExclusive: Date, endInclusive: Date): number {
+function projectedFlowContribution(
+  flows: Flow[],
+  startExclusive: Date,
+  endInclusive: Date,
+): number {
   return flows.reduce((sum, flow) => sum + flowContribution(flow, startExclusive, endInclusive), 0);
 }
 
@@ -68,7 +78,8 @@ function projectedContribution(
   return (
     projectedFlowContribution(flows, startExclusive, endInclusive) +
     transfers.reduce(
-      (sum, transfer) => sum + transferContribution(transfer, accountId, startExclusive, endInclusive),
+      (sum, transfer) =>
+        sum + transferContribution(transfer, accountId, startExclusive, endInclusive),
       0,
     )
   );
@@ -120,4 +131,42 @@ export function balanceSeries(
     date,
     balance: balanceAtDate(account, transactions, date, flows, transfers),
   }));
+}
+
+/** Per CONTEXT.md's Projection Horizon: the rolling forward-looking window Running-Dry Alerts are evaluated within. */
+export const PROJECTION_HORIZON_DAYS = 90;
+
+function addDays(date: Date, days: number): Date {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
+export interface RunningDryAlert {
+  date: Date;
+  balance: number;
+}
+
+/**
+ * The earliest date within the Projection Horizon (inclusive of `today`) at which the
+ * Account's projected balance is expected to cross below its Dry Floor, or null if it doesn't.
+ * Scans day by day rather than only at period boundaries, since a budget-kind Flow's prorated
+ * contribution moves continuously rather than only stepping at period edges.
+ */
+export function runningDryAlert(
+  account: Pick<Account, 'id' | 'balance' | 'balanceDate' | 'dryFloor'>,
+  transactions: Transaction[],
+  flows: Flow[],
+  transfers: Transfer[],
+  today: Date,
+  horizonDays: number = PROJECTION_HORIZON_DAYS,
+): RunningDryAlert | null {
+  for (let offset = 0; offset <= horizonDays; offset++) {
+    const date = addDays(today, offset);
+    const balance = balanceAtDate(account, transactions, date, flows, transfers);
+    if (balance < account.dryFloor) {
+      return { date, balance };
+    }
+  }
+  return null;
 }

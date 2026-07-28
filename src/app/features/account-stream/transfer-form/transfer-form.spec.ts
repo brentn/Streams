@@ -12,10 +12,15 @@ function account(id: string, name: string): Account {
     balance: 0,
     balanceDate: new Date('2026-01-01'),
     expectedSign: 1,
+    dryFloor: 0,
   };
 }
 
-const accounts = [account('acc-1', 'Checking'), account('acc-2', 'Savings'), account('acc-3', 'Credit Card')];
+const accounts = [
+  account('acc-1', 'Checking'),
+  account('acc-2', 'Savings'),
+  account('acc-3', 'Credit Card'),
+];
 
 describe('TransferForm', () => {
   async function createComponent(
@@ -83,7 +88,12 @@ describe('TransferForm', () => {
       fromAccountId: 'acc-1',
       toAccountId: 'acc-2',
       amount: 500,
-      cadence: { period: 'month', interval: 1, anchors: [{ day: 1 }], anchorDate: new Date(2026, 0, 1) },
+      cadence: {
+        period: 'month',
+        interval: 1,
+        anchors: [{ day: 1 }],
+        anchorDate: new Date(2026, 0, 1),
+      },
     };
 
     const component = await createComponent('acc-1', transfer);
@@ -99,7 +109,12 @@ describe('TransferForm', () => {
       fromAccountId: 'acc-3',
       toAccountId: 'acc-1',
       amount: 200,
-      cadence: { period: 'month', interval: 1, anchors: [{ day: 15 }], anchorDate: new Date(2026, 0, 1) },
+      cadence: {
+        period: 'month',
+        interval: 1,
+        anchors: [{ day: 15 }],
+        anchorDate: new Date(2026, 0, 1),
+      },
     };
 
     const component = await createComponent('acc-1', transfer);
@@ -114,7 +129,12 @@ describe('TransferForm', () => {
       fromAccountId: 'acc-1',
       toAccountId: 'acc-2',
       amount: 500,
-      cadence: { period: 'month', interval: 1, anchors: [{ day: 1 }], anchorDate: new Date(2026, 0, 1) },
+      cadence: {
+        period: 'month',
+        interval: 1,
+        anchors: [{ day: 1 }],
+        anchorDate: new Date(2026, 0, 1),
+      },
     };
     const component = await createComponent('acc-1', transfer);
     const saved = vi.fn();

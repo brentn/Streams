@@ -74,7 +74,7 @@ export class ConnectAccount {
       const rules = await this.storage.getCategorizationRules();
       for (const { account, transactions } of this.pendingAccounts()) {
         const expectedSign = choices[account.id];
-        const withSign: Account = { ...account, expectedSign };
+        const withSign: Account = { ...account, expectedSign, dryFloor: 0 };
         await this.storage.upsertAccount(withSign);
         await this.storage.upsertTransactions(categorizeTransactions(transactions, rules));
       }

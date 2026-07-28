@@ -44,6 +44,7 @@ describe('StorageRepository', () => {
       balance: 100,
       balanceDate: new Date('2026-01-01'),
       expectedSign: 1,
+      dryFloor: 0,
     };
 
     await repo.upsertAccount(account);
@@ -59,6 +60,7 @@ describe('StorageRepository', () => {
       balance: 100,
       balanceDate: new Date('2026-01-01'),
       expectedSign: 1,
+      dryFloor: 0,
     };
     const updated: Account = { ...original, balance: 250 };
 
@@ -236,7 +238,12 @@ describe('StorageRepository', () => {
       fromAccountId: 'acc-1',
       toAccountId: 'acc-2',
       amount: 500,
-      cadence: { period: 'month', interval: 1, anchors: [{ day: 1 }], anchorDate: new Date(2026, 0, 1) },
+      cadence: {
+        period: 'month',
+        interval: 1,
+        anchors: [{ day: 1 }],
+        anchorDate: new Date(2026, 0, 1),
+      },
     };
     const updated: Transfer = { ...original, amount: 750 };
 
@@ -252,21 +259,36 @@ describe('StorageRepository', () => {
       fromAccountId: 'acc-1',
       toAccountId: 'acc-2',
       amount: 500,
-      cadence: { period: 'month', interval: 1, anchors: [{ day: 1 }], anchorDate: new Date(2026, 0, 1) },
+      cadence: {
+        period: 'month',
+        interval: 1,
+        anchors: [{ day: 1 }],
+        anchorDate: new Date(2026, 0, 1),
+      },
     };
     const incoming: Transfer = {
       id: 'transfer-2',
       fromAccountId: 'acc-3',
       toAccountId: 'acc-1',
       amount: 200,
-      cadence: { period: 'month', interval: 1, anchors: [{ day: 15 }], anchorDate: new Date(2026, 0, 1) },
+      cadence: {
+        period: 'month',
+        interval: 1,
+        anchors: [{ day: 15 }],
+        anchorDate: new Date(2026, 0, 1),
+      },
     };
     const unrelated: Transfer = {
       id: 'transfer-3',
       fromAccountId: 'acc-2',
       toAccountId: 'acc-3',
       amount: 50,
-      cadence: { period: 'month', interval: 1, anchors: [{ day: 1 }], anchorDate: new Date(2026, 0, 1) },
+      cadence: {
+        period: 'month',
+        interval: 1,
+        anchors: [{ day: 1 }],
+        anchorDate: new Date(2026, 0, 1),
+      },
     };
 
     await repo.upsertTransfer(outgoing);
@@ -285,7 +307,12 @@ describe('StorageRepository', () => {
       fromAccountId: 'acc-1',
       toAccountId: 'acc-2',
       amount: 500,
-      cadence: { period: 'month', interval: 1, anchors: [{ day: 1 }], anchorDate: new Date(2026, 0, 1) },
+      cadence: {
+        period: 'month',
+        interval: 1,
+        anchors: [{ day: 1 }],
+        anchorDate: new Date(2026, 0, 1),
+      },
     };
 
     await repo.upsertTransfer(transfer);
@@ -319,6 +346,7 @@ describe('StorageRepository', () => {
         balance: 100,
         balanceDate: new Date('2026-01-01'),
         expectedSign: 1,
+        dryFloor: 0,
       };
       await repo.upsertAccount(account);
       await repo.saveAccessUrl('https://user:pass@bridge.simplefin.org/simplefin');
@@ -326,7 +354,14 @@ describe('StorageRepository', () => {
       const { stores } = await repo.exportAll();
 
       expect(Object.keys(stores).sort()).toEqual(
-        ['accounts', 'categorizationRules', 'flows', 'settings', 'transactions', 'transfers'].sort(),
+        [
+          'accounts',
+          'categorizationRules',
+          'flows',
+          'settings',
+          'transactions',
+          'transfers',
+        ].sort(),
       );
       expect(stores['accounts']).toEqual([account]);
       expect(stores['settings']).toEqual([
@@ -338,7 +373,7 @@ describe('StorageRepository', () => {
     it('reports the current database version alongside the dumped stores', async () => {
       const { dbVersion } = await repo.exportAll();
 
-      expect(dbVersion).toBe(6);
+      expect(dbVersion).toBe(7);
     });
 
     it('importAll replaces the contents of every named store, leaving stores absent from the bundle untouched', async () => {
@@ -349,6 +384,7 @@ describe('StorageRepository', () => {
         balance: 1,
         balanceDate: new Date('2020-01-01'),
         expectedSign: 1,
+        dryFloor: 0,
       };
       await repo.upsertAccount(staleAccount);
       const rule: CategorizationRule = { matchText: 'kept rule', flowId: 'flow-x' };
@@ -361,6 +397,7 @@ describe('StorageRepository', () => {
         balance: 500,
         balanceDate: new Date('2026-02-01'),
         expectedSign: 1,
+        dryFloor: 0,
       };
       await repo.importAll({ accounts: [incomingAccount], transactions: [] });
 
@@ -383,6 +420,7 @@ describe('StorageRepository', () => {
         balance: 100,
         balanceDate: new Date('2026-01-01'),
         expectedSign: 1,
+        dryFloor: 0,
       };
       const transaction: Transaction = {
         id: 'txn-1',

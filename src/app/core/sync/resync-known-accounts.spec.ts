@@ -9,6 +9,7 @@ const known: Account = {
   balance: 100,
   balanceDate: new Date('2026-07-25'),
   expectedSign: -1, // deliberately not 1, to prove it's preserved rather than defaulted
+  dryFloor: 250, // deliberately not 0, to prove it's preserved rather than defaulted
 };
 
 describe('resyncKnownAccounts', () => {
@@ -35,9 +36,9 @@ describe('resyncKnownAccounts', () => {
   it('throws without persisting anything when there is no stored access URL', async () => {
     storage.getAccessUrl.mockResolvedValue(undefined);
 
-    await expect(
-      resyncKnownAccounts(storage as never, simplefin as never),
-    ).rejects.toThrow('No SimpleFIN connection found.');
+    await expect(resyncKnownAccounts(storage as never, simplefin as never)).rejects.toThrow(
+      'No SimpleFIN connection found.',
+    );
     expect(simplefin.fetchAccounts).not.toHaveBeenCalled();
   });
 
@@ -53,9 +54,30 @@ describe('resyncKnownAccounts', () => {
     );
   });
 
+  it('preserves the previously set dryFloor for a known account', async () => {
+    simplefin.fetchAccounts.mockResolvedValue([
+      { account: { ...known, balance: 999 }, transactions: [] },
+    ]);
+
+    await resyncKnownAccounts(storage as never, simplefin as never);
+
+    expect(storage.upsertAccount).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'acc-1', dryFloor: 250 }),
+    );
+  });
+
   it('skips an account SimpleFIN returns that has no local counterpart', async () => {
     simplefin.fetchAccounts.mockResolvedValue([
-      { account: { id: 'acc-new', name: 'New', institutionName: 'Bank', balance: 5, balanceDate: new Date() }, transactions: [] },
+      {
+        account: {
+          id: 'acc-new',
+          name: 'New',
+          institutionName: 'Bank',
+          balance: 5,
+          balanceDate: new Date(),
+        },
+        transactions: [],
+      },
     ]);
 
     await resyncKnownAccounts(storage as never, simplefin as never);

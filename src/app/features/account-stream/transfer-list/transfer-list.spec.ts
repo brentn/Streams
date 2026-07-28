@@ -13,6 +13,7 @@ function account(id: string, name: string): Account {
     balance: 0,
     balanceDate: new Date('2026-01-01'),
     expectedSign: 1,
+    dryFloor: 0,
   };
 }
 
@@ -24,7 +25,12 @@ function transfer(overrides: Partial<Transfer> = {}): Transfer {
     fromAccountId: 'acc-1',
     toAccountId: 'acc-2',
     amount: 500,
-    cadence: { period: 'month', interval: 1, anchors: [{ day: 1 }], anchorDate: new Date(2026, 0, 1) },
+    cadence: {
+      period: 'month',
+      interval: 1,
+      anchors: [{ day: 1 }],
+      anchorDate: new Date(2026, 0, 1),
+    },
     ...overrides,
   };
 }

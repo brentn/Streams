@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { BudgetFlow, Cadence, RecurringFlow } from '../models/flow';
 import { Transaction } from '../models/transaction';
 import { Transfer } from '../models/transfer';
-import { balanceAtDate, balanceSeries } from './projection-engine';
+import {
+  balanceAtDate,
+  balanceSeries,
+  PROJECTION_HORIZON_DAYS,
+  runningDryAlert,
+} from './projection-engine';
 
 const account = { id: 'acc-1', balance: 1000, balanceDate: new Date('2026-07-25T12:00:00Z') };
 const otherAccount = { id: 'acc-2', balance: 500, balanceDate: new Date('2026-07-25T12:00:00Z') };
@@ -26,7 +31,14 @@ function transfer(overrides: Partial<Transfer> = {}): Transfer {
 }
 
 function txn(id: string, date: string, amount: number): Transaction {
-  return { id, accountId: 'acc-1', date: new Date(date), amount, description: `txn-${id}`, matchedFlowId: null };
+  return {
+    id,
+    accountId: 'acc-1',
+    date: new Date(date),
+    amount,
+    description: `txn-${id}`,
+    matchedFlowId: null,
+  };
 }
 
 function recurringFlow(overrides: Partial<RecurringFlow> = {}): RecurringFlow {
@@ -169,7 +181,9 @@ describe('balanceAtDate', () => {
       recurringFlow({
         amount: 100,
         direction: 'in',
-        amountChanges: [{ type: 'recurring-rule', anniversaryDate: new Date(2026, 7, 1), delta: 10 }],
+        amountChanges: [
+          { type: 'recurring-rule', anniversaryDate: new Date(2026, 7, 1), delta: 10 },
+        ],
       }),
     ];
     expect(balanceAtDate(account, [], future, flows)).toBe(1000 + 100 + 110);
@@ -283,5 +297,53 @@ describe('balanceSeries', () => {
       { date: dates[0], balance: 1000 },
       { date: dates[1], balance: 900 },
     ]);
+  });
+});
+
+describe('runningDryAlert', () => {
+  const today = new Date('2026-07-25T12:00:00Z'); // same instant as account.balanceDate
+
+  it('defaults the Projection Horizon to 90 days', () => {
+    expect(PROJECTION_HORIZON_DAYS).toBe(90);
+  });
+
+  it('returns null when the projected balance never crosses the Dry Floor within the horizon', () => {
+    const dryAccount = { ...account, dryFloor: 0 };
+    expect(runningDryAlert(dryAccount, [], [], [], today)).toBeNull();
+  });
+
+  it('returns the first date and balance at which the projection crosses below the Dry Floor', () => {
+    // Weekly out-direction Flow: balance holds at 1000 through 7/30, drops to 900 on the
+    // first Friday occurrence (7/31) — the first point under a 950 Dry Floor.
+    const dryAccount = { ...account, dryFloor: 950 };
+    const flows = [recurringFlow({ amount: 100, direction: 'out' })];
+
+    expect(runningDryAlert(dryAccount, [], flows, [], today)).toEqual({
+      date: new Date('2026-07-31T12:00:00Z'),
+      balance: 900,
+    });
+  });
+
+  it('does not report a crossing that falls beyond the given horizon', () => {
+    // Same scenario as above, but the crossing (7/31, 6 days out) falls outside a 5-day horizon.
+    const dryAccount = { ...account, dryFloor: 950 };
+    const flows = [recurringFlow({ amount: 100, direction: 'out' })];
+
+    expect(runningDryAlert(dryAccount, [], flows, [], today, 5)).toBeNull();
+  });
+
+  it('reports today itself when the balance is already at or below the Dry Floor at the start of the horizon', () => {
+    const dryAccount = { ...account, dryFloor: 1500 };
+    expect(runningDryAlert(dryAccount, [], [], [], today)).toEqual({ date: today, balance: 1000 });
+  });
+
+  it('reflects a Transfer’s occurrences alongside the Account’s Flows', () => {
+    const dryAccount = { ...account, dryFloor: 950 };
+    const transfers = [transfer({ amount: 100 })]; // from-Account: acc-1, same weekly Friday cadence
+
+    expect(runningDryAlert(dryAccount, [], [], transfers, today)).toEqual({
+      date: new Date('2026-07-31T12:00:00Z'),
+      balance: 900,
+    });
   });
 });

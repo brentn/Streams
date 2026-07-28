@@ -47,9 +47,7 @@ describe('ConnectAccount', () => {
   });
 
   it('advances to the sign-confirmation step on a successful connect, without persisting anything yet', async () => {
-    simplefin.claimAccessUrl.mockResolvedValue(
-      'https://user:pass@bridge.simplefin.org/simplefin',
-    );
+    simplefin.claimAccessUrl.mockResolvedValue('https://user:pass@bridge.simplefin.org/simplefin');
     simplefin.fetchAccounts.mockResolvedValue([
       {
         account: {
@@ -163,10 +161,10 @@ describe('ConnectAccount', () => {
         'https://user:pass@bridge.simplefin.org/simplefin',
       );
       expect(storage.upsertAccount).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'acc-1', expectedSign: 1 }),
+        expect.objectContaining({ id: 'acc-1', expectedSign: 1, dryFloor: 0 }),
       );
       expect(storage.upsertAccount).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'acc-2', expectedSign: -1 }),
+        expect.objectContaining({ id: 'acc-2', expectedSign: -1, dryFloor: 0 }),
       );
       expect(storage.upsertTransactions).toHaveBeenCalledWith([
         {

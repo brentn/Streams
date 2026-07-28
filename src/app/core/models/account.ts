@@ -9,4 +9,6 @@ export interface Account {
   balanceDate: Date;
   /** User-set at connect time, never inferred. */
   expectedSign: Sign;
+  /** The Dry Floor: crossing below it triggers a Running-Dry Alert; defaults to $0. */
+  dryFloor: number;
 }
