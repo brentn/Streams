@@ -129,11 +129,16 @@ h1 {
 
 .chip-row {
   display: flex;
+  justify-content: center;
   align-items: center;
-  gap: 0.5rem;
+  width: 100%;
 }
 
 .today {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
   font: inherit;
   font-weight: 600;
   font-size: var(--text-eyebrow);
