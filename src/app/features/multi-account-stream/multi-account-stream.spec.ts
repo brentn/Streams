@@ -63,6 +63,7 @@ describe('MultiAccountStream', () => {
     };
     simplefin = { fetchAccounts: vi.fn() };
     router = { navigateByUrl: vi.fn() };
+    vi.stubGlobal('open', vi.fn());
 
     await TestBed.configureTestingModule({
       imports: [MultiAccountStream],
@@ -252,7 +253,7 @@ describe('MultiAccountStream', () => {
       });
     });
 
-    it('navigates to the connect flow, rather than resyncing, when the banner action fires for needs-reauth', async () => {
+    it('opens the SimpleFIN Bridge and navigates to the connect flow, rather than resyncing, when the banner action fires for needs-reauth', async () => {
       storage.getAccounts.mockResolvedValue([
         { ...checking, syncStatus: { kind: 'needs-reauth' } },
       ]);
@@ -263,6 +264,11 @@ describe('MultiAccountStream', () => {
 
       component['onBannerAction']();
 
+      expect(window.open).toHaveBeenCalledWith(
+        'https://beta-bridge.simplefin.org/my-account',
+        '_blank',
+        'noopener,noreferrer',
+      );
       expect(router.navigateByUrl).toHaveBeenCalledWith('/connect');
       expect(simplefin.fetchAccounts).not.toHaveBeenCalled();
     });

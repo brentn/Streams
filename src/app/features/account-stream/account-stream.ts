@@ -20,6 +20,7 @@ import {
 } from '../../core/charting/date-window';
 import { bannerPresentation, derivedBannerState } from '../../core/sync/sync-presentation';
 import { SyncCoordinator } from '../../core/sync/sync-coordinator';
+import { startReconnect } from '../../core/simplefin/reconnect';
 import { StorageRepository } from '../../core/storage/storage-repository';
 import { CalendarChip } from '../../shared/calendar-chip/calendar-chip';
 import { DragScrub } from '../../shared/drag-scrub/drag-scrub.directive';
@@ -188,10 +189,10 @@ export class AccountStream {
     await this.load(this.id());
   }
 
-  /** The banner's action button follows whichever state is showing (see `bannerPresentation`) — Reconnect routes back through the connect flow, anything else re-syncs. */
+  /** The banner's action button follows whichever state is showing (see `bannerPresentation`) — Reconnect opens the SimpleFIN Bridge to re-link and routes back through the connect flow, anything else re-syncs. */
   protected onBannerAction(): void {
     if (this.bannerState().kind === 'needs-reauth') {
-      void this.router.navigateByUrl('/connect');
+      startReconnect(this.router);
     } else {
       void this.resync();
     }
