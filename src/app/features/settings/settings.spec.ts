@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Account } from '../../core/models/account';
 import { FileDownloadService } from '../../core/download/file-download';
 import { StorageRepository } from '../../core/storage/storage-repository';
 import { Settings } from './settings';
@@ -9,14 +10,28 @@ describe('Settings', () => {
   let storage: {
     exportAll: ReturnType<typeof vi.fn>;
     importAll: ReturnType<typeof vi.fn>;
+    getAccounts: ReturnType<typeof vi.fn>;
+    upsertAccount: ReturnType<typeof vi.fn>;
   };
   let fileDownload: { download: ReturnType<typeof vi.fn> };
   let router: { navigateByUrl: ReturnType<typeof vi.fn> };
+
+  const account: Account = {
+    id: 'acc-1',
+    name: 'Checking',
+    institutionName: 'Bank',
+    balance: 100,
+    balanceDate: new Date('2026-07-25'),
+    expectedSign: 1,
+    dryFloor: 0,
+  };
 
   beforeEach(async () => {
     storage = {
       exportAll: vi.fn(),
       importAll: vi.fn(),
+      getAccounts: vi.fn().mockResolvedValue([account]),
+      upsertAccount: vi.fn(),
     };
     fileDownload = { download: vi.fn() };
     router = { navigateByUrl: vi.fn() };
@@ -69,6 +84,59 @@ describe('Settings', () => {
       component['onBackupImported']();
 
       expect(router.navigateByUrl).toHaveBeenCalledWith('/accounts');
+    });
+  });
+
+  describe('accounts', () => {
+    it('loads every stored Account on init', async () => {
+      const fixture = TestBed.createComponent(Settings);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(fixture.componentInstance['accounts']()).toEqual([account]);
+    });
+
+    it('persists an edited Account and reflects it in the loaded list', async () => {
+      const fixture = TestBed.createComponent(Settings);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      const component = fixture.componentInstance;
+      const updated: Account = { ...account, name: 'Renamed', institutionName: 'New Bank' };
+
+      await component['onAccountSaved'](updated);
+
+      expect(storage.upsertAccount).toHaveBeenCalledWith(updated);
+      expect(component['accounts']()).toEqual([updated]);
+    });
+
+    it('surfaces an error message, without updating the list, when persisting an edit fails', async () => {
+      storage.upsertAccount.mockRejectedValue(new Error('db unavailable'));
+      const fixture = TestBed.createComponent(Settings);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      const component = fixture.componentInstance;
+      const updated: Account = { ...account, name: 'Renamed' };
+
+      await component['onAccountSaved'](updated);
+
+      expect(component['errorMessage']()).toBe('db unavailable');
+      expect(component['accounts']()).toEqual([account]);
+    });
+
+    it('retries the failed account save', async () => {
+      storage.upsertAccount.mockRejectedValueOnce(new Error('db unavailable')).mockResolvedValueOnce(undefined);
+      const fixture = TestBed.createComponent(Settings);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      const component = fixture.componentInstance;
+      const updated: Account = { ...account, name: 'Renamed' };
+      await component['onAccountSaved'](updated);
+      expect(component['errorMessage']()).toBe('db unavailable');
+
+      await component['retry']();
+
+      expect(component['errorMessage']()).toBeNull();
+      expect(component['accounts']()).toEqual([updated]);
     });
   });
 

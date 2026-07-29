@@ -1,5 +1,3 @@
-@import '../../shared/styles/entity-form.css';
-
 .stream {
   max-width: 40rem;
   margin: 0 auto;
@@ -83,16 +81,6 @@ h1 {
 .dry-alert .message {
   font-size: var(--text-body);
   color: var(--color-ink-primary);
-}
-
-.dry-floor-form {
-  flex-direction: row;
-  align-items: flex-end;
-}
-
-.dry-floor-form label {
-  flex: 1;
-  max-width: 12rem;
 }
 
 .card {

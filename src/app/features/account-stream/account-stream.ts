@@ -23,7 +23,6 @@ import { SyncCoordinator } from '../../core/sync/sync-coordinator';
 import { StorageRepository } from '../../core/storage/storage-repository';
 import { CalendarChip } from '../../shared/calendar-chip/calendar-chip';
 import { DragScrub } from '../../shared/drag-scrub/drag-scrub.directive';
-import { numberInputValue } from '../../shared/number-input';
 import { StatusBanner } from '../../shared/status-banner/status-banner';
 import { StreamBand } from '../../shared/stream-band/stream-band';
 import { FlowList } from './flow-list/flow-list';
@@ -64,10 +63,6 @@ export class AccountStream {
   protected readonly dayOffset = signal(0);
   protected readonly isSyncing = this.syncCoordinator.isSyncing;
   protected readonly operationError = this.syncCoordinator.operationError;
-  protected readonly dryFloorInput = signal(0);
-  protected readonly isSavingDryFloor = signal(false);
-
-  protected readonly numberInputValue = numberInputValue;
 
   /** Merges the transient operation-error with the loaded Account's persisted syncStatus — see `sync-presentation.ts`. */
   protected readonly bannerState = computed(() =>
@@ -76,12 +71,6 @@ export class AccountStream {
   protected readonly banner = computed(() => bannerPresentation(this.bannerState()));
 
   protected readonly selectedDate = computed(() => selectedDateFor(this.dayOffset()));
-
-  protected readonly dryFloorDirty = computed(() => {
-    const account = this.account();
-    const input = this.dryFloorInput();
-    return account !== null && Number.isFinite(input) && input !== account.dryFloor;
-  });
 
   /** Recomputed from the current Account/Flow/Transfer/Transaction state, so it updates automatically as new Transactions sync in and the projection shifts. */
   protected readonly dryAlert = computed(() => {
@@ -168,30 +157,9 @@ export class AccountStream {
     const account = found ? { ...found, dryFloor: found.dryFloor ?? 0 } : null;
     this.account.set(account);
     this.allAccounts.set(accounts);
-    this.dryFloorInput.set(account?.dryFloor ?? 0);
     this.transactions.set(account ? await this.storage.getTransactionsForAccount(id) : []);
     this.flows.set(account ? await this.storage.getFlowsForAccount(id) : []);
     this.transfers.set(account ? await this.storage.getTransfersForAccount(id) : []);
-  }
-
-  protected onDryFloorSubmit(event: Event): void {
-    event.preventDefault();
-    void this.saveDryFloor();
-  }
-
-  protected async saveDryFloor(): Promise<void> {
-    const account = this.account();
-    const dryFloor = this.dryFloorInput();
-    if (!account || !Number.isFinite(dryFloor)) return;
-
-    this.isSavingDryFloor.set(true);
-    try {
-      const updated: Account = { ...account, dryFloor };
-      await this.storage.upsertAccount(updated);
-      this.account.set(updated);
-    } finally {
-      this.isSavingDryFloor.set(false);
-    }
   }
 
   protected async reloadFlows(): Promise<void> {

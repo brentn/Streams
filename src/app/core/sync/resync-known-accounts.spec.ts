@@ -85,6 +85,18 @@ describe('resyncKnownAccounts', () => {
     );
   });
 
+  it('preserves the locally-owned name and institutionName for a known account', async () => {
+    simplefin.fetchAccounts.mockResolvedValue([
+      { account: { ...known, name: 'SimpleFIN Name', institutionName: 'SimpleFIN Bank', balance: 999 }, transactions: [] },
+    ]);
+
+    await resyncKnownAccounts(storage as never, simplefin as never);
+
+    expect(storage.upsertAccount).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'acc-1', name: 'Checking', institutionName: 'Bank' }),
+    );
+  });
+
   it('skips an account SimpleFIN returns that has no local counterpart', async () => {
     simplefin.fetchAccounts.mockResolvedValue([
       {
@@ -365,12 +377,22 @@ describe('reconcileSyncedAccounts', () => {
 
   it('upserts a known account and omits it from newAccounts', async () => {
     const result = await reconcileSyncedAccounts(storage as never, [
-      { account: { ...known, balance: 999 }, transactions: [] },
+      {
+        account: { ...known, name: 'SimpleFIN Name', institutionName: 'SimpleFIN Bank', balance: 999 },
+        transactions: [],
+      },
     ]);
 
     expect(result.newAccounts).toEqual([]);
     expect(storage.upsertAccount).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'acc-1', balance: 999, expectedSign: -1, dryFloor: 250 }),
+      expect.objectContaining({
+        id: 'acc-1',
+        balance: 999,
+        expectedSign: -1,
+        dryFloor: 250,
+        name: 'Checking',
+        institutionName: 'Bank',
+      }),
     );
   });
 });

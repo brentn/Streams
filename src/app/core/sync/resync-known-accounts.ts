@@ -9,11 +9,13 @@ export interface ReconcileResult {
 }
 
 /**
- * Upserts every synced account that already has a local counterpart, preserving its previously
- * chosen `expectedSign` and `dryFloor` — SimpleFIN knows neither. Shared by resync (all synced
- * accounts are expected to be known) and the reauthentication flow (a mix of known accounts to
- * resync in place and genuinely new ones, returned as `newAccounts`, that still need sign
- * confirmation).
+ * Upserts every synced account that already has a local counterpart, preserving fields the app
+ * treats as locally owned once an account is known — `expectedSign` and `dryFloor` (SimpleFIN
+ * knows neither), plus `name` and `institutionName` (SimpleFIN's values seed them only at
+ * first-confirmation time, in the connect flow; after that a resync must never clobber a local
+ * rename). Shared by resync (all synced accounts are expected to be known) and the
+ * reauthentication flow (a mix of known accounts to resync in place and genuinely new ones,
+ * returned as `newAccounts`, that still need sign confirmation).
  *
  * Every synced Transaction is (re-)matched against the current Categorization Rules rather than
  * trusting a prior stored match — a manual correction always updates the matching rule (see
@@ -36,6 +38,8 @@ export async function reconcileSyncedAccounts(
     }
     await storage.upsertAccount({
       ...item.account,
+      name: previous.name,
+      institutionName: previous.institutionName,
       expectedSign: previous.expectedSign,
       dryFloor: previous.dryFloor,
     });

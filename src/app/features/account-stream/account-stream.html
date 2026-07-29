@@ -24,30 +24,11 @@
     @if (dryAlert(); as alert) {
       <div class="dry-alert" role="alert">
         <span class="message">
-          Projected to drop below your {{ account.dryFloor | currency }} Dry Floor on
+          Projected to drop below your {{ account.dryFloor | currency }} Minimum on
           {{ alert.date | date: 'mediumDate' }} ({{ alert.balance | currency }}).
         </span>
       </div>
     }
-
-    <form class="entity-form dry-floor-form" (submit)="onDryFloorSubmit($event)">
-      <label>
-        Dry Floor
-        <input
-          type="number"
-          step="0.01"
-          [value]="dryFloorInput()"
-          (input)="dryFloorInput.set(numberInputValue($event, dryFloorInput()))"
-        />
-      </label>
-      @if (dryFloorDirty()) {
-        <div class="form-actions">
-          <button type="submit" [disabled]="isSavingDryFloor()">
-            {{ isSavingDryFloor() ? 'Saving…' : 'Save' }}
-          </button>
-        </div>
-      }
-    </form>
 
     <div class="card">
       <div class="rhythm">

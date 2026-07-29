@@ -203,53 +203,6 @@ describe('AccountStream', () => {
   });
 
   describe('Dry Floor', () => {
-    it('syncs the input from the loaded account and starts clean', async () => {
-      const fixture = TestBed.createComponent(AccountStream);
-      const component = fixture.componentInstance;
-
-      await component['load']('acc-1');
-
-      expect(component['dryFloorInput']()).toBe(0);
-      expect(component['dryFloorDirty']()).toBe(false);
-    });
-
-    it('flags the input dirty once it diverges from the stored value', async () => {
-      const fixture = TestBed.createComponent(AccountStream);
-      const component = fixture.componentInstance;
-
-      await component['load']('acc-1');
-      component['dryFloorInput'].set(200);
-
-      expect(component['dryFloorDirty']()).toBe(true);
-    });
-
-    it('persists the new Dry Floor and clears dirty state', async () => {
-      const fixture = TestBed.createComponent(AccountStream);
-      const component = fixture.componentInstance;
-
-      await component['load']('acc-1');
-      component['dryFloorInput'].set(200);
-
-      await component['saveDryFloor']();
-
-      expect(storage.upsertAccount).toHaveBeenCalledWith({ ...account, dryFloor: 200 });
-      expect(component['account']()?.dryFloor).toBe(200);
-      expect(component['dryFloorDirty']()).toBe(false);
-    });
-
-    it('does not flag dirty, and refuses to save, when the input is cleared to NaN', async () => {
-      const fixture = TestBed.createComponent(AccountStream);
-      const component = fixture.componentInstance;
-
-      await component['load']('acc-1');
-      component['dryFloorInput'].set(NaN);
-
-      expect(component['dryFloorDirty']()).toBe(false);
-
-      await component['saveDryFloor']();
-      expect(storage.upsertAccount).not.toHaveBeenCalled();
-    });
-
     it('normalizes a pre-migration account with no stored dryFloor to 0', async () => {
       const { dryFloor: _dryFloor, ...legacyAccount } = account;
       storage.getAccounts.mockResolvedValue([legacyAccount as Account]);
@@ -260,7 +213,6 @@ describe('AccountStream', () => {
       await component['load']('acc-1');
 
       expect(component['account']()?.dryFloor).toBe(0);
-      expect(component['dryFloorInput']()).toBe(0);
     });
 
     it('reports no Running-Dry Alert when the projection never crosses the Dry Floor', async () => {
