@@ -12,6 +12,7 @@ import {
 } from '../../../core/projection/cadence-options';
 import { AmountChangesEditor } from '../../../shared/amount-changes-editor/amount-changes-editor';
 import { CadencePicker } from '../../../shared/cadence-picker/cadence-picker';
+import { numberInputValue } from '../../../shared/number-input';
 
 /** `out` of this Account (it's the from-side), `in` to this Account (it's the to-side). */
 export type TransferDirection = 'in' | 'out';
@@ -39,6 +40,8 @@ export class TransferForm {
   protected readonly cadenceOption = signal<CadenceOption>('monthly');
   protected readonly cadenceFields = signal<CadenceFields>(defaultCadenceFields());
   protected readonly amountChanges = signal<AmountChange[]>([]);
+
+  protected readonly numberInputValue = numberInputValue;
 
   protected readonly otherAccounts = computed(() =>
     this.accounts().filter((a) => a.id !== this.accountId()),

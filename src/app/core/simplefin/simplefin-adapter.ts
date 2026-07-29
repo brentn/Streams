@@ -32,6 +32,11 @@ interface SimpleFinError {
 interface SimpleFinAccountsResponse {
   accounts: SimpleFinAccount[];
   errlist?: SimpleFinError[];
+  /** Deprecated v1 field ("array of strings suitable for displaying to a user") that some
+   * bridges still send instead of (or alongside) `errlist` — no `code`/scoping, so it can
+   * only ever surface as a generic sync-issue, never trigger reauth classification (that
+   * requires a `con.auth`/`gen.auth` `code`, per `classifySyncStatus`'s contract). */
+  errors?: string[];
 }
 
 /**
@@ -55,7 +60,7 @@ export function classifySyncStatus(accountId: string, errlist: SimpleFinError[])
     return { kind: 'needs-reauth' };
   }
   if (applicable.length > 0) {
-    return { kind: 'sync-issue', message: applicable[0].msg };
+    return { kind: 'sync-issue', message: applicable.map((e) => e.msg).join('; ') };
   }
   return { kind: 'ok' };
 }
@@ -107,7 +112,8 @@ export class SimpleFinAdapter {
       throw new Error(`SimpleFIN accounts fetch failed: ${response.status} ${response.statusText}`);
     }
     const data = (await response.json()) as SimpleFinAccountsResponse;
-    const errlist = data.errlist ?? [];
+    const legacyErrors: SimpleFinError[] = (data.errors ?? []).map((msg) => ({ code: '', msg }));
+    const errlist = [...(data.errlist ?? []), ...legacyErrors];
     return data.accounts.map((raw) => toSyncedAccount(raw, errlist));
   }
 }

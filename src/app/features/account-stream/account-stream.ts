@@ -23,6 +23,7 @@ import { SyncCoordinator } from '../../core/sync/sync-coordinator';
 import { StorageRepository } from '../../core/storage/storage-repository';
 import { CalendarChip } from '../../shared/calendar-chip/calendar-chip';
 import { DragScrub } from '../../shared/drag-scrub/drag-scrub.directive';
+import { numberInputValue } from '../../shared/number-input';
 import { StatusBanner } from '../../shared/status-banner/status-banner';
 import { StreamBand } from '../../shared/stream-band/stream-band';
 import { FlowList } from './flow-list/flow-list';
@@ -65,6 +66,8 @@ export class AccountStream {
   protected readonly operationError = this.syncCoordinator.operationError;
   protected readonly dryFloorInput = signal(0);
   protected readonly isSavingDryFloor = signal(false);
+
+  protected readonly numberInputValue = numberInputValue;
 
   /** Merges the transient operation-error with the loaded Account's persisted syncStatus — see `sync-presentation.ts`. */
   protected readonly bannerState = computed(() =>

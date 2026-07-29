@@ -37,7 +37,7 @@
       min="1"
       max="31"
       [value]="fields().day"
-      (input)="updateField('day', $any($event.target).valueAsNumber)"
+      (input)="updateField('day', numberInputValue($event, fields().day))"
     />
   </label>
 } @else if (option() === 'semi-monthly') {
@@ -48,7 +48,7 @@
       min="1"
       max="31"
       [value]="fields().day"
-      (input)="updateField('day', $any($event.target).valueAsNumber)"
+      (input)="updateField('day', numberInputValue($event, fields().day))"
     />
   </label>
   <label>
@@ -58,7 +58,7 @@
       min="1"
       max="31"
       [value]="fields().day2"
-      (input)="updateField('day2', $any($event.target).valueAsNumber)"
+      (input)="updateField('day2', numberInputValue($event, fields().day2))"
     />
   </label>
 } @else if (option() === 'annually') {
@@ -69,7 +69,7 @@
       min="1"
       max="12"
       [value]="fields().month"
-      (input)="updateField('month', $any($event.target).valueAsNumber)"
+      (input)="updateField('month', numberInputValue($event, fields().month))"
     />
   </label>
   <label>
@@ -79,7 +79,7 @@
       min="1"
       max="31"
       [value]="fields().day"
-      (input)="updateField('day', $any($event.target).valueAsNumber)"
+      (input)="updateField('day', numberInputValue($event, fields().day))"
     />
   </label>
 } @else if (option() === 'semi-annually') {
@@ -90,7 +90,7 @@
       min="1"
       max="12"
       [value]="fields().month"
-      (input)="updateField('month', $any($event.target).valueAsNumber)"
+      (input)="updateField('month', numberInputValue($event, fields().month))"
     />
   </label>
   <label>
@@ -100,7 +100,7 @@
       min="1"
       max="31"
       [value]="fields().day"
-      (input)="updateField('day', $any($event.target).valueAsNumber)"
+      (input)="updateField('day', numberInputValue($event, fields().day))"
     />
   </label>
   <label>
@@ -110,7 +110,7 @@
       min="1"
       max="12"
       [value]="fields().month2"
-      (input)="updateField('month2', $any($event.target).valueAsNumber)"
+      (input)="updateField('month2', numberInputValue($event, fields().month2))"
     />
   </label>
   <label>
@@ -120,7 +120,7 @@
       min="1"
       max="31"
       [value]="fields().day2"
-      (input)="updateField('day2', $any($event.target).valueAsNumber)"
+      (input)="updateField('day2', numberInputValue($event, fields().day2))"
     />
   </label>
 } @else if (option() === 'nth-weekday-monthly') {

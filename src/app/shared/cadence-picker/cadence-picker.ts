@@ -9,6 +9,7 @@ import {
   showsEndDate,
 } from '../../core/projection/cadence-options';
 import { dateInputValue, parseDateInput } from '../date-input';
+import { numberInputValue } from '../number-input';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -31,6 +32,7 @@ export class CadencePicker {
   protected readonly needsAnchorDate = needsAnchorDate;
   protected readonly showsEndDate = showsEndDate;
   protected readonly dateInputValue = dateInputValue;
+  protected readonly numberInputValue = numberInputValue;
   protected readonly endDateError = computed(() => cadenceEndDateError(this.option(), this.fields()));
 
   protected readonly dayOfWeekOptions: { value: DayOfWeek; label: string }[] = DAY_NAMES.map(

@@ -10,11 +10,11 @@ describe('FlowForm', () => {
     fixture.componentRef.setInput('accountId', accountId);
     fixture.componentRef.setInput('flow', flow);
     fixture.detectChanges();
-    return fixture.componentInstance;
+    return { component: fixture.componentInstance, fixture };
   }
 
   it('emits a new recurring Flow on save', async () => {
-    const component = await createComponent();
+    const { component } = await createComponent();
     const saved = vi.fn();
     component.saved.subscribe(saved);
 
@@ -44,7 +44,7 @@ describe('FlowForm', () => {
   });
 
   it('emits a new budget Flow on save', async () => {
-    const component = await createComponent();
+    const { component } = await createComponent();
     const saved = vi.fn();
     component.saved.subscribe(saved);
 
@@ -84,7 +84,7 @@ describe('FlowForm', () => {
       },
     };
 
-    const component = await createComponent('acc-1', flow);
+    const { component } = await createComponent('acc-1', flow);
 
     expect(component['name']()).toBe('Paycheck');
     expect(component['amount']()).toBe(2000);
@@ -103,7 +103,7 @@ describe('FlowForm', () => {
       period: 'month',
     };
 
-    const component = await createComponent('acc-1', flow);
+    const { component } = await createComponent('acc-1', flow);
     const saved = vi.fn();
     component.saved.subscribe(saved);
     component['amount'].set(500);
@@ -116,7 +116,7 @@ describe('FlowForm', () => {
   });
 
   it('includes amountChanges on save, for a recurring Flow', async () => {
-    const component = await createComponent();
+    const { component } = await createComponent();
     const saved = vi.fn();
     component.saved.subscribe(saved);
 
@@ -137,7 +137,7 @@ describe('FlowForm', () => {
   });
 
   it('includes amountChanges on save, for a budget Flow', async () => {
-    const component = await createComponent();
+    const { component } = await createComponent();
     const saved = vi.fn();
     component.saved.subscribe(saved);
 
@@ -175,7 +175,7 @@ describe('FlowForm', () => {
       amountChanges: [{ type: 'step', effectiveDate: new Date(2027, 0, 1), amount: 2200 }],
     };
 
-    const component = await createComponent('acc-1', flow);
+    const { component } = await createComponent('acc-1', flow);
 
     expect(component['amountChanges']()).toEqual([
       { type: 'step', effectiveDate: new Date(2027, 0, 1), amount: 2200 },
@@ -183,7 +183,7 @@ describe('FlowForm', () => {
   });
 
   it('omits tolerance on save by default', async () => {
-    const component = await createComponent();
+    const { component } = await createComponent();
     const saved = vi.fn();
     component.saved.subscribe(saved);
 
@@ -197,7 +197,7 @@ describe('FlowForm', () => {
   });
 
   it('includes a fixed Tolerance on save when set', async () => {
-    const component = await createComponent();
+    const { component } = await createComponent();
     const saved = vi.fn();
     component.saved.subscribe(saved);
 
@@ -215,7 +215,7 @@ describe('FlowForm', () => {
   });
 
   it('includes a percent Tolerance on save when set', async () => {
-    const component = await createComponent();
+    const { component } = await createComponent();
     const saved = vi.fn();
     component.saved.subscribe(saved);
 
@@ -249,14 +249,14 @@ describe('FlowForm', () => {
       tolerance: { kind: 'fixed', value: 50 },
     };
 
-    const component = await createComponent('acc-1', flow);
+    const { component } = await createComponent('acc-1', flow);
 
     expect(component['toleranceKind']()).toBe('fixed');
     expect(component['toleranceValue']()).toBe(50);
   });
 
   it('blocks save when the recurring Flow cadence has an End Date before its anchor date', async () => {
-    const component = await createComponent();
+    const { component } = await createComponent();
     const saved = vi.fn();
     component.saved.subscribe(saved);
 
@@ -276,7 +276,7 @@ describe('FlowForm', () => {
   });
 
   it('allows save for a budget Flow regardless of leftover cadence field state', async () => {
-    const component = await createComponent();
+    const { component } = await createComponent();
     const saved = vi.fn();
     component.saved.subscribe(saved);
 
@@ -294,8 +294,20 @@ describe('FlowForm', () => {
     expect(saved).toHaveBeenCalled();
   });
 
+  it('keeps the last amount when the amount input is cleared, instead of going NaN', async () => {
+    const { component, fixture } = await createComponent();
+    component['amount'].set(2000);
+    fixture.detectChanges();
+
+    const input: HTMLInputElement = fixture.nativeElement.querySelector('input[type="number"]');
+    input.value = '';
+    input.dispatchEvent(new Event('input'));
+
+    expect(component['amount']()).toBe(2000);
+  });
+
   it('emits cancelled without emitting saved', async () => {
-    const component = await createComponent();
+    const { component } = await createComponent();
     const saved = vi.fn();
     const cancelled = vi.fn();
     component.saved.subscribe(saved);

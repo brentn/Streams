@@ -1,6 +1,7 @@
 import { Component, input, output, signal } from '@angular/core';
 import { AmountChange, RecurringRule, StepChange } from '../../core/models/flow';
 import { dateInputValue, parseDateInput } from '../date-input';
+import { numberInputValue } from '../number-input';
 
 /**
  * The Step Change / Recurring Rule timeline editor for a Flow's amount (or limit) or a
@@ -24,6 +25,7 @@ export class AmountChangesEditor {
   protected readonly newRuleDelta = signal(0);
 
   protected readonly dateInputValue = dateInputValue;
+  protected readonly numberInputValue = numberInputValue;
 
   protected onNewStepDateInput(value: string): void {
     this.newStepDate.set(parseDateInput(value));

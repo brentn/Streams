@@ -19,6 +19,7 @@ import {
 } from '../../../core/projection/cadence-options';
 import { AmountChangesEditor } from '../../../shared/amount-changes-editor/amount-changes-editor';
 import { CadencePicker } from '../../../shared/cadence-picker/cadence-picker';
+import { numberInputValue } from '../../../shared/number-input';
 
 /**
  * Collects a Flow's fields and emits a fully-built Flow object — it doesn't
@@ -51,6 +52,8 @@ export class FlowForm {
 
   protected readonly toleranceKind = signal<'none' | 'percent' | 'fixed'>('none');
   protected readonly toleranceValue = signal(0);
+
+  protected readonly numberInputValue = numberInputValue;
 
   protected readonly isValid = computed(
     () => this.kind() !== 'recurring' || cadenceEndDateError(this.cadenceOption(), this.cadenceFields()) === null,

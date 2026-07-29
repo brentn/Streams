@@ -37,7 +37,7 @@
           type="number"
           step="0.01"
           [value]="dryFloorInput()"
-          (input)="dryFloorInput.set($any($event.target).valueAsNumber)"
+          (input)="dryFloorInput.set(numberInputValue($event, dryFloorInput()))"
         />
       </label>
       @if (dryFloorDirty()) {

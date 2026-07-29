@@ -171,6 +171,32 @@ describe('SimpleFinAdapter', () => {
       expect(account.syncStatus).toEqual({ kind: 'sync-issue', message: 'Try again later.' });
     });
 
+    it('surfaces a sync-issue from the deprecated errors[] field when a bridge sends no errlist', async () => {
+      const { errlist: _errlist, ...fixtureWithoutErrlist } = ACCOUNTS_FIXTURE;
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ...fixtureWithoutErrlist,
+            errors: [
+              'Requested date range exceeds limit of 90 days and was capped.',
+              'Connection to CIBC may need attention. Auth required',
+            ],
+          }),
+          { status: 200 },
+        ),
+      );
+
+      const [{ account }] = await adapter.fetchAccounts(
+        'https://user:pass@bridge.simplefin.org/simplefin',
+      );
+
+      expect(account.syncStatus).toEqual({
+        kind: 'sync-issue',
+        message:
+          'Requested date range exceeds limit of 90 days and was capped.; Connection to CIBC may need attention. Auth required',
+      });
+    });
+
     it('fans a connection-level errlist entry (no account_id) onto every returned account', async () => {
       vi.mocked(fetch).mockResolvedValue(
         new Response(
@@ -204,6 +230,18 @@ describe('SimpleFinAdapter', () => {
           { code: 'act.failed', msg: 'You must reauthenticate.', account_id: 'acc-1' },
         ]),
       ).toEqual({ kind: 'sync-issue', message: 'You must reauthenticate.' });
+    });
+
+    it('joins every applicable non-auth message, so no error is silently dropped', () => {
+      expect(
+        classifySyncStatus('acc-1', [
+          { code: 'act.failed', msg: 'Try again later.', account_id: 'acc-1' },
+          { code: '', msg: 'Requested date range exceeds limit of 90 days and was capped.' },
+        ]),
+      ).toEqual({
+        kind: 'sync-issue',
+        message: 'Try again later.; Requested date range exceeds limit of 90 days and was capped.',
+      });
     });
 
     it('treats con.auth and gen.auth as needs-reauth, everything else as sync-issue', () => {

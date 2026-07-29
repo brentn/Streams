@@ -33,7 +33,7 @@
       type="number"
       step="0.01"
       [value]="amount()"
-      (input)="amount.set($any($event.target).valueAsNumber)"
+      (input)="amount.set(numberInputValue($event, amount()))"
     />
   </label>
 
@@ -82,7 +82,7 @@
         type="number"
         step="0.01"
         [value]="toleranceValue()"
-        (input)="toleranceValue.set($any($event.target).valueAsNumber)"
+        (input)="toleranceValue.set(numberInputValue($event, toleranceValue()))"
       />
     </label>
   }

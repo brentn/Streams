@@ -24,7 +24,7 @@
       type="number"
       step="0.01"
       [value]="amount()"
-      (input)="amount.set($any($event.target).valueAsNumber)"
+      (input)="amount.set(numberInputValue($event, amount()))"
     />
   </label>
 
