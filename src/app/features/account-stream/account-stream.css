@@ -48,25 +48,6 @@ h1 {
   color: var(--color-ink-secondary);
 }
 
-.actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.today {
-  font: inherit;
-  font-weight: 600;
-  font-size: var(--text-body);
-  color: var(--color-accent);
-  background: transparent;
-  border: 1px solid var(--color-accent);
-  border-radius: 0.375rem;
-  padding: 0.4rem 0.85rem;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
 .resync {
   display: flex;
   align-items: center;
@@ -139,11 +120,30 @@ h1 {
   z-index: 0;
 }
 
-.chip,
+.chip-row,
 .chart,
 .balance {
   position: relative;
   z-index: 1;
+}
+
+.chip-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.today {
+  font: inherit;
+  font-weight: 600;
+  font-size: var(--text-eyebrow);
+  color: var(--color-accent);
+  background: transparent;
+  border: 1px solid var(--color-accent);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 .chart {

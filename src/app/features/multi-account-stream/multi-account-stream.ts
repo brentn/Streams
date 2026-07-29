@@ -1,4 +1,13 @@
-import { Component, computed, DestroyRef, effect, inject, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  DestroyRef,
+  effect,
+  ElementRef,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { CurrencyPipe } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { Account } from '../../core/models/account';
@@ -75,6 +84,10 @@ export class MultiAccountStream {
   protected readonly banner = computed(() => bannerPresentation(this.bannerState()));
 
   protected readonly selectedDate = computed(() => selectedDateFor(this.dayOffset()));
+  protected readonly isAtToday = computed(() => this.dayOffset() === 0);
+
+  /** Catches focus when the Today button disappears out from under it on click. `read: ElementRef` because `#calendarChip` on a component tag otherwise resolves to the component instance, not its native element. */
+  private readonly calendarChip = viewChild('calendarChip', { read: ElementRef<HTMLElement> });
 
   private readonly windowDates = computed(() => buildWindowDates(this.selectedDate()));
 
@@ -197,6 +210,11 @@ export class MultiAccountStream {
 
   protected shiftDay(delta: number): void {
     this.dayOffset.update((offset) => clampDayOffset(offset + delta));
+  }
+
+  protected jumpToToday(): void {
+    this.dayOffset.set(0);
+    this.calendarChip()?.nativeElement.focus();
   }
 
   protected onLaneTap(target: HTMLElement): void {

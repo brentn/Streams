@@ -24,7 +24,12 @@
   @if (lanes().length === 0) {
     <p class="empty">No accounts yet.</p>
   } @else {
-    <app-calendar-chip class="chip" [date]="selectedDate()" />
+    <div class="chip">
+      <app-calendar-chip #calendarChip [date]="selectedDate()" tabindex="-1" />
+      @if (!isAtToday()) {
+        <button type="button" class="today" (click)="jumpToToday()">Today</button>
+      }
+    </div>
 
     <div
       class="lanes"

@@ -169,6 +169,40 @@ describe('MultiAccountStream', () => {
     expect(component['dayOffset']()).toBe(SCRUB_MIN_DAYS);
   });
 
+  it('reports isAtToday and jumps back to today from any scrub position', () => {
+    const fixture = TestBed.createComponent(MultiAccountStream);
+    const component = fixture.componentInstance;
+
+    expect(component['isAtToday']()).toBe(true);
+
+    component['dayOffset'].set(-30);
+    expect(component['isAtToday']()).toBe(false);
+
+    component['jumpToToday']();
+    expect(component['dayOffset']()).toBe(0);
+    expect(component['isAtToday']()).toBe(true);
+  });
+
+  it('renders the Today button only when scrubbed away from today, and hides it again after jumping back', async () => {
+    const fixture = TestBed.createComponent(MultiAccountStream);
+    const component = fixture.componentInstance;
+    await component['load']();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.today')).toBeNull();
+
+    component['dayOffset'].set(-10);
+    fixture.detectChanges();
+    const todayButton = fixture.nativeElement.querySelector('.today') as HTMLButtonElement | null;
+    expect(todayButton).toBeTruthy();
+
+    todayButton!.click();
+    fixture.detectChanges();
+
+    expect(component['dayOffset']()).toBe(0);
+    expect(fixture.nativeElement.querySelector('.today')).toBeNull();
+  });
+
   it("shifts each lane's actual/projected boundary within the window as the scrub position moves, rather than staying fixed at the window center", async () => {
     const fixture = TestBed.createComponent(MultiAccountStream);
     const component = fixture.componentInstance;

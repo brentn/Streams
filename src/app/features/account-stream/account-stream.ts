@@ -85,8 +85,8 @@ export class AccountStream {
   protected readonly selectedDate = computed(() => selectedDateFor(this.dayOffset()));
   protected readonly isAtToday = computed(() => this.dayOffset() === 0);
 
-  /** Catches focus when the Today button disappears out from under it on click. */
-  private readonly resyncButton = viewChild<ElementRef<HTMLButtonElement>>('resyncButton');
+  /** Catches focus when the Today button disappears out from under it on click. `read: ElementRef` because `#calendarChip` on a component tag otherwise resolves to the component instance, not its native element. */
+  private readonly calendarChip = viewChild('calendarChip', { read: ElementRef<HTMLElement> });
 
   /** Recomputed from the current Account/Flow/Transfer/Transaction state, so it updates automatically as new Transactions sync in and the projection shifts. */
   protected readonly dryAlert = computed(() => {
@@ -201,7 +201,7 @@ export class AccountStream {
 
   protected jumpToToday(): void {
     this.dayOffset.set(0);
-    this.resyncButton()?.nativeElement.focus();
+    this.calendarChip()?.nativeElement.focus();
   }
 
   protected async resync(): Promise<void> {
