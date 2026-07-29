@@ -191,6 +191,29 @@ describe('SimpleFinAdapter', () => {
         new Response(
           JSON.stringify({
             ...fixtureWithoutErrlist,
+            errors: ['Requested date range exceeds limit of 90 days and was capped.'],
+          }),
+          { status: 200 },
+        ),
+      );
+
+      const [{ account }] = await adapter.fetchAccounts(
+        'https://user:pass@bridge.simplefin.org/simplefin',
+        startDate,
+      );
+
+      expect(account.syncStatus).toEqual({
+        kind: 'sync-issue',
+        message: 'Requested date range exceeds limit of 90 days and was capped.',
+      });
+    });
+
+    it('classifies a legacy code-less "auth required" message as needs-reauth, not a generic sync-issue', async () => {
+      const { errlist: _errlist, ...fixtureWithoutErrlist } = ACCOUNTS_FIXTURE;
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ...fixtureWithoutErrlist,
             errors: [
               'Requested date range exceeds limit of 90 days and was capped.',
               'Connection to CIBC may need attention. Auth required',
@@ -205,10 +228,77 @@ describe('SimpleFinAdapter', () => {
         startDate,
       );
 
+      expect(account.syncStatus).toEqual({ kind: 'needs-reauth' });
+    });
+
+    it('matches the legacy "auth required" phrase case-insensitively', async () => {
+      const { errlist: _errlist, ...fixtureWithoutErrlist } = ACCOUNTS_FIXTURE;
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ...fixtureWithoutErrlist,
+            errors: ['CONNECTION TO CIBC MAY NEED ATTENTION. AUTH REQUIRED'],
+          }),
+          { status: 200 },
+        ),
+      );
+
+      const [{ account }] = await adapter.fetchAccounts(
+        'https://user:pass@bridge.simplefin.org/simplefin',
+        startDate,
+      );
+
+      expect(account.syncStatus).toEqual({ kind: 'needs-reauth' });
+    });
+
+    it('does not needs-reauth a legacy message that only loosely mentions auth, per the narrow phrase match', async () => {
+      const { errlist: _errlist, ...fixtureWithoutErrlist } = ACCOUNTS_FIXTURE;
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ...fixtureWithoutErrlist,
+            errors: ['Please re-authenticate your connection.'],
+          }),
+          { status: 200 },
+        ),
+      );
+
+      const [{ account }] = await adapter.fetchAccounts(
+        'https://user:pass@bridge.simplefin.org/simplefin',
+        startDate,
+      );
+
       expect(account.syncStatus).toEqual({
         kind: 'sync-issue',
-        message:
-          'Requested date range exceeds limit of 90 days and was capped.; Connection to CIBC may need attention. Auth required',
+        message: 'Please re-authenticate your connection.',
+      });
+    });
+
+    it('trusts a real non-auth structured code over "auth required" text, never inferring from a scoped errlist entry', async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ...ACCOUNTS_FIXTURE,
+            errlist: [
+              {
+                code: 'act.failed',
+                msg: 'Connection to CIBC may need attention. Auth required',
+                account_id: 'ACT-checking-1',
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+      );
+
+      const [{ account }] = await adapter.fetchAccounts(
+        'https://user:pass@bridge.simplefin.org/simplefin',
+        startDate,
+      );
+
+      expect(account.syncStatus).toEqual({
+        kind: 'sync-issue',
+        message: 'Connection to CIBC may need attention. Auth required',
       });
     });
 

@@ -33,9 +33,11 @@ interface SimpleFinAccountsResponse {
   accounts: SimpleFinAccount[];
   errlist?: SimpleFinError[];
   /** Deprecated v1 field ("array of strings suitable for displaying to a user") that some
-   * bridges still send instead of (or alongside) `errlist` — no `code`/scoping, so it can
-   * only ever surface as a generic sync-issue, never trigger reauth classification (that
-   * requires a `con.auth`/`gen.auth` `code`, per `classifySyncStatus`'s contract). */
+   * bridges still send instead of (or alongside) `errlist` — no `code`/scoping, so it's
+   * connection-wide and normally only ever surfaces as a generic sync-issue. The one exception:
+   * `fetchAccounts` synthesizes `LEGACY_AUTH_REQUIRED_CODE` for an entry matching
+   * `LEGACY_AUTH_REQUIRED_PATTERN`, so that one narrow case can still trigger reauth
+   * classification despite carrying no real `code`. */
   errors?: string[];
 }
 
@@ -47,7 +49,17 @@ interface SimpleFinAccountsResponse {
  */
 export class SimpleFinAuthError extends Error {}
 
-const AUTH_ERROR_CODES = new Set(['con.auth', 'gen.auth']);
+/** Streams-internal code, never sent by SimpleFIN Bridge itself — synthesized in `fetchAccounts`
+ * for legacy code-less `errors[]` entries whose text matches `LEGACY_AUTH_REQUIRED_PATTERN`, so
+ * `classifySyncStatus` can stay purely code-based. */
+const LEGACY_AUTH_REQUIRED_CODE = 'legacy.auth-required';
+const AUTH_ERROR_CODES = new Set(['con.auth', 'gen.auth', LEGACY_AUTH_REQUIRED_CODE]);
+
+/** Narrow, case-insensitive match for the deprecated v1 `errors[]` field's only observed
+ * auth-failure phrasing (CIBC's bridge). Deliberately not a broad `/auth/i` match — a legacy-only
+ * bridge phrasing this differently still falls through to a generic sync-issue until that
+ * phrasing is added, which is safer than false-triggering Reconnect on unrelated messages. */
+const LEGACY_AUTH_REQUIRED_PATTERN = /auth required/i;
 
 /**
  * Classifies one account's sync status from the response's `errlist`. An entry with no
@@ -115,7 +127,10 @@ export class SimpleFinAdapter {
       throw new Error(`SimpleFIN accounts fetch failed: ${response.status} ${response.statusText}`);
     }
     const data = (await response.json()) as SimpleFinAccountsResponse;
-    const legacyErrors: SimpleFinError[] = (data.errors ?? []).map((msg) => ({ code: '', msg }));
+    const legacyErrors: SimpleFinError[] = (data.errors ?? []).map((msg) => ({
+      code: LEGACY_AUTH_REQUIRED_PATTERN.test(msg) ? LEGACY_AUTH_REQUIRED_CODE : '',
+      msg,
+    }));
     const errlist = [...(data.errlist ?? []), ...legacyErrors];
     return data.accounts.map((raw) => toSyncedAccount(raw, errlist));
   }
