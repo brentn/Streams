@@ -6,13 +6,14 @@ import { Account, Sign } from '../../core/models/account';
 import { SimpleFinAdapter, SyncedAccount } from '../../core/simplefin/simplefin-adapter';
 import { reconcileSyncedAccounts } from '../../core/sync/resync-known-accounts';
 import { StorageRepository } from '../../core/storage/storage-repository';
+import { BackupImport } from '../../shared/backup-import/backup-import';
 import { StatusBanner } from '../../shared/status-banner/status-banner';
 
 type Step = 'connect' | 'confirm-signs';
 
 @Component({
   selector: 'app-connect-account',
-  imports: [StatusBanner, CdkListbox, CdkOption],
+  imports: [StatusBanner, CdkListbox, CdkOption, BackupImport],
   templateUrl: './connect-account.html',
   styleUrl: './connect-account.css',
 })
@@ -25,6 +26,9 @@ export class ConnectAccount {
   protected readonly isConnecting = signal(false);
   protected readonly isSaving = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
+
+  /** Whichever operation last set `errorMessage`, so the status banner's Retry button has something to re-run. */
+  private lastFailedAction: (() => Promise<void>) | null = null;
 
   protected readonly step = signal<Step>('connect');
   protected readonly pendingAccounts = signal<SyncedAccount[]>([]);
@@ -75,10 +79,19 @@ export class ConnectAccount {
       this.signChoices.set({});
       this.step.set('confirm-signs');
     } catch (err) {
+      this.lastFailedAction = () => this.connect();
       this.errorMessage.set(err instanceof Error ? err.message : 'Connection failed.');
     } finally {
       this.isConnecting.set(false);
     }
+  }
+
+  protected onBackupImported(): void {
+    void this.router.navigateByUrl('/accounts');
+  }
+
+  protected async retry(): Promise<void> {
+    await this.lastFailedAction?.();
   }
 
   protected chooseSign(accountId: string, sign: Sign): void {

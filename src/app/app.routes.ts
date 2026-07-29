@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { hasAccountsGuard } from './core/routing/has-accounts-guard';
 
 export const routes: Routes = [
   { path: '', loadComponent: () => import('./features/home/home').then((m) => m.Home) },
@@ -9,6 +10,7 @@ export const routes: Routes = [
   },
   {
     path: 'accounts',
+    canActivate: [hasAccountsGuard],
     loadComponent: () =>
       import('./features/multi-account-stream/multi-account-stream').then(
         (m) => m.MultiAccountStream,
@@ -16,11 +18,13 @@ export const routes: Routes = [
   },
   {
     path: 'accounts/:id',
+    canActivate: [hasAccountsGuard],
     loadComponent: () =>
       import('./features/account-stream/account-stream').then((m) => m.AccountStream),
   },
   {
     path: 'settings',
+    canActivate: [hasAccountsGuard],
     loadComponent: () => import('./features/settings/settings').then((m) => m.Settings),
   },
 ];

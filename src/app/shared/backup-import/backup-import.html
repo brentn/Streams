@@ -1,0 +1,31 @@
+<app-status-banner [errorMessage]="errorMessage()" [isSyncing]="isImporting()" (retry)="retry()" />
+
+@if (pendingImport()) {
+  <div class="confirm-import">
+    <p>This file contains:</p>
+    <ul>
+      @for (entry of storeSummary(); track entry.name) {
+        <li>{{ entry.name }}: {{ entry.count }}</li>
+      }
+    </ul>
+    <p class="warning">Importing will replace all data currently stored in this browser.</p>
+    <div class="actions">
+      <button type="button" (click)="confirmImport()" [disabled]="isImporting()">
+        {{ isImporting() ? 'Importing…' : 'Confirm import' }}
+      </button>
+      <button type="button" class="secondary" (click)="cancelImport()" [disabled]="isImporting()">
+        Cancel
+      </button>
+    </div>
+  </div>
+} @else {
+  <div class="import-picker">
+    <label for="import-backup-file">Import data</label>
+    <input
+      id="import-backup-file"
+      type="file"
+      accept="application/json"
+      (change)="onFileInputChange($event)"
+    />
+  </div>
+}

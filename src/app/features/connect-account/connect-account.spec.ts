@@ -303,4 +303,14 @@ describe('ConnectAccount', () => {
       expect(component['errorMessage']()).toBeNull();
     });
   });
+
+  describe('backup import', () => {
+    it('navigates to the accounts view once the shared backup-import component reports success', () => {
+      const component = TestBed.createComponent(ConnectAccount).componentInstance;
+
+      component['onBackupImported']();
+
+      expect(router.navigateByUrl).toHaveBeenCalledWith('/accounts');
+    });
+  });
 });

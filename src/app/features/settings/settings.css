@@ -60,39 +60,3 @@ button[type='button']:disabled {
   cursor: default;
 }
 
-button.secondary {
-  color: var(--color-ink-secondary);
-  background: transparent;
-  border: 1px solid var(--color-border);
-}
-
-.import-picker {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-}
-
-.confirm-import {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
-}
-
-.confirm-import ul {
-  margin: 0;
-  padding-left: 1.25rem;
-}
-
-.warning {
-  font-weight: 600;
-  color: var(--color-ink-primary);
-}
-
-.actions {
-  display: flex;
-  gap: 0.5rem;
-}

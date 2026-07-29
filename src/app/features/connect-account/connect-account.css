@@ -124,3 +124,11 @@ button {
   background: var(--color-accent);
   color: #fff;
 }
+
+.import-backup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-border);
+}

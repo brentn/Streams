@@ -13,7 +13,7 @@
       </p>
     }
 
-    <app-status-banner [errorMessage]="errorMessage()" [isSyncing]="isConnecting()" (retry)="connect()" />
+    <app-status-banner [errorMessage]="errorMessage()" [isSyncing]="isConnecting()" (retry)="retry()" />
 
     <label for="setup-token">Setup token</label>
     <textarea
@@ -27,6 +27,11 @@
     <button type="button" (click)="connect()" [disabled]="isConnecting() || !setupToken().trim()">
       {{ isConnecting() ? 'Connecting…' : 'Connect' }}
     </button>
+
+    <div class="import-backup">
+      <p>Or restore a previously exported backup:</p>
+      <app-backup-import (imported)="onBackupImported()" />
+    </div>
   </section>
 } @else {
   <section class="confirm-signs">

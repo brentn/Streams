@@ -1,11 +1,7 @@
 <section class="settings">
   <h1>Settings</h1>
 
-  <app-status-banner
-    [errorMessage]="errorMessage()"
-    [isSyncing]="isExporting() || isImporting()"
-    (retry)="retry()"
-  />
+  <app-status-banner [errorMessage]="errorMessage()" [isSyncing]="isExporting()" (retry)="retry()" />
 
   <section class="backup">
     <h2>Backup</h2>
@@ -18,34 +14,6 @@
       {{ isExporting() ? 'Exporting…' : 'Export data' }}
     </button>
 
-    @if (pendingImport()) {
-      <div class="confirm-import">
-        <p>This file contains:</p>
-        <ul>
-          @for (entry of storeSummary(); track entry.name) {
-            <li>{{ entry.name }}: {{ entry.count }}</li>
-          }
-        </ul>
-        <p class="warning">Importing will replace all data currently stored in this browser.</p>
-        <div class="actions">
-          <button type="button" (click)="confirmImport()" [disabled]="isImporting()">
-            {{ isImporting() ? 'Importing…' : 'Confirm import' }}
-          </button>
-          <button type="button" class="secondary" (click)="cancelImport()" [disabled]="isImporting()">
-            Cancel
-          </button>
-        </div>
-      </div>
-    } @else {
-      <div class="import-picker">
-        <label for="import-file">Import data</label>
-        <input
-          id="import-file"
-          type="file"
-          accept="application/json"
-          (change)="onFileInputChange($event)"
-        />
-      </div>
-    }
+    <app-backup-import (imported)="onBackupImported()" />
   </section>
 </section>
