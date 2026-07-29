@@ -6,11 +6,11 @@ import { serializeBackup } from '../../core/storage/backup-codec';
 import { StorageRepository } from '../../core/storage/storage-repository';
 import { BackupImport } from '../../shared/backup-import/backup-import';
 import { StatusBanner } from '../../shared/status-banner/status-banner';
-import { AccountRow } from './account-row/account-row';
+import { AccountsList } from './accounts-list/accounts-list';
 
 @Component({
   selector: 'app-settings',
-  imports: [StatusBanner, BackupImport, AccountRow],
+  imports: [StatusBanner, BackupImport, AccountsList],
   templateUrl: './settings.html',
   styleUrl: './settings.css',
 })
@@ -23,6 +23,7 @@ export class Settings {
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly accounts = signal<Account[]>([]);
   protected readonly savingAccountId = signal<string | null>(null);
+  protected readonly editingAccountId = signal<string | null>(null);
 
   /** Whichever operation last set `errorMessage`, so the status banner's Retry button has something to re-run. */
   private lastFailedAction: (() => Promise<void>) | null = null;
@@ -35,12 +36,25 @@ export class Settings {
     this.accounts.set(await this.storage.getAccounts());
   }
 
+  protected editAccount(accountId: string): void {
+    this.editingAccountId.set(accountId);
+  }
+
+  protected cancelAccountEdit(): void {
+    this.editingAccountId.set(null);
+  }
+
   protected async onAccountSaved(updated: Account): Promise<void> {
     this.savingAccountId.set(updated.id);
     this.errorMessage.set(null);
     try {
       await this.storage.upsertAccount(updated);
       this.accounts.update((accounts) => accounts.map((a) => (a.id === updated.id ? updated : a)));
+      // Only close the edit form if it's still showing the Account that was just saved — the
+      // user may have switched to editing a different Account while this save was in flight.
+      if (this.editingAccountId() === updated.id) {
+        this.editingAccountId.set(null);
+      }
     } catch (err) {
       this.lastFailedAction = () => this.onAccountSaved(updated);
       this.errorMessage.set(err instanceof Error ? err.message : 'Saving the account failed.');

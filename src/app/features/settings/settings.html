@@ -3,21 +3,14 @@
 
   <app-status-banner [errorMessage]="errorMessage()" [isSyncing]="isExporting()" (retry)="retry()" />
 
-  <section class="accounts">
-    <h2>Accounts</h2>
-    @if (accounts().length === 0) {
-      <p class="empty">No Accounts yet.</p>
-    }
-    <ul class="rows">
-      @for (account of accounts(); track account.id) {
-        <app-account-row
-          [account]="account"
-          [isSaving]="savingAccountId() === account.id"
-          (saved)="onAccountSaved($event)"
-        />
-      }
-    </ul>
-  </section>
+  <app-accounts-list
+    [accounts]="accounts()"
+    [editingAccountId]="editingAccountId()"
+    [savingAccountId]="savingAccountId()"
+    (edit)="editAccount($event)"
+    (cancel)="cancelAccountEdit()"
+    (saved)="onAccountSaved($event)"
+  />
 
   <section class="backup">
     <h2>Backup</h2>

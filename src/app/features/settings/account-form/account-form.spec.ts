@@ -1,9 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { describe, expect, it, vi } from 'vitest';
 import { Account } from '../../../core/models/account';
-import { AccountRow } from './account-row';
+import { AccountForm } from './account-form';
 
-describe('AccountRow', () => {
+describe('AccountForm', () => {
   const account: Account = {
     id: 'acc-1',
     name: 'Checking',
@@ -15,8 +15,8 @@ describe('AccountRow', () => {
   };
 
   async function createComponent(initial: Account = account) {
-    await TestBed.configureTestingModule({ imports: [AccountRow] }).compileComponents();
-    const fixture = TestBed.createComponent(AccountRow);
+    await TestBed.configureTestingModule({ imports: [AccountForm] }).compileComponents();
+    const fixture = TestBed.createComponent(AccountForm);
     fixture.componentRef.setInput('account', initial);
     fixture.detectChanges();
     return { component: fixture.componentInstance, fixture };
@@ -28,7 +28,6 @@ describe('AccountRow', () => {
     expect(component['name']()).toBe('Checking');
     expect(component['institutionName']()).toBe('Bank');
     expect(component['dryFloor']()).toBe(250);
-    expect(component['isDirty']()).toBe(false);
   });
 
   it('hides the minimum control entirely for a liability account', async () => {
@@ -38,37 +37,26 @@ describe('AccountRow', () => {
     expect(component['isLiability']()).toBe(true);
   });
 
-  it('flags dirty once the name diverges from the account', async () => {
+  it('is invalid when the name is blank', async () => {
     const { component } = await createComponent();
 
-    component['name'].set('Renamed');
+    component['name'].set('   ');
 
-    expect(component['isDirty']()).toBe(true);
+    expect(component['isValid']()).toBe(false);
   });
 
-  it('flags dirty once the institution name diverges from the account', async () => {
+  it('is invalid when the institution name is blank', async () => {
     const { component } = await createComponent();
 
-    component['institutionName'].set('New Bank');
+    component['institutionName'].set('   ');
 
-    expect(component['isDirty']()).toBe(true);
+    expect(component['isValid']()).toBe(false);
   });
 
-  it('flags dirty once the minimum diverges from the account, for a non-liability account', async () => {
+  it('is valid with the account unmodified', async () => {
     const { component } = await createComponent();
 
-    component['dryFloor'].set(500);
-
-    expect(component['isDirty']()).toBe(true);
-  });
-
-  it('never flags dirty from a minimum change on a liability account', async () => {
-    const liability: Account = { ...account, expectedSign: -1 };
-    const { component } = await createComponent(liability);
-
-    component['dryFloor'].set(999);
-
-    expect(component['isDirty']()).toBe(false);
+    expect(component['isValid']()).toBe(true);
   });
 
   it('emits the updated Account on save, trimming name and institution', async () => {
@@ -121,14 +109,14 @@ describe('AccountRow', () => {
     expect(saved).not.toHaveBeenCalled();
   });
 
-  it('does nothing when save is invoked with nothing dirty', async () => {
+  it('emits cancelled when cancel is invoked', async () => {
     const { component } = await createComponent();
-    const saved = vi.fn();
-    component.saved.subscribe(saved);
+    const cancelled = vi.fn();
+    component.cancelled.subscribe(cancelled);
 
-    component['save']();
+    component['cancel']();
 
-    expect(saved).not.toHaveBeenCalled();
+    expect(cancelled).toHaveBeenCalled();
   });
 
   it('keeps the last minimum value when its input is cleared, instead of going NaN', async () => {

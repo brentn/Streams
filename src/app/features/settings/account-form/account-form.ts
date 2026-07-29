@@ -4,21 +4,23 @@ import { numberInputValue } from '../../../shared/number-input';
 
 /**
  * Collects edits to one Account's locally-owned identity fields (name, institution name,
- * minimum) and emits a fully-built Account — it doesn't touch storage itself, mirroring
- * `FlowForm`. Minimum (the Dry Floor) doesn't apply to a liability Account, so its control is
- * hidden entirely rather than shown disabled or defaulted, and any local edit to it is ignored
- * on save.
+ * minimum) and emits a fully-built Account on save, or `cancelled` to discard them — it
+ * doesn't touch storage itself, mirroring `FlowForm`'s shape (Save gated on validity, not
+ * on whether anything actually changed). Minimum (the Dry Floor) doesn't apply to a liability
+ * Account, so its control is hidden entirely rather than shown disabled or defaulted, and any
+ * local edit to it is ignored on save.
  */
 @Component({
-  selector: 'app-account-row',
+  selector: 'app-account-form',
   imports: [],
-  templateUrl: './account-row.html',
-  styleUrl: './account-row.css',
+  templateUrl: './account-form.html',
+  styleUrl: './account-form.css',
 })
-export class AccountRow {
+export class AccountForm {
   readonly account = input.required<Account>();
   readonly isSaving = input(false);
   readonly saved = output<Account>();
+  readonly cancelled = output<void>();
 
   protected readonly name = signal('');
   protected readonly institutionName = signal('');
@@ -28,16 +30,9 @@ export class AccountRow {
 
   protected readonly isLiability = computed(() => this.account().expectedSign === -1);
 
-  protected readonly isDirty = computed(() => {
-    const account = this.account();
-    const dryFloorDirty =
-      !this.isLiability() && Number.isFinite(this.dryFloor()) && this.dryFloor() !== account.dryFloor;
-    return (
-      this.name().trim() !== account.name ||
-      this.institutionName().trim() !== account.institutionName ||
-      dryFloorDirty
-    );
-  });
+  protected readonly isValid = computed(
+    () => this.name().trim() !== '' && this.institutionName().trim() !== '',
+  );
 
   constructor() {
     effect(() => {
@@ -54,17 +49,17 @@ export class AccountRow {
   }
 
   protected save(): void {
-    if (!this.isDirty()) return;
-    const name = this.name().trim();
-    const institutionName = this.institutionName().trim();
-    if (!name || !institutionName) return;
-
+    if (!this.isValid()) return;
     const account = this.account();
     this.saved.emit({
       ...account,
-      name,
-      institutionName,
+      name: this.name().trim(),
+      institutionName: this.institutionName().trim(),
       dryFloor: this.isLiability() ? account.dryFloor : this.dryFloor(),
     });
+  }
+
+  protected cancel(): void {
+    this.cancelled.emit();
   }
 }

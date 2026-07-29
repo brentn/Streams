@@ -96,31 +96,70 @@ describe('Settings', () => {
       expect(fixture.componentInstance['accounts']()).toEqual([account]);
     });
 
-    it('persists an edited Account and reflects it in the loaded list', async () => {
+    it('persists an edited Account, reflects it in the loaded list, and closes the edit form', async () => {
       const fixture = TestBed.createComponent(Settings);
       fixture.detectChanges();
       await fixture.whenStable();
       const component = fixture.componentInstance;
+      component['editAccount'](account.id);
       const updated: Account = { ...account, name: 'Renamed', institutionName: 'New Bank' };
 
       await component['onAccountSaved'](updated);
 
       expect(storage.upsertAccount).toHaveBeenCalledWith(updated);
       expect(component['accounts']()).toEqual([updated]);
+      expect(component['editingAccountId']()).toBeNull();
     });
 
-    it('surfaces an error message, without updating the list, when persisting an edit fails', async () => {
+    it('surfaces an error message, without updating the list or closing the edit form, when persisting an edit fails', async () => {
       storage.upsertAccount.mockRejectedValue(new Error('db unavailable'));
       const fixture = TestBed.createComponent(Settings);
       fixture.detectChanges();
       await fixture.whenStable();
       const component = fixture.componentInstance;
+      component['editAccount'](account.id);
       const updated: Account = { ...account, name: 'Renamed' };
 
       await component['onAccountSaved'](updated);
 
       expect(component['errorMessage']()).toBe('db unavailable');
       expect(component['accounts']()).toEqual([account]);
+      expect(component['editingAccountId']()).toBe(account.id);
+    });
+
+    it('does not close a different Account\'s edit form switched to while an earlier save is still in flight', async () => {
+      let resolveSave!: () => void;
+      storage.upsertAccount.mockReturnValue(
+        new Promise<void>((resolve) => {
+          resolveSave = resolve;
+        }),
+      );
+      const fixture = TestBed.createComponent(Settings);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      const component = fixture.componentInstance;
+      const other: Account = { ...account, id: 'acc-2', name: 'Savings' };
+
+      component['editAccount'](account.id);
+      const savePromise = component['onAccountSaved']({ ...account, name: 'Renamed' });
+      component['editAccount'](other.id);
+      resolveSave();
+      await savePromise;
+
+      expect(component['editingAccountId']()).toBe(other.id);
+    });
+
+    it('opens and closes the edit form for a given Account', async () => {
+      const fixture = TestBed.createComponent(Settings);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      const component = fixture.componentInstance;
+
+      component['editAccount'](account.id);
+      expect(component['editingAccountId']()).toBe(account.id);
+
+      component['cancelAccountEdit']();
+      expect(component['editingAccountId']()).toBeNull();
     });
 
     it('retries the failed account save', async () => {
