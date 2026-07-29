@@ -38,6 +38,7 @@ interface StreamsDb extends DBSchema {
 
 const ACCESS_URL_KEY = 'simplefinAccessUrl';
 const LAST_SYNCED_AT_KEY = 'simplefinLastSyncedAt';
+const OLDEST_FETCHED_AT_KEY = 'simplefinOldestFetchedAt';
 
 /** Neither the Projection Engine nor the UI talk to IndexedDB directly — everything goes through this repository. */
 @Injectable({ providedIn: 'root' })
@@ -45,7 +46,7 @@ export class StorageRepository {
   private readonly dbPromise: Promise<IDBPDatabase<StreamsDb>>;
 
   constructor() {
-    this.dbPromise = openDB<StreamsDb>('streams', 10, {
+    this.dbPromise = openDB<StreamsDb>('streams', 11, {
       upgrade(db, oldVersion) {
         if (oldVersion < 1) {
           db.createObjectStore('accounts', { keyPath: 'id' });
@@ -89,6 +90,10 @@ export class StorageRepository {
         // already treats as "ok" (never resynced/no error data yet). Also adds a new
         // `simplefinLastSyncedAt` key to the existing generic `settings` store (ADR-0004's
         // daily auto-resync throttle) — no store change needed, same as `simplefinAccessUrl`.
+        // v11: adds a `simplefinOldestFetchedAt` key to the existing generic `settings` store —
+        // the resumable-backfill cursor, tracking how far back transaction history has actually
+        // been fetched, distinct from the `simplefinLastSyncedAt` throttle timestamp. No store
+        // change needed, same as v10's addition.
       },
     });
   }
@@ -113,6 +118,18 @@ export class StorageRepository {
   async getLastSyncedAt(): Promise<Date | undefined> {
     const db = await this.dbPromise;
     const row = await db.get('settings', LAST_SYNCED_AT_KEY);
+    return row ? new Date(row.value) : undefined;
+  }
+
+  /** Backs the resumable-backfill cursor: how far back transaction history has actually been fetched. */
+  async saveOldestFetchedAt(timestamp: Date): Promise<void> {
+    const db = await this.dbPromise;
+    await db.put('settings', { key: OLDEST_FETCHED_AT_KEY, value: timestamp.toISOString() });
+  }
+
+  async getOldestFetchedAt(): Promise<Date | undefined> {
+    const db = await this.dbPromise;
+    const row = await db.get('settings', OLDEST_FETCHED_AT_KEY);
     return row ? new Date(row.value) : undefined;
   }
 

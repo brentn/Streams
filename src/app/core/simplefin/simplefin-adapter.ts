@@ -66,14 +66,6 @@ export function classifySyncStatus(accountId: string, errlist: SimpleFinError[])
 }
 
 /**
- * How far back to request transaction history on every fetch. SimpleFIN's
- * `start-date` param is what actually scopes which transactions come back —
- * the protocol leaves the default (no `start-date`) implementation-defined,
- * and in practice bridges commonly return none at all without it.
- */
-const TRANSACTION_LOOKBACK_DAYS = 90;
-
-/**
  * SimpleFIN carries no asset/liability classifier, so a freshly synced account has no
  * `expectedSign` yet — that's user-set in the connect flow's sign-confirmation step. It
  * likewise knows nothing of Dry Floor, a Streams-only concept the user sets after connecting.
@@ -99,10 +91,21 @@ export class SimpleFinAdapter {
     return (await response.text()).trim();
   }
 
-  async fetchAccounts(accessUrl: string): Promise<SyncedAccount[]> {
+  /**
+   * `startDate`/`endDate` scope which transactions come back — the caller (`sync-window.ts`'s
+   * normal-sync and backfill-chunk window computations) decides those, this stays a thin
+   * protocol client. `endDate` is omitted from every normal sync (fetches through "now") and
+   * only ever supplied for a bounded backfill chunk, so it stays optional here.
+   */
+  async fetchAccounts(accessUrl: string, startDate: Date, endDate?: Date): Promise<SyncedAccount[]> {
     const { baseUrl, username, password } = parseAccessUrl(accessUrl);
-    const startDate = Math.floor(Date.now() / 1000) - TRANSACTION_LOOKBACK_DAYS * 24 * 60 * 60;
-    const response = await fetch(`${baseUrl}/accounts?start-date=${startDate}`, {
+    const params = new URLSearchParams({
+      'start-date': String(Math.floor(startDate.getTime() / 1000)),
+    });
+    if (endDate) {
+      params.set('end-date', String(Math.floor(endDate.getTime() / 1000)));
+    }
+    const response = await fetch(`${baseUrl}/accounts?${params.toString()}`, {
       headers: { Authorization: `Basic ${btoa(`${username}:${password}`)}` },
     });
     if (response.status === 403) {

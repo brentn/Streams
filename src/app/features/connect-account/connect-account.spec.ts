@@ -17,6 +17,9 @@ describe('ConnectAccount', () => {
     upsertAccount: ReturnType<typeof vi.fn>;
     upsertTransactions: ReturnType<typeof vi.fn>;
     getCategorizationRules: ReturnType<typeof vi.fn>;
+    getLastSyncedAt: ReturnType<typeof vi.fn>;
+    getOldestFetchedAt: ReturnType<typeof vi.fn>;
+    saveOldestFetchedAt: ReturnType<typeof vi.fn>;
   };
   let router: { navigateByUrl: ReturnType<typeof vi.fn> };
 
@@ -29,6 +32,9 @@ describe('ConnectAccount', () => {
       upsertAccount: vi.fn(),
       upsertTransactions: vi.fn(),
       getCategorizationRules: vi.fn().mockResolvedValue([]),
+      getLastSyncedAt: vi.fn().mockResolvedValue(undefined),
+      getOldestFetchedAt: vi.fn().mockResolvedValue(new Date('2026-07-20T12:00:00Z')),
+      saveOldestFetchedAt: vi.fn(),
     };
     router = { navigateByUrl: vi.fn() };
 
@@ -75,6 +81,21 @@ describe('ConnectAccount', () => {
     expect(storage.saveAccessUrl).not.toHaveBeenCalled();
     expect(storage.upsertAccount).not.toHaveBeenCalled();
     expect(router.navigateByUrl).not.toHaveBeenCalled();
+  });
+
+  it('fetches accounts with an explicit start-date rather than letting the adapter default it', async () => {
+    simplefin.claimAccessUrl.mockResolvedValue('https://user:pass@bridge.simplefin.org/simplefin');
+    simplefin.fetchAccounts.mockResolvedValue([]);
+
+    const component = TestBed.createComponent(ConnectAccount).componentInstance;
+    component['setupToken'].set('dG9rZW4=');
+
+    await component['connect']();
+
+    expect(simplefin.fetchAccounts).toHaveBeenCalledWith(
+      'https://user:pass@bridge.simplefin.org/simplefin',
+      expect.any(Date),
+    );
   });
 
   it('surfaces an error message when the claim fails, staying on the connect step', async () => {

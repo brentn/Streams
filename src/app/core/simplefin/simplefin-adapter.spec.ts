@@ -1,8 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { classifySyncStatus, SimpleFinAdapter, SimpleFinAuthError } from './simplefin-adapter';
-
-const NOW = new Date('2026-07-25T12:00:00Z');
-const NINETY_DAYS_SECONDS = 90 * 24 * 60 * 60;
 
 const ACCOUNTS_FIXTURE = {
   errlist: [],
@@ -37,12 +34,6 @@ describe('SimpleFinAdapter', () => {
   beforeEach(() => {
     adapter = new SimpleFinAdapter();
     vi.stubGlobal('fetch', vi.fn());
-    vi.useFakeTimers();
-    vi.setSystemTime(NOW);
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
   });
 
   describe('claimAccessUrl', () => {
@@ -70,6 +61,9 @@ describe('SimpleFinAdapter', () => {
   });
 
   describe('fetchAccounts', () => {
+    const startDate = new Date('2026-05-01T00:00:00Z');
+    const startDateSeconds = Math.floor(startDate.getTime() / 1000);
+
     it('sends Basic Auth parsed from the Access URL and maps the response', async () => {
       vi.mocked(fetch).mockResolvedValue(
         new Response(JSON.stringify(ACCOUNTS_FIXTURE), { status: 200 }),
@@ -77,11 +71,11 @@ describe('SimpleFinAdapter', () => {
 
       const result = await adapter.fetchAccounts(
         'https://user123:pass456@bridge.simplefin.org/simplefin',
+        startDate,
       );
 
-      const expectedStartDate = Math.floor(NOW.getTime() / 1000) - NINETY_DAYS_SECONDS;
       expect(fetch).toHaveBeenCalledWith(
-        `https://bridge.simplefin.org/simplefin/accounts?start-date=${expectedStartDate}`,
+        `https://bridge.simplefin.org/simplefin/accounts?start-date=${startDateSeconds}`,
         { headers: { Authorization: `Basic ${btoa('user123:pass456')}` } },
       );
 
@@ -121,7 +115,7 @@ describe('SimpleFinAdapter', () => {
       vi.mocked(fetch).mockResolvedValue(new Response('server error', { status: 500 }));
 
       await expect(
-        adapter.fetchAccounts('https://user:pass@bridge.simplefin.org/simplefin'),
+        adapter.fetchAccounts('https://user:pass@bridge.simplefin.org/simplefin', startDate),
       ).rejects.toThrow(/500/);
     });
 
@@ -129,8 +123,26 @@ describe('SimpleFinAdapter', () => {
       vi.mocked(fetch).mockResolvedValue(new Response('forbidden', { status: 403 }));
 
       await expect(
-        adapter.fetchAccounts('https://user:pass@bridge.simplefin.org/simplefin'),
+        adapter.fetchAccounts('https://user:pass@bridge.simplefin.org/simplefin', startDate),
       ).rejects.toThrow(SimpleFinAuthError);
+    });
+
+    it('includes end-date when given one, for a bounded backfill chunk request', async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify(ACCOUNTS_FIXTURE), { status: 200 }),
+      );
+      const endDate = new Date('2026-06-01T00:00:00Z');
+
+      await adapter.fetchAccounts(
+        'https://user:pass@bridge.simplefin.org/simplefin',
+        startDate,
+        endDate,
+      );
+
+      expect(fetch).toHaveBeenCalledWith(
+        `https://bridge.simplefin.org/simplefin/accounts?start-date=${startDateSeconds}&end-date=${Math.floor(endDate.getTime() / 1000)}`,
+        expect.anything(),
+      );
     });
 
     it('classifies a synced account from a scoped errlist entry as needs-reauth', async () => {
@@ -146,6 +158,7 @@ describe('SimpleFinAdapter', () => {
 
       const [{ account }] = await adapter.fetchAccounts(
         'https://user:pass@bridge.simplefin.org/simplefin',
+        startDate,
       );
 
       expect(account.syncStatus).toEqual({ kind: 'needs-reauth' });
@@ -166,6 +179,7 @@ describe('SimpleFinAdapter', () => {
 
       const [{ account }] = await adapter.fetchAccounts(
         'https://user:pass@bridge.simplefin.org/simplefin',
+        startDate,
       );
 
       expect(account.syncStatus).toEqual({ kind: 'sync-issue', message: 'Try again later.' });
@@ -188,6 +202,7 @@ describe('SimpleFinAdapter', () => {
 
       const [{ account }] = await adapter.fetchAccounts(
         'https://user:pass@bridge.simplefin.org/simplefin',
+        startDate,
       );
 
       expect(account.syncStatus).toEqual({
@@ -210,6 +225,7 @@ describe('SimpleFinAdapter', () => {
 
       const [{ account }] = await adapter.fetchAccounts(
         'https://user:pass@bridge.simplefin.org/simplefin',
+        startDate,
       );
 
       expect(account.syncStatus).toEqual({ kind: 'needs-reauth' });

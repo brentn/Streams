@@ -25,6 +25,8 @@ describe('SyncCoordinator', () => {
     saveLastSyncedAt: ReturnType<typeof vi.fn>;
     getAccounts: ReturnType<typeof vi.fn>;
     getCategorizationRules: ReturnType<typeof vi.fn>;
+    getOldestFetchedAt: ReturnType<typeof vi.fn>;
+    saveOldestFetchedAt: ReturnType<typeof vi.fn>;
   };
   let simplefin: { fetchAccounts: ReturnType<typeof vi.fn> };
   let coordinator: SyncCoordinator;
@@ -36,6 +38,8 @@ describe('SyncCoordinator', () => {
       saveLastSyncedAt: vi.fn(),
       getAccounts: vi.fn().mockResolvedValue([]),
       getCategorizationRules: vi.fn().mockResolvedValue([]),
+      getOldestFetchedAt: vi.fn().mockResolvedValue(new Date('2026-07-20T12:00:00Z')),
+      saveOldestFetchedAt: vi.fn(),
     };
     simplefin = { fetchAccounts: vi.fn().mockResolvedValue([]) };
     coordinator = new SyncCoordinator(storage as never, simplefin as never);
@@ -126,6 +130,26 @@ describe('SyncCoordinator', () => {
       expect(coordinator.operationError()).toBe('No SimpleFIN connection found.');
       expect(coordinator.isSyncing()).toBe(false);
       expect(failingStorage.saveLastSyncedAt).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('backfill gating', () => {
+    const dormantCursor = new Date('2026-01-01T00:00:00Z'); // well over 85 days before "now"
+
+    it('never runs a dormant-gap backfill from auto-resync, even with a long-dormant cursor', async () => {
+      storage.getOldestFetchedAt.mockResolvedValue(dormantCursor);
+
+      await coordinator.triggerAutoResyncIfDue();
+
+      expect(simplefin.fetchAccounts).toHaveBeenCalledOnce(); // normal sync window only, no chunks
+    });
+
+    it('runs a dormant-gap backfill from manual resync when the cursor is long-dormant', async () => {
+      storage.getOldestFetchedAt.mockResolvedValue(dormantCursor);
+
+      await coordinator.resync();
+
+      expect(simplefin.fetchAccounts.mock.calls.length).toBeGreaterThan(1);
     });
   });
 });

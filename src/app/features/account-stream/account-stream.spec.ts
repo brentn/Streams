@@ -31,6 +31,9 @@ describe('AccountStream', () => {
     upsertTransactions: ReturnType<typeof vi.fn>;
     getCategorizationRules: ReturnType<typeof vi.fn>;
     saveLastSyncedAt: ReturnType<typeof vi.fn>;
+    getLastSyncedAt: ReturnType<typeof vi.fn>;
+    getOldestFetchedAt: ReturnType<typeof vi.fn>;
+    saveOldestFetchedAt: ReturnType<typeof vi.fn>;
   };
   let simplefin: { fetchAccounts: ReturnType<typeof vi.fn> };
   let router: { navigateByUrl: ReturnType<typeof vi.fn> };
@@ -46,6 +49,9 @@ describe('AccountStream', () => {
       upsertTransactions: vi.fn(),
       getCategorizationRules: vi.fn().mockResolvedValue([]),
       saveLastSyncedAt: vi.fn(),
+      getLastSyncedAt: vi.fn().mockResolvedValue(undefined),
+      getOldestFetchedAt: vi.fn().mockResolvedValue(new Date('2026-07-20T12:00:00Z')),
+      saveOldestFetchedAt: vi.fn(),
     };
     simplefin = { fetchAccounts: vi.fn() };
     router = { navigateByUrl: vi.fn() };

@@ -4,7 +4,7 @@ import { CdkListbox, CdkOption } from '@angular/cdk/listbox';
 import { categorizeTransactions } from '../../core/categorization/categorization';
 import { Account, Sign } from '../../core/models/account';
 import { SimpleFinAdapter, SyncedAccount } from '../../core/simplefin/simplefin-adapter';
-import { reconcileSyncedAccounts } from '../../core/sync/resync-known-accounts';
+import { fetchNormalSyncWindow, reconcileSyncedAccounts } from '../../core/sync/resync-known-accounts';
 import { StorageRepository } from '../../core/storage/storage-repository';
 import { BackupImport } from '../../shared/backup-import/backup-import';
 import { StatusBanner } from '../../shared/status-banner/status-banner';
@@ -59,7 +59,7 @@ export class ConnectAccount {
     this.errorMessage.set(null);
     try {
       this.accessUrl = await this.simplefin.claimAccessUrl(token);
-      const synced = await this.simplefin.fetchAccounts(this.accessUrl);
+      const { synced } = await fetchNormalSyncWindow(this.storage, this.simplefin, this.accessUrl);
       const { newAccounts } = await reconcileSyncedAccounts(this.storage, synced);
 
       if (newAccounts.length === 0 || newAccounts.length < synced.length) {

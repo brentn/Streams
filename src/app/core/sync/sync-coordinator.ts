@@ -49,15 +49,20 @@ export class SyncCoordinator {
     const lastSyncedAt = await this.storage.getLastSyncedAt();
     if (!isAutoResyncDue(lastSyncedAt, new Date())) return;
 
-    await this.resync();
+    await this.resync(false);
   }
 
-  /** The manual "Re-sync" button — always runs, bypassing the daily throttle. */
-  async resync(): Promise<void> {
+  /**
+   * The manual "Re-sync" button — always runs, bypassing the daily throttle. `allowBackfill`
+   * defaults to true for that manual case; `triggerAutoResyncIfDue` passes false so unattended
+   * daily auto-resync never chunks a dormant-gap backfill on its own (see
+   * `resyncKnownAccounts`'s `allowBackfill` parameter).
+   */
+  async resync(allowBackfill = true): Promise<void> {
     this.isSyncing.set(true);
     this.operationError.set(null);
     try {
-      await resyncKnownAccounts(this.storage, this.simplefin);
+      await resyncKnownAccounts(this.storage, this.simplefin, allowBackfill);
       await this.storage.saveLastSyncedAt(new Date());
     } catch (err) {
       this.operationError.set(err instanceof Error ? err.message : 'Re-sync failed.');
