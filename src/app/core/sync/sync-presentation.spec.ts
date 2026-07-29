@@ -88,10 +88,10 @@ describe('bannerPresentation', () => {
     });
   });
 
-  it('maps needs-reauth to serious severity with a Reconnect action, never critical', () => {
+  it('maps needs-reauth to serious severity with a Reauthorize action, never critical', () => {
     const result = bannerPresentation({ kind: 'needs-reauth' });
     expect(result.severity).toBe('serious');
-    expect(result.retryLabel).toBe('Reconnect');
+    expect(result.retryLabel).toBe('Reauthorize');
     expect(result.message).toBeTruthy();
   });
 

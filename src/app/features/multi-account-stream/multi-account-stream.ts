@@ -17,7 +17,7 @@ import {
 import { laneHeightsFor, NARROW_BREAKPOINT_PX } from '../../core/charting/lane-heights';
 import { bannerPresentation, connectionBannerState } from '../../core/sync/sync-presentation';
 import { SyncCoordinator } from '../../core/sync/sync-coordinator';
-import { startReconnect } from '../../core/simplefin/reconnect';
+import { openSimpleFinBridge } from '../../core/simplefin/reconnect';
 import { StorageRepository } from '../../core/storage/storage-repository';
 import { CalendarChip } from '../../shared/calendar-chip/calendar-chip';
 import { DragScrub } from '../../shared/drag-scrub/drag-scrub.directive';
@@ -196,12 +196,11 @@ export class MultiAccountStream {
     await this.load();
   }
 
-  /** The banner's action button follows whichever state is showing (see `bannerPresentation`) — Reconnect opens the SimpleFIN Bridge to re-link and routes back through the connect flow, anything else re-syncs. */
+  /** The banner's action button follows whichever state is showing (see `bannerPresentation`) — Reauthorize additionally opens the SimpleFIN Bridge to re-link, but always resyncs: the connection's setup token stays valid through a bank-side re-link, so a plain resync is enough to clear needs-reauth once it's fixed there. */
   protected onBannerAction(): void {
     if (this.bannerState().kind === 'needs-reauth') {
-      startReconnect(this.router);
-    } else {
-      void this.resync();
+      openSimpleFinBridge();
     }
+    void this.resync();
   }
 }

@@ -47,8 +47,10 @@ export interface BannerPresentation {
  * Maps a `DerivedBannerState`/`connectionBannerState` result onto `StatusBanner`'s inputs — the
  * one place that owns Needs Reauthentication's copy and action label, shared by `account-stream`
  * and `multi-account-stream` so the two don't drift. `retryLabel` doubles as the signal for
- * which action the caller's click handler should take (resync vs. navigate to `/connect`) —
- * 'Reconnect' only ever appears for `needs-reauth`.
+ * which action the caller's click handler should take — 'Reauthorize' only ever appears for
+ * `needs-reauth`, and always also resyncs: the underlying SimpleFIN connection token stays
+ * valid even while needs-reauth (it's the bank-side link that's broken, fixed at the bridge),
+ * so a plain resync can clear the state once the user's fixed it there.
  */
 export function bannerPresentation(state: DerivedBannerState): BannerPresentation {
   switch (state.kind) {
@@ -56,9 +58,9 @@ export function bannerPresentation(state: DerivedBannerState): BannerPresentatio
       return { message: state.message, severity: 'critical', retryLabel: 'Retry' };
     case 'needs-reauth':
       return {
-        message: 'Your SimpleFIN connection needs to be reconnected.',
+        message: 'Your account needs to be reauthorized in SimpleFIN.',
         severity: 'serious',
-        retryLabel: 'Reconnect',
+        retryLabel: 'Reauthorize',
       };
     case 'sync-issue':
       return { message: state.message, severity: 'warning', retryLabel: 'Retry' };

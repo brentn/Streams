@@ -1,6 +1,6 @@
 import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { CurrencyPipe, DatePipe } from '@angular/common';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { Account } from '../../core/models/account';
 import { Flow } from '../../core/models/flow';
 import { Transaction } from '../../core/models/transaction';
@@ -20,7 +20,7 @@ import {
 } from '../../core/charting/date-window';
 import { bannerPresentation, derivedBannerState } from '../../core/sync/sync-presentation';
 import { SyncCoordinator } from '../../core/sync/sync-coordinator';
-import { startReconnect } from '../../core/simplefin/reconnect';
+import { openSimpleFinBridge } from '../../core/simplefin/reconnect';
 import { StorageRepository } from '../../core/storage/storage-repository';
 import { CalendarChip } from '../../shared/calendar-chip/calendar-chip';
 import { DragScrub } from '../../shared/drag-scrub/drag-scrub.directive';
@@ -50,7 +50,6 @@ import { TransferList } from './transfer-list/transfer-list';
 export class AccountStream {
   private readonly storage = inject(StorageRepository);
   private readonly syncCoordinator = inject(SyncCoordinator);
-  private readonly router = inject(Router);
 
   readonly id = input.required<string>();
 
@@ -189,12 +188,11 @@ export class AccountStream {
     await this.load(this.id());
   }
 
-  /** The banner's action button follows whichever state is showing (see `bannerPresentation`) — Reconnect opens the SimpleFIN Bridge to re-link and routes back through the connect flow, anything else re-syncs. */
+  /** The banner's action button follows whichever state is showing (see `bannerPresentation`) — Reauthorize additionally opens the SimpleFIN Bridge to re-link, but always resyncs: the connection's setup token stays valid through a bank-side re-link, so a plain resync is enough to clear needs-reauth once it's fixed there. */
   protected onBannerAction(): void {
     if (this.bannerState().kind === 'needs-reauth') {
-      startReconnect(this.router);
-    } else {
-      void this.resync();
+      openSimpleFinBridge();
     }
+    void this.resync();
   }
 }

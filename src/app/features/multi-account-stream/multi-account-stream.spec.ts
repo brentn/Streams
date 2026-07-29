@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Account } from '../../core/models/account';
 import { Transfer } from '../../core/models/transfer';
@@ -71,6 +71,7 @@ describe('MultiAccountStream', () => {
         { provide: StorageRepository, useValue: storage },
         { provide: SimpleFinAdapter, useValue: simplefin },
         { provide: Router, useValue: router },
+        { provide: ActivatedRoute, useValue: {} },
       ],
     }).compileComponents();
   });
@@ -236,7 +237,7 @@ describe('MultiAccountStream', () => {
   });
 
   describe('connection-level sync status', () => {
-    it('fans needs-reauth from any one account to a serious, Reconnect-labeled banner', async () => {
+    it('fans needs-reauth from any one account to a serious, Reauthorize-labeled banner', async () => {
       storage.getAccounts.mockResolvedValue([
         checking,
         { ...creditCard, syncStatus: { kind: 'needs-reauth' } },
@@ -247,30 +248,33 @@ describe('MultiAccountStream', () => {
       await component['load']();
 
       expect(component['banner']()).toEqual({
-        message: 'Your SimpleFIN connection needs to be reconnected.',
+        message: 'Your account needs to be reauthorized in SimpleFIN.',
         severity: 'serious',
-        retryLabel: 'Reconnect',
+        retryLabel: 'Reauthorize',
       });
     });
 
-    it('opens the SimpleFIN Bridge and navigates to the connect flow, rather than resyncing, when the banner action fires for needs-reauth', async () => {
+    it('opens the SimpleFIN Bridge and still resyncs, staying on the same page, when the banner action fires for needs-reauth', async () => {
       storage.getAccounts.mockResolvedValue([
         { ...checking, syncStatus: { kind: 'needs-reauth' } },
       ]);
+      storage.getAccessUrl.mockResolvedValue('https://user:pass@bridge.simplefin.org/simplefin');
+      simplefin.fetchAccounts.mockResolvedValue([{ account: checking, transactions: [] }]);
 
       const fixture = TestBed.createComponent(MultiAccountStream);
       const component = fixture.componentInstance;
       await component['load']();
 
       component['onBannerAction']();
+      await new Promise((resolve) => setTimeout(resolve)); // let the fire-and-forget resync settle
 
       expect(window.open).toHaveBeenCalledWith(
         'https://beta-bridge.simplefin.org/my-account',
         '_blank',
         'noopener,noreferrer',
       );
-      expect(router.navigateByUrl).toHaveBeenCalledWith('/connect');
-      expect(simplefin.fetchAccounts).not.toHaveBeenCalled();
+      expect(router.navigateByUrl).not.toHaveBeenCalled();
+      expect(simplefin.fetchAccounts).toHaveBeenCalled();
     });
 
     it('shows a per-lane sync-issue badge without a connection-level banner', async () => {

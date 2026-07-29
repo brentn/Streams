@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Account } from '../../core/models/account';
 import { SCRUB_MAX_DAYS, SCRUB_MIN_DAYS } from '../../core/charting/date-window';
@@ -63,6 +63,7 @@ describe('AccountStream', () => {
         { provide: StorageRepository, useValue: storage },
         { provide: SimpleFinAdapter, useValue: simplefin },
         { provide: Router, useValue: router },
+        { provide: ActivatedRoute, useValue: {} },
       ],
     }).compileComponents();
   });
@@ -139,7 +140,7 @@ describe('AccountStream', () => {
   });
 
   describe('sync status banner', () => {
-    it('shows a serious, Reconnect-labeled banner when the account needs reauthentication', async () => {
+    it('shows a serious, Reauthorize-labeled banner when the account needs reauthentication', async () => {
       storage.getAccounts.mockResolvedValue([
         { ...account, syncStatus: { kind: 'needs-reauth' } },
       ]);
@@ -149,30 +150,34 @@ describe('AccountStream', () => {
       await component['load']('acc-1');
 
       expect(component['banner']()).toEqual({
-        message: 'Your SimpleFIN connection needs to be reconnected.',
+        message: 'Your account needs to be reauthorized in SimpleFIN.',
         severity: 'serious',
-        retryLabel: 'Reconnect',
+        retryLabel: 'Reauthorize',
       });
     });
 
-    it('opens the SimpleFIN Bridge and navigates to the connect flow, rather than resyncing, when the banner action fires for needs-reauth', async () => {
+    it('opens the SimpleFIN Bridge and still resyncs, staying on the same page, when the banner action fires for needs-reauth', async () => {
       storage.getAccounts.mockResolvedValue([
         { ...account, syncStatus: { kind: 'needs-reauth' } },
       ]);
+      storage.getAccessUrl.mockResolvedValue('https://user:pass@bridge.simplefin.org/simplefin');
+      simplefin.fetchAccounts.mockResolvedValue([{ account, transactions: [] }]);
 
       const fixture = TestBed.createComponent(AccountStream);
+      fixture.componentRef.setInput('id', 'acc-1');
       const component = fixture.componentInstance;
       await component['load']('acc-1');
 
       component['onBannerAction']();
+      await new Promise((resolve) => setTimeout(resolve)); // let the fire-and-forget resync settle
 
       expect(window.open).toHaveBeenCalledWith(
         'https://beta-bridge.simplefin.org/my-account',
         '_blank',
         'noopener,noreferrer',
       );
-      expect(router.navigateByUrl).toHaveBeenCalledWith('/connect');
-      expect(simplefin.fetchAccounts).not.toHaveBeenCalled();
+      expect(router.navigateByUrl).not.toHaveBeenCalled();
+      expect(simplefin.fetchAccounts).toHaveBeenCalled();
     });
 
     it('shows a warning banner with the sync-issue message', async () => {
