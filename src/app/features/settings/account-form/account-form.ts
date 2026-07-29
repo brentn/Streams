@@ -8,7 +8,9 @@ import { numberInputValue } from '../../../shared/number-input';
  * doesn't touch storage itself, mirroring `FlowForm`'s shape (Save gated on validity, not
  * on whether anything actually changed). Minimum (the Dry Floor) doesn't apply to a liability
  * Account, so its control is hidden entirely rather than shown disabled or defaulted, and any
- * local edit to it is ignored on save.
+ * local edit to it is ignored on save. Renders with no card chrome of its own (see
+ * account-form.css) — it's only ever embedded inside `AccountsList`'s own row card, which
+ * supplies the border/background; a future standalone use would need that restored.
  */
 @Component({
   selector: 'app-account-form',

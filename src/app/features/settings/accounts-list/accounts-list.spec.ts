@@ -31,18 +31,11 @@ describe('AccountsList', () => {
     return { component: fixture.componentInstance, fixture };
   }
 
-  it('resolves no Account to edit when editingAccountId is unset', async () => {
-    const { component } = await createComponent();
+  it('renders every row read-only when nothing is being edited', async () => {
+    const { fixture } = await createComponent();
 
-    expect(component['editingAccount']()).toBeNull();
-  });
-
-  it('resolves the matching Account once editingAccountId is set', async () => {
-    const { component, fixture } = await createComponent();
-    fixture.componentRef.setInput('editingAccountId', 'acc-2');
-    fixture.detectChanges();
-
-    expect(component['editingAccount']()).toEqual(creditCard);
+    expect(fixture.nativeElement.querySelectorAll('app-account-form').length).toBe(0);
+    expect(fixture.nativeElement.querySelectorAll('.actions button').length).toBe(2);
   });
 
   it('emits edit with the clicked Account id', async () => {
@@ -56,17 +49,25 @@ describe('AccountsList', () => {
     expect(edit).toHaveBeenCalledWith('acc-1');
   });
 
-  it('shows the account form once editingAccountId matches an Account', async () => {
+  it('swaps only the matching row for the account form, leaving other rows read-only', async () => {
     const { fixture } = await createComponent();
-    fixture.componentRef.setInput('editingAccountId', 'acc-1');
+    fixture.componentRef.setInput('editingAccountId', 'acc-2');
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('app-account-form')).toBeTruthy();
+    const rows = fixture.nativeElement.querySelectorAll('.row');
+    expect(rows[0].querySelector('app-account-form')).toBeNull();
+    expect(rows[0].querySelector('.actions button')).toBeTruthy();
+    expect(rows[1].querySelector('app-account-form')).toBeTruthy();
+    expect(rows[1].querySelector('.actions button')).toBeNull();
   });
 
-  it('does not show the account form when nothing is being edited', async () => {
+  it('applies the editing class to the row being edited only', async () => {
     const { fixture } = await createComponent();
+    fixture.componentRef.setInput('editingAccountId', 'acc-2');
+    fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('app-account-form')).toBeNull();
+    const rows = fixture.nativeElement.querySelectorAll('.row');
+    expect(rows[0].classList.contains('editing')).toBe(false);
+    expect(rows[1].classList.contains('editing')).toBe(true);
   });
 });

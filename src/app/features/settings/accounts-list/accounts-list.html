@@ -9,29 +9,30 @@
 
   <ul class="rows">
     @for (account of accounts(); track account.id) {
-      <li class="row">
-        <div class="info">
-          <span class="name">{{ account.name }}</span>
-          <span class="detail">
-            {{ account.institutionName }}
-            @if (account.expectedSign !== -1) {
-              · Minimum {{ account.dryFloor | currency }}
-            }
-          </span>
-        </div>
-        <div class="actions">
-          <button type="button" (click)="edit.emit(account.id)">Edit</button>
-        </div>
+      @let editing = account.id === editingAccountId();
+      <li class="row" [class.editing]="editing">
+        @if (editing) {
+          <app-account-form
+            [account]="account"
+            [isSaving]="savingAccountId() === account.id"
+            (saved)="saved.emit($event)"
+            (cancelled)="cancel.emit()"
+          />
+        } @else {
+          <div class="info">
+            <span class="name">{{ account.name }}</span>
+            <span class="detail">
+              {{ account.institutionName }}
+              @if (account.expectedSign !== -1) {
+                · Minimum {{ account.dryFloor | currency }}
+              }
+            </span>
+          </div>
+          <div class="actions">
+            <button type="button" (click)="edit.emit(account.id)">Edit</button>
+          </div>
+        }
       </li>
     }
   </ul>
-
-  @if (editingAccount(); as account) {
-    <app-account-form
-      [account]="account"
-      [isSaving]="savingAccountId() === account.id"
-      (saved)="saved.emit($event)"
-      (cancelled)="cancel.emit()"
-    />
-  }
 </section>

@@ -1,1 +1,5 @@
 @import '../../../shared/styles/entity-list.css';
+
+.row.editing {
+  display: block;
+}

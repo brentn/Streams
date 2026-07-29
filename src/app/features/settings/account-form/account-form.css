@@ -1,1 +1,14 @@
 @import '../../../shared/styles/entity-form.css';
+
+:host {
+  display: block;
+  width: 100%;
+}
+
+.entity-form {
+  margin-top: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+}
