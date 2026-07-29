@@ -33,4 +33,13 @@ describe('App', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('h1')?.textContent).toContain('Streams');
   });
+
+  it('renders the settings entry point as a labeled cog icon', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const compiled = fixture.nativeElement as HTMLElement;
+    const settingsLink = compiled.querySelector('.settings-link');
+    expect(settingsLink?.getAttribute('aria-label')).toBe('Settings');
+    expect(settingsLink?.querySelector('app-settings-icon')).toBeTruthy();
+  });
 });

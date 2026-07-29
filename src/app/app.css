@@ -14,8 +14,23 @@
 }
 
 .settings-link {
-  font-size: var(--text-body);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
   color: var(--color-ink-secondary);
+}
+
+.settings-link:hover {
+  color: var(--color-accent);
+  background: var(--color-surface);
+}
+
+.settings-link app-settings-icon {
+  width: 1.125rem;
+  height: 1.125rem;
 }
 
 main {

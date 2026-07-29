@@ -1,10 +1,11 @@
 import { Component, inject } from '@angular/core';
 import { RouterLink, RouterOutlet } from '@angular/router';
 import { SyncCoordinator } from './core/sync/sync-coordinator';
+import { SettingsIcon } from './shared/settings-icon/settings-icon';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink],
+  imports: [RouterOutlet, RouterLink, SettingsIcon],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })
