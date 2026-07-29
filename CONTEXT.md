@@ -49,7 +49,7 @@ _Avoid_: Mapping, auto-tag
 ### Sync
 
 **Needs Reauthentication**:
-An Account whose SimpleFIN sync is blocked because its stored credentials have been revoked or are otherwise invalid — signaled by a `con.auth`/`gen.auth` error code or an HTTP 403 on the accounts fetch, never inferred from error message text. A connection-level failure marks every Account under that connection this way at once, rather than being tracked as a separate Connection entity. Persists until the user reconnects via the SimpleFIN connect flow.
+An Account whose SimpleFIN sync is blocked because its stored credentials have been revoked or are otherwise invalid — signaled by a `con.auth`/`gen.auth` error code, an HTTP 403 on the accounts fetch, or a legacy (code-less) `errors` string matching `/auth required/i`, synthesized into a `legacy.auth-required` code at parse time so classification itself stays code-only. Never inferred from message text anywhere past that single parse-time boundary. A connection-level failure marks every Account under that connection this way at once, rather than being tracked as a separate Connection entity. Persists until the user reconnects via the SimpleFIN connect flow.
 _Avoid_: Broken connection, expired token (the protocol doesn't distinguish expiry from revocation — both surface identically)
 
 **Sync Issue**:
