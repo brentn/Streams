@@ -8,8 +8,15 @@
           <p class="institution">{{ account.institutionName }}</p>
         </div>
       </div>
-      <button type="button" class="resync" (click)="resync()" [disabled]="isSyncing()">
-        {{ isSyncing() ? 'Syncing…' : 'Re-sync' }}
+      <button
+        type="button"
+        class="resync"
+        (click)="resync()"
+        [disabled]="isSyncing()"
+        [attr.aria-label]="resyncLabel()"
+        [title]="resyncLabel()"
+      >
+        <app-resync-icon />
       </button>
     </header>
 

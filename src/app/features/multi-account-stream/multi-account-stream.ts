@@ -21,6 +21,7 @@ import { openSimpleFinBridge } from '../../core/simplefin/reconnect';
 import { StorageRepository } from '../../core/storage/storage-repository';
 import { CalendarChip } from '../../shared/calendar-chip/calendar-chip';
 import { DragScrub } from '../../shared/drag-scrub/drag-scrub.directive';
+import { ResyncIcon } from '../../shared/resync-icon/resync-icon';
 import { StatusBanner } from '../../shared/status-banner/status-banner';
 import { StreamBand } from '../../shared/stream-band/stream-band';
 import { SyncBadge } from '../../shared/sync-badge/sync-badge';
@@ -38,7 +39,16 @@ interface AccountLane {
 
 @Component({
   selector: 'app-multi-account-stream',
-  imports: [CurrencyPipe, RouterLink, DragScrub, CalendarChip, StatusBanner, StreamBand, SyncBadge],
+  imports: [
+    CurrencyPipe,
+    RouterLink,
+    DragScrub,
+    CalendarChip,
+    ResyncIcon,
+    StatusBanner,
+    StreamBand,
+    SyncBadge,
+  ],
   templateUrl: './multi-account-stream.html',
   styleUrl: './multi-account-stream.css',
 })
@@ -56,6 +66,7 @@ export class MultiAccountStream {
   protected readonly dayOffset = signal(0);
   protected readonly isSyncing = this.syncCoordinator.isSyncing;
   protected readonly operationError = this.syncCoordinator.operationError;
+  protected readonly resyncLabel = computed(() => (this.isSyncing() ? 'Syncing…' : 'Re-sync'));
 
   /** Fanned (not per-lane) — see `connectionBannerState`. */
   protected readonly bannerState = computed(() =>
@@ -116,7 +127,8 @@ export class MultiAccountStream {
     const lanes = this.lanes();
     if (lanes.length === 0) return 0;
     const earliestBalanceDate = lanes.reduce(
-      (earliest, lane) => (lane.account.balanceDate < earliest ? lane.account.balanceDate : earliest),
+      (earliest, lane) =>
+        lane.account.balanceDate < earliest ? lane.account.balanceDate : earliest,
       lanes[0].account.balanceDate,
     );
     return boundaryXFor(earliestBalanceDate, this.selectedDate());
@@ -129,7 +141,8 @@ export class MultiAccountStream {
   protected readonly totalIsOpposite = computed(() => this.totalBalance() < 0);
 
   private readonly isNarrow = signal(
-    typeof matchMedia === 'function' && matchMedia(`(max-width: ${NARROW_BREAKPOINT_PX}px)`).matches,
+    typeof matchMedia === 'function' &&
+      matchMedia(`(max-width: ${NARROW_BREAKPOINT_PX}px)`).matches,
   );
   protected readonly totalLaneHeight = computed(() => laneHeightsFor(this.isNarrow()).total);
   protected readonly accountLaneHeight = computed(() => laneHeightsFor(this.isNarrow()).account);

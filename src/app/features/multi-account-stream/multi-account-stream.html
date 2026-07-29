@@ -1,8 +1,15 @@
 <section class="multi-account">
   <header>
     <h1>Accounts</h1>
-    <button type="button" class="resync" (click)="resync()" [disabled]="isSyncing()">
-      {{ isSyncing() ? 'Syncing…' : 'Re-sync' }}
+    <button
+      type="button"
+      class="resync"
+      (click)="resync()"
+      [disabled]="isSyncing()"
+      [attr.aria-label]="resyncLabel()"
+      [title]="resyncLabel()"
+    >
+      <app-resync-icon />
     </button>
   </header>
 
@@ -51,7 +58,8 @@
               class="lane-name"
               [routerLink]="['/accounts', lane.account.id]"
               (pointerdown)="$event.stopPropagation()"
-            >{{ lane.account.name }}</a>
+              >{{ lane.account.name }}</a
+            >
             @if (lane.syncIssueMessage; as message) {
               <app-sync-badge [message]="message" />
             }
