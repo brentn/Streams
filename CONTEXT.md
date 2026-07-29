@@ -71,8 +71,8 @@ A notification that a budget-kind Flow has been on the wrong side of its plain l
 _Avoid_: Streak alert, Budget alert (ambiguous with Variance Alert on a budget-kind Flow — prefer this term precisely)
 
 **Dry Floor**:
-A configurable minimum balance for an Account (defaults to $0) — the level a projection crossing below triggers a Running-Dry Alert.
-_Avoid_: Minimum balance, buffer
+A configurable minimum balance for an Account (defaults to $0) — the level a projection crossing below triggers a Running-Dry Alert. The UI displays this as "Minimum" — a deliberate UI-only label choice; the domain term and code identifiers (`dryFloor`) remain "Dry Floor".
+_Avoid_: buffer
 
 **Projection Horizon**:
 The rolling forward-looking window (defaults to 90 days) within which Running-Dry Alerts are evaluated. Projections further out than this aren't surfaced as alerts.
