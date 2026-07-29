@@ -5,13 +5,14 @@
 }
 
 @if (errorMessage(); as message) {
-  <div class="error-banner" role="alert">
-    <svg class="icon" viewBox="0 0 20 20" aria-hidden="true">
-      <circle cx="10" cy="10" r="9" fill="none" stroke="currentColor" stroke-width="1.5" />
-      <line x1="10" y1="6" x2="10" y2="11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-      <circle cx="10" cy="14" r="1" fill="currentColor" />
-    </svg>
+  <div
+    class="error-banner"
+    [class.severity-serious]="severity() === 'serious'"
+    [class.severity-warning]="severity() === 'warning'"
+    role="alert"
+  >
+    <app-alert-icon class="icon" />
     <span class="message">{{ message }}</span>
-    <button type="button" class="retry" (click)="retry.emit()">Retry</button>
+    <button type="button" class="retry" (click)="retry.emit()">{{ retryLabel() }}</button>
   </div>
 }

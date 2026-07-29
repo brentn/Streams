@@ -4,6 +4,7 @@ import { CdkListbox, CdkOption } from '@angular/cdk/listbox';
 import { categorizeTransactions } from '../../core/categorization/categorization';
 import { Account, Sign } from '../../core/models/account';
 import { SimpleFinAdapter, SyncedAccount } from '../../core/simplefin/simplefin-adapter';
+import { reconcileSyncedAccounts } from '../../core/sync/resync-known-accounts';
 import { StorageRepository } from '../../core/storage/storage-repository';
 import { StatusBanner } from '../../shared/status-banner/status-banner';
 
@@ -29,11 +30,18 @@ export class ConnectAccount {
   protected readonly pendingAccounts = signal<SyncedAccount[]>([]);
   protected readonly signChoices = signal<Record<string, Sign>>({});
 
+  /** Detected once at load: an already-stored Access URL means this is a reconnect, not a first-time connect. Only changes copy — the flow (connect, reconcile known accounts, confirm signs for any new ones) is identical either way. */
+  protected readonly isReauth = signal(false);
+
   protected readonly allSignsChosen = computed(() =>
     this.pendingAccounts().every((pending) => this.signChoices()[pending.account.id] !== undefined),
   );
 
   private accessUrl = '';
+
+  constructor() {
+    void this.storage.getAccessUrl().then((url) => this.isReauth.set(!!url));
+  }
 
   protected onSetupTokenInput(value: string): void {
     this.setupToken.set(value);
@@ -48,8 +56,22 @@ export class ConnectAccount {
     try {
       this.accessUrl = await this.simplefin.claimAccessUrl(token);
       const synced = await this.simplefin.fetchAccounts(this.accessUrl);
+      const { newAccounts } = await reconcileSyncedAccounts(this.storage, synced);
 
-      this.pendingAccounts.set(synced);
+      if (newAccounts.length === 0 || newAccounts.length < synced.length) {
+        // Either nothing here needs sign confirmation (including a reauth whose response came
+        // back empty) or at least one account was already known and got reconciled in place
+        // above — either way, save the (possibly new, on reauth) Access URL now rather than
+        // waiting on sign confirmation, which may not happen at all this time around.
+        await this.storage.saveAccessUrl(this.accessUrl);
+      }
+
+      if (newAccounts.length === 0) {
+        await this.router.navigateByUrl('/accounts');
+        return;
+      }
+
+      this.pendingAccounts.set(newAccounts);
       this.signChoices.set({});
       this.step.set('confirm-signs');
     } catch (err) {

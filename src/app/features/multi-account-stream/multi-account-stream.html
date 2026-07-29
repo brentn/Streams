@@ -6,7 +6,13 @@
     </button>
   </header>
 
-  <app-status-banner [errorMessage]="errorMessage()" [isSyncing]="isSyncing()" (retry)="resync()" />
+  <app-status-banner
+    [errorMessage]="banner().message"
+    [severity]="banner().severity"
+    [retryLabel]="banner().retryLabel"
+    [isSyncing]="isSyncing()"
+    (retry)="onBannerAction()"
+  />
 
   @if (lanes().length === 0) {
     <p class="empty">No accounts yet.</p>
@@ -40,11 +46,16 @@
 
       @for (lane of lanes(); track lane.account.id) {
         <div class="lane" [attr.data-account-id]="lane.account.id">
-          <a
-            class="lane-name"
-            [routerLink]="['/accounts', lane.account.id]"
-            (pointerdown)="$event.stopPropagation()"
-          >{{ lane.account.name }}</a>
+          <span class="lane-heading">
+            <a
+              class="lane-name"
+              [routerLink]="['/accounts', lane.account.id]"
+              (pointerdown)="$event.stopPropagation()"
+            >{{ lane.account.name }}</a>
+            @if (lane.syncIssueMessage; as message) {
+              <app-sync-badge [message]="message" />
+            }
+          </span>
           <div class="lane-chart">
             <app-stream-band
               [points]="lane.points"

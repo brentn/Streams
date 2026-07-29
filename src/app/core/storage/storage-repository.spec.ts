@@ -36,6 +36,15 @@ describe('StorageRepository', () => {
     expect(await repo.getAccessUrl()).toBe('https://user:pass@bridge.simplefin.org/simplefin');
   });
 
+  it('round-trips the last-synced timestamp', async () => {
+    expect(await repo.getLastSyncedAt()).toBeUndefined();
+
+    const timestamp = new Date('2026-07-25T12:00:00Z');
+    await repo.saveLastSyncedAt(timestamp);
+
+    expect(await repo.getLastSyncedAt()).toEqual(timestamp);
+  });
+
   it('upserts and retrieves accounts', async () => {
     const account: Account = {
       id: 'acc-1',
@@ -373,7 +382,7 @@ describe('StorageRepository', () => {
     it('reports the current database version alongside the dumped stores', async () => {
       const { dbVersion } = await repo.exportAll();
 
-      expect(dbVersion).toBe(9);
+      expect(dbVersion).toBe(10);
     });
 
     it('importAll replaces the contents of every named store, leaving stores absent from the bundle untouched', async () => {

@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Account } from '../../core/models/account';
 import { SCRUB_MAX_DAYS, SCRUB_MIN_DAYS } from '../../core/charting/date-window';
@@ -29,8 +30,10 @@ describe('AccountStream', () => {
     upsertAccount: ReturnType<typeof vi.fn>;
     upsertTransactions: ReturnType<typeof vi.fn>;
     getCategorizationRules: ReturnType<typeof vi.fn>;
+    saveLastSyncedAt: ReturnType<typeof vi.fn>;
   };
   let simplefin: { fetchAccounts: ReturnType<typeof vi.fn> };
+  let router: { navigateByUrl: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     storage = {
@@ -42,14 +45,17 @@ describe('AccountStream', () => {
       upsertAccount: vi.fn(),
       upsertTransactions: vi.fn(),
       getCategorizationRules: vi.fn().mockResolvedValue([]),
+      saveLastSyncedAt: vi.fn(),
     };
     simplefin = { fetchAccounts: vi.fn() };
+    router = { navigateByUrl: vi.fn() };
 
     await TestBed.configureTestingModule({
       imports: [AccountStream],
       providers: [
         { provide: StorageRepository, useValue: storage },
         { provide: SimpleFinAdapter, useValue: simplefin },
+        { provide: Router, useValue: router },
       ],
     }).compileComponents();
   });
@@ -110,7 +116,7 @@ describe('AccountStream', () => {
 
     expect(storage.upsertAccount).toHaveBeenCalledWith(account);
     expect(component['isSyncing']()).toBe(false);
-    expect(component['errorMessage']()).toBeNull();
+    expect(component['operationError']()).toBeNull();
   });
 
   it('surfaces an error when re-syncing without a stored access URL', async () => {
@@ -122,7 +128,72 @@ describe('AccountStream', () => {
 
     await component['resync']();
 
-    expect(component['errorMessage']()).toBe('No SimpleFIN connection found.');
+    expect(component['operationError']()).toBe('No SimpleFIN connection found.');
+  });
+
+  describe('sync status banner', () => {
+    it('shows a serious, Reconnect-labeled banner when the account needs reauthentication', async () => {
+      storage.getAccounts.mockResolvedValue([
+        { ...account, syncStatus: { kind: 'needs-reauth' } },
+      ]);
+
+      const fixture = TestBed.createComponent(AccountStream);
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+
+      expect(component['banner']()).toEqual({
+        message: 'Your SimpleFIN connection needs to be reconnected.',
+        severity: 'serious',
+        retryLabel: 'Reconnect',
+      });
+    });
+
+    it('navigates to the connect flow, rather than resyncing, when the banner action fires for needs-reauth', async () => {
+      storage.getAccounts.mockResolvedValue([
+        { ...account, syncStatus: { kind: 'needs-reauth' } },
+      ]);
+
+      const fixture = TestBed.createComponent(AccountStream);
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+
+      component['onBannerAction']();
+
+      expect(router.navigateByUrl).toHaveBeenCalledWith('/connect');
+      expect(simplefin.fetchAccounts).not.toHaveBeenCalled();
+    });
+
+    it('shows a warning banner with the sync-issue message', async () => {
+      storage.getAccounts.mockResolvedValue([
+        { ...account, syncStatus: { kind: 'sync-issue', message: 'Try again later.' } },
+      ]);
+
+      const fixture = TestBed.createComponent(AccountStream);
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+
+      expect(component['banner']()).toEqual({
+        message: 'Try again later.',
+        severity: 'warning',
+        retryLabel: 'Retry',
+      });
+    });
+
+    it('lets a transient operation error take priority over a persisted needs-reauth status', async () => {
+      storage.getAccessUrl.mockResolvedValue(undefined);
+      storage.getAccounts.mockResolvedValue([
+        { ...account, syncStatus: { kind: 'needs-reauth' } },
+      ]);
+
+      const fixture = TestBed.createComponent(AccountStream);
+      fixture.componentRef.setInput('id', 'acc-1');
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+      await component['resync'](); // fails with no access URL -> operationError set
+
+      expect(component['banner']().severity).toBe('critical');
+      expect(component['banner']().message).toBe('No SimpleFIN connection found.');
+    });
   });
 
   describe('Dry Floor', () => {

@@ -63,12 +63,18 @@ h1 {
   gap: 0.25rem;
 }
 
+.lane-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  width: fit-content;
+}
+
 .lane-name {
   font-size: var(--text-body);
   font-weight: 600;
   color: var(--color-ink-primary);
   text-decoration: none;
-  width: fit-content;
 }
 
 a.lane-name:hover {

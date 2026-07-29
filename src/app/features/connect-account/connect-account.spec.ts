@@ -11,7 +11,9 @@ describe('ConnectAccount', () => {
     fetchAccounts: ReturnType<typeof vi.fn>;
   };
   let storage: {
+    getAccessUrl: ReturnType<typeof vi.fn>;
     saveAccessUrl: ReturnType<typeof vi.fn>;
+    getAccounts: ReturnType<typeof vi.fn>;
     upsertAccount: ReturnType<typeof vi.fn>;
     upsertTransactions: ReturnType<typeof vi.fn>;
     getCategorizationRules: ReturnType<typeof vi.fn>;
@@ -21,7 +23,9 @@ describe('ConnectAccount', () => {
   beforeEach(async () => {
     simplefin = { claimAccessUrl: vi.fn(), fetchAccounts: vi.fn() };
     storage = {
+      getAccessUrl: vi.fn().mockResolvedValue(undefined),
       saveAccessUrl: vi.fn(),
+      getAccounts: vi.fn().mockResolvedValue([]),
       upsertAccount: vi.fn(),
       upsertTransactions: vi.fn(),
       getCategorizationRules: vi.fn().mockResolvedValue([]),
@@ -84,6 +88,125 @@ describe('ConnectAccount', () => {
     expect(component['errorMessage']()).toBe('bad token');
     expect(component['step']()).toBe('connect');
     expect(router.navigateByUrl).not.toHaveBeenCalled();
+  });
+
+  describe('reauthentication', () => {
+    it('detects reauth mode from an already-stored Access URL', async () => {
+      storage.getAccessUrl.mockResolvedValue('https://user:pass@bridge.simplefin.org/simplefin');
+
+      const component = TestBed.createComponent(ConnectAccount).componentInstance;
+      await Promise.resolve(); // let the constructor's getAccessUrl().then(...) settle
+
+      expect(component['isReauth']()).toBe(true);
+    });
+
+    it('still saves the Access URL when a reauth response comes back with no accounts at all', async () => {
+      simplefin.claimAccessUrl.mockResolvedValue('https://user:pass@bridge.simplefin.org/simplefin');
+      simplefin.fetchAccounts.mockResolvedValue([]);
+
+      const component = TestBed.createComponent(ConnectAccount).componentInstance;
+      component['setupToken'].set('dG9rZW4=');
+
+      await component['connect']();
+
+      expect(storage.saveAccessUrl).toHaveBeenCalledWith(
+        'https://user:pass@bridge.simplefin.org/simplefin',
+      );
+      expect(router.navigateByUrl).toHaveBeenCalledWith('/accounts');
+    });
+
+    it('resyncs a known account immediately and saves straight through when nothing is new', async () => {
+      storage.getAccounts.mockResolvedValue([
+        {
+          id: 'acc-1',
+          name: 'Checking',
+          institutionName: 'Bank',
+          balance: 50,
+          balanceDate: new Date('2026-07-01'),
+          expectedSign: 1,
+          dryFloor: 100,
+        },
+      ]);
+      simplefin.claimAccessUrl.mockResolvedValue('https://user:pass@bridge.simplefin.org/simplefin');
+      simplefin.fetchAccounts.mockResolvedValue([
+        {
+          account: {
+            id: 'acc-1',
+            name: 'Checking',
+            institutionName: 'Bank',
+            balance: 500,
+            balanceDate: new Date('2026-07-25'),
+          },
+          transactions: [],
+        },
+      ]);
+
+      const component = TestBed.createComponent(ConnectAccount).componentInstance;
+      component['setupToken'].set('dG9rZW4=');
+
+      await component['connect']();
+
+      expect(storage.saveAccessUrl).toHaveBeenCalledWith(
+        'https://user:pass@bridge.simplefin.org/simplefin',
+      );
+      expect(storage.upsertAccount).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'acc-1', balance: 500, expectedSign: 1, dryFloor: 100 }),
+      );
+      expect(router.navigateByUrl).toHaveBeenCalledWith('/accounts');
+      expect(component['step']()).toBe('connect'); // never advanced to sign confirmation
+    });
+
+    it('resyncs known accounts but still prompts sign confirmation for a genuinely new one', async () => {
+      storage.getAccounts.mockResolvedValue([
+        {
+          id: 'acc-known',
+          name: 'Checking',
+          institutionName: 'Bank',
+          balance: 50,
+          balanceDate: new Date('2026-07-01'),
+          expectedSign: 1,
+          dryFloor: 0,
+        },
+      ]);
+      simplefin.claimAccessUrl.mockResolvedValue('https://user:pass@bridge.simplefin.org/simplefin');
+      simplefin.fetchAccounts.mockResolvedValue([
+        {
+          account: {
+            id: 'acc-known',
+            name: 'Checking',
+            institutionName: 'Bank',
+            balance: 500,
+            balanceDate: new Date('2026-07-25'),
+          },
+          transactions: [],
+        },
+        {
+          account: {
+            id: 'acc-brand-new',
+            name: 'Savings',
+            institutionName: 'Bank',
+            balance: 10,
+            balanceDate: new Date('2026-07-25'),
+          },
+          transactions: [],
+        },
+      ]);
+
+      const component = TestBed.createComponent(ConnectAccount).componentInstance;
+      component['setupToken'].set('dG9rZW4=');
+
+      await component['connect']();
+
+      expect(storage.upsertAccount).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'acc-known', balance: 500 }),
+      );
+      expect(storage.saveAccessUrl).toHaveBeenCalledWith(
+        'https://user:pass@bridge.simplefin.org/simplefin',
+      );
+      expect(component['step']()).toBe('confirm-signs');
+      expect(component['pendingAccounts']().map((p) => p.account.id)).toEqual(['acc-brand-new']);
+      expect(router.navigateByUrl).not.toHaveBeenCalled();
+    });
   });
 
   describe('sign confirmation', () => {

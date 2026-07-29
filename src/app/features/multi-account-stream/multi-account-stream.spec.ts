@@ -38,8 +38,10 @@ describe('MultiAccountStream', () => {
     upsertAccount: ReturnType<typeof vi.fn>;
     upsertTransactions: ReturnType<typeof vi.fn>;
     getCategorizationRules: ReturnType<typeof vi.fn>;
+    saveLastSyncedAt: ReturnType<typeof vi.fn>;
   };
   let simplefin: { fetchAccounts: ReturnType<typeof vi.fn> };
+  let router: { navigateByUrl: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     storage = {
@@ -51,15 +53,17 @@ describe('MultiAccountStream', () => {
       upsertAccount: vi.fn(),
       upsertTransactions: vi.fn(),
       getCategorizationRules: vi.fn().mockResolvedValue([]),
+      saveLastSyncedAt: vi.fn(),
     };
     simplefin = { fetchAccounts: vi.fn() };
+    router = { navigateByUrl: vi.fn() };
 
     await TestBed.configureTestingModule({
       imports: [MultiAccountStream],
       providers: [
         { provide: StorageRepository, useValue: storage },
         { provide: SimpleFinAdapter, useValue: simplefin },
-        { provide: Router, useValue: { navigateByUrl: vi.fn() } },
+        { provide: Router, useValue: router },
       ],
     }).compileComponents();
   });
@@ -210,7 +214,7 @@ describe('MultiAccountStream', () => {
     expect(storage.upsertAccount).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'acc-checking', expectedSign: 1, balance: 1200 }),
     );
-    expect(component['errorMessage']()).toBeNull();
+    expect(component['operationError']()).toBeNull();
   });
 
   it('surfaces an error when re-syncing without a stored access URL', async () => {
@@ -221,6 +225,70 @@ describe('MultiAccountStream', () => {
 
     await component['resync']();
 
-    expect(component['errorMessage']()).toBe('No SimpleFIN connection found.');
+    expect(component['operationError']()).toBe('No SimpleFIN connection found.');
+  });
+
+  describe('connection-level sync status', () => {
+    it('fans needs-reauth from any one account to a serious, Reconnect-labeled banner', async () => {
+      storage.getAccounts.mockResolvedValue([
+        checking,
+        { ...creditCard, syncStatus: { kind: 'needs-reauth' } },
+      ]);
+
+      const fixture = TestBed.createComponent(MultiAccountStream);
+      const component = fixture.componentInstance;
+      await component['load']();
+
+      expect(component['banner']()).toEqual({
+        message: 'Your SimpleFIN connection needs to be reconnected.',
+        severity: 'serious',
+        retryLabel: 'Reconnect',
+      });
+    });
+
+    it('navigates to the connect flow, rather than resyncing, when the banner action fires for needs-reauth', async () => {
+      storage.getAccounts.mockResolvedValue([
+        { ...checking, syncStatus: { kind: 'needs-reauth' } },
+      ]);
+
+      const fixture = TestBed.createComponent(MultiAccountStream);
+      const component = fixture.componentInstance;
+      await component['load']();
+
+      component['onBannerAction']();
+
+      expect(router.navigateByUrl).toHaveBeenCalledWith('/connect');
+      expect(simplefin.fetchAccounts).not.toHaveBeenCalled();
+    });
+
+    it('shows a per-lane sync-issue badge without a connection-level banner', async () => {
+      storage.getAccounts.mockResolvedValue([
+        { ...checking, syncStatus: { kind: 'sync-issue', message: 'Try again later.' } },
+        creditCard,
+      ]);
+
+      const fixture = TestBed.createComponent(MultiAccountStream);
+      const component = fixture.componentInstance;
+      await component['load']();
+
+      const lanes = component['lanes']();
+      expect(lanes[0].syncIssueMessage).toBe('Try again later.');
+      expect(lanes[1].syncIssueMessage).toBeNull();
+      expect(component['banner']().message).toBeNull();
+    });
+
+    it('suppresses the per-lane sync-issue badge while the connection-level banner is showing something higher-priority', async () => {
+      storage.getAccounts.mockResolvedValue([
+        { ...checking, syncStatus: { kind: 'sync-issue', message: 'Try again later.' } },
+        { ...creditCard, syncStatus: { kind: 'needs-reauth' } },
+      ]);
+
+      const fixture = TestBed.createComponent(MultiAccountStream);
+      const component = fixture.componentInstance;
+      await component['load']();
+
+      expect(component['banner']().severity).toBe('serious');
+      expect(component['lanes']()[0].syncIssueMessage).toBeNull();
+    });
   });
 });

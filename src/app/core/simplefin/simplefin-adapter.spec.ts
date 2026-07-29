@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { SimpleFinAdapter } from './simplefin-adapter';
+import { classifySyncStatus, SimpleFinAdapter, SimpleFinAuthError } from './simplefin-adapter';
 
 const NOW = new Date('2026-07-25T12:00:00Z');
 const NINETY_DAYS_SECONDS = 90 * 24 * 60 * 60;
 
 const ACCOUNTS_FIXTURE = {
-  errors: [],
+  errlist: [],
   accounts: [
     {
       id: 'ACT-checking-1',
@@ -93,6 +93,7 @@ describe('SimpleFinAdapter', () => {
             institutionName: 'First Bank',
             balance: 1234.56,
             balanceDate: new Date(1753449600 * 1000),
+            syncStatus: { kind: 'ok' },
           },
           transactions: [
             {
@@ -122,6 +123,102 @@ describe('SimpleFinAdapter', () => {
       await expect(
         adapter.fetchAccounts('https://user:pass@bridge.simplefin.org/simplefin'),
       ).rejects.toThrow(/500/);
+    });
+
+    it('throws SimpleFinAuthError, not a generic Error, on HTTP 403', async () => {
+      vi.mocked(fetch).mockResolvedValue(new Response('forbidden', { status: 403 }));
+
+      await expect(
+        adapter.fetchAccounts('https://user:pass@bridge.simplefin.org/simplefin'),
+      ).rejects.toThrow(SimpleFinAuthError);
+    });
+
+    it('classifies a synced account from a scoped errlist entry as needs-reauth', async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ...ACCOUNTS_FIXTURE,
+            errlist: [{ code: 'con.auth', msg: 'Authentication failed', account_id: 'ACT-checking-1' }],
+          }),
+          { status: 200 },
+        ),
+      );
+
+      const [{ account }] = await adapter.fetchAccounts(
+        'https://user:pass@bridge.simplefin.org/simplefin',
+      );
+
+      expect(account.syncStatus).toEqual({ kind: 'needs-reauth' });
+    });
+
+    it('classifies a synced account from a scoped non-auth errlist entry as sync-issue', async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ...ACCOUNTS_FIXTURE,
+            errlist: [
+              { code: 'act.failed', msg: 'Try again later.', account_id: 'ACT-checking-1' },
+            ],
+          }),
+          { status: 200 },
+        ),
+      );
+
+      const [{ account }] = await adapter.fetchAccounts(
+        'https://user:pass@bridge.simplefin.org/simplefin',
+      );
+
+      expect(account.syncStatus).toEqual({ kind: 'sync-issue', message: 'Try again later.' });
+    });
+
+    it('fans a connection-level errlist entry (no account_id) onto every returned account', async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ...ACCOUNTS_FIXTURE,
+            errlist: [{ code: 'gen.auth', msg: 'Authentication failed', conn_id: 'CON-1' }],
+          }),
+          { status: 200 },
+        ),
+      );
+
+      const [{ account }] = await adapter.fetchAccounts(
+        'https://user:pass@bridge.simplefin.org/simplefin',
+      );
+
+      expect(account.syncStatus).toEqual({ kind: 'needs-reauth' });
+    });
+  });
+
+  describe('classifySyncStatus', () => {
+    it('returns ok when no errlist entry applies to the account', () => {
+      expect(classifySyncStatus('acc-1', [])).toEqual({ kind: 'ok' });
+      expect(
+        classifySyncStatus('acc-1', [{ code: 'act.failed', msg: 'x', account_id: 'acc-other' }]),
+      ).toEqual({ kind: 'ok' });
+    });
+
+    it('never keys off msg text, only code', () => {
+      expect(
+        classifySyncStatus('acc-1', [
+          { code: 'act.failed', msg: 'You must reauthenticate.', account_id: 'acc-1' },
+        ]),
+      ).toEqual({ kind: 'sync-issue', message: 'You must reauthenticate.' });
+    });
+
+    it('treats con.auth and gen.auth as needs-reauth, everything else as sync-issue', () => {
+      expect(
+        classifySyncStatus('acc-1', [{ code: 'con.auth', msg: 'x', account_id: 'acc-1' }]),
+      ).toEqual({ kind: 'needs-reauth' });
+      expect(
+        classifySyncStatus('acc-1', [{ code: 'gen.auth', msg: 'x', account_id: 'acc-1' }]),
+      ).toEqual({ kind: 'needs-reauth' });
+      expect(
+        classifySyncStatus('acc-1', [{ code: 'gen.api', msg: 'x', account_id: 'acc-1' }]),
+      ).toEqual({ kind: 'sync-issue', message: 'x' });
+      expect(
+        classifySyncStatus('acc-1', [{ code: 'act.missingdata', msg: 'x', account_id: 'acc-1' }]),
+      ).toEqual({ kind: 'sync-issue', message: 'x' });
     });
   });
 });

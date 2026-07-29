@@ -15,8 +15,10 @@
   --color-gridline: #e1e0d9;
   --color-border: rgba(11, 11, 11, 0.1);
 
-  /* Status */
+  /* Status — fixed, never themed (see dataviz status palette) */
   --color-critical: #d03b3b;
+  --color-serious: #ec835a;
+  --color-warning: #fab219;
 
   /* Chart: opposite-of-expected-sign segment */
   --color-opposite-sign: #a8611f;

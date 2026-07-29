@@ -37,6 +37,7 @@ interface StreamsDb extends DBSchema {
 }
 
 const ACCESS_URL_KEY = 'simplefinAccessUrl';
+const LAST_SYNCED_AT_KEY = 'simplefinLastSyncedAt';
 
 /** Neither the Projection Engine nor the UI talk to IndexedDB directly — everything goes through this repository. */
 @Injectable({ providedIn: 'root' })
@@ -44,7 +45,7 @@ export class StorageRepository {
   private readonly dbPromise: Promise<IDBPDatabase<StreamsDb>>;
 
   constructor() {
-    this.dbPromise = openDB<StreamsDb>('streams', 9, {
+    this.dbPromise = openDB<StreamsDb>('streams', 10, {
       upgrade(db, oldVersion) {
         if (oldVersion < 1) {
           db.createObjectStore('accounts', { keyPath: 'id' });
@@ -83,6 +84,11 @@ export class StorageRepository {
         // repeating shapes. No structural change, same reasoning as v2 — existing
         // Flows/Transfers read back with no `endDate`, which `occurrencesInRange`
         // already treats as "repeats indefinitely."
+        // v10: Account gained `syncStatus`. No structural change, same reasoning as v2 —
+        // existing Accounts read back with `syncStatus: undefined`, which every read site
+        // already treats as "ok" (never resynced/no error data yet). Also adds a new
+        // `simplefinLastSyncedAt` key to the existing generic `settings` store (ADR-0004's
+        // daily auto-resync throttle) — no store change needed, same as `simplefinAccessUrl`.
       },
     });
   }
@@ -96,6 +102,18 @@ export class StorageRepository {
     const db = await this.dbPromise;
     const row = await db.get('settings', ACCESS_URL_KEY);
     return row?.value;
+  }
+
+  /** Backs ADR-0004's once-daily auto-resync throttle. */
+  async saveLastSyncedAt(timestamp: Date): Promise<void> {
+    const db = await this.dbPromise;
+    await db.put('settings', { key: LAST_SYNCED_AT_KEY, value: timestamp.toISOString() });
+  }
+
+  async getLastSyncedAt(): Promise<Date | undefined> {
+    const db = await this.dbPromise;
+    const row = await db.get('settings', LAST_SYNCED_AT_KEY);
+    return row ? new Date(row.value) : undefined;
   }
 
   async upsertAccount(account: Account): Promise<void> {

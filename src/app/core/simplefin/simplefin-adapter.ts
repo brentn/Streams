@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Account } from '../models/account';
+import { Account, AccountSyncStatus } from '../models/account';
 import { Transaction } from '../models/transaction';
 
 interface SimpleFinTransaction {
@@ -18,8 +18,46 @@ interface SimpleFinAccount {
   transactions: SimpleFinTransaction[];
 }
 
+/** SimpleFIN v2's structured error shape. `account_id` scopes to one account; an entry with
+ * neither `account_id` nor a per-account match (e.g. only `conn_id`, or neither) is
+ * connection-level. `code` is `prefix.subcode` (e.g. `con.auth`) — consumers should key off
+ * `code` only, never `msg` text, which carries no normative meaning per the protocol spec. */
+interface SimpleFinError {
+  code: string;
+  msg: string;
+  conn_id?: string;
+  account_id?: string;
+}
+
 interface SimpleFinAccountsResponse {
   accounts: SimpleFinAccount[];
+  errlist?: SimpleFinError[];
+}
+
+/**
+ * Thrown when SimpleFIN reports the whole connection as unauthenticated (HTTP 403) rather than
+ * a per-account error inside a 200 response. Distinct from a generic fetch failure so callers
+ * can fan Needs Reauthentication onto every stored Account (ADR-0003) instead of surfacing a
+ * transient operation error.
+ */
+export class SimpleFinAuthError extends Error {}
+
+const AUTH_ERROR_CODES = new Set(['con.auth', 'gen.auth']);
+
+/**
+ * Classifies one account's sync status from the response's `errlist`. An entry with no
+ * `account_id` is connection-level and applies to every account (Streams has one SimpleFIN
+ * connection — ADR-0003), so it fans in here rather than needing a separate step.
+ */
+export function classifySyncStatus(accountId: string, errlist: SimpleFinError[]): AccountSyncStatus {
+  const applicable = errlist.filter((e) => e.account_id === undefined || e.account_id === accountId);
+  if (applicable.some((e) => AUTH_ERROR_CODES.has(e.code))) {
+    return { kind: 'needs-reauth' };
+  }
+  if (applicable.length > 0) {
+    return { kind: 'sync-issue', message: applicable[0].msg };
+  }
+  return { kind: 'ok' };
 }
 
 /**
@@ -62,11 +100,15 @@ export class SimpleFinAdapter {
     const response = await fetch(`${baseUrl}/accounts?start-date=${startDate}`, {
       headers: { Authorization: `Basic ${btoa(`${username}:${password}`)}` },
     });
+    if (response.status === 403) {
+      throw new SimpleFinAuthError('SimpleFIN connection needs reauthentication.');
+    }
     if (!response.ok) {
       throw new Error(`SimpleFIN accounts fetch failed: ${response.status} ${response.statusText}`);
     }
     const data = (await response.json()) as SimpleFinAccountsResponse;
-    return data.accounts.map(toSyncedAccount);
+    const errlist = data.errlist ?? [];
+    return data.accounts.map((raw) => toSyncedAccount(raw, errlist));
   }
 }
 
@@ -83,7 +125,7 @@ function parseAccessUrl(accessUrl: string): {
   return { baseUrl: url.toString().replace(/\/$/, ''), username, password };
 }
 
-function toSyncedAccount(raw: SimpleFinAccount): SyncedAccount {
+function toSyncedAccount(raw: SimpleFinAccount, errlist: SimpleFinError[]): SyncedAccount {
   return {
     account: {
       id: raw.id,
@@ -91,6 +133,7 @@ function toSyncedAccount(raw: SimpleFinAccount): SyncedAccount {
       institutionName: raw.org?.name ?? '',
       balance: Number(raw.balance),
       balanceDate: new Date(raw['balance-date'] * 1000),
+      syncStatus: classifySyncStatus(raw.id, errlist),
     },
     transactions: raw.transactions.map((txn) => ({
       id: txn.id,

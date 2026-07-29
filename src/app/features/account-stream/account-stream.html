@@ -14,9 +14,11 @@
     </header>
 
     <app-status-banner
-      [errorMessage]="errorMessage()"
+      [errorMessage]="banner().message"
+      [severity]="banner().severity"
+      [retryLabel]="banner().retryLabel"
       [isSyncing]="isSyncing()"
-      (retry)="resync()"
+      (retry)="onBannerAction()"
     />
 
     @if (dryAlert(); as alert) {

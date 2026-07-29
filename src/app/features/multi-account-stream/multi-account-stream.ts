@@ -1,4 +1,4 @@
-import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
+import { Component, computed, DestroyRef, effect, inject, signal } from '@angular/core';
 import { CurrencyPipe } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { Account } from '../../core/models/account';
@@ -15,13 +15,14 @@ import {
   WINDOW_DAYS,
 } from '../../core/charting/date-window';
 import { laneHeightsFor, NARROW_BREAKPOINT_PX } from '../../core/charting/lane-heights';
-import { resyncKnownAccounts } from '../../core/sync/resync-known-accounts';
-import { SimpleFinAdapter } from '../../core/simplefin/simplefin-adapter';
+import { bannerPresentation, connectionBannerState } from '../../core/sync/sync-presentation';
+import { SyncCoordinator } from '../../core/sync/sync-coordinator';
 import { StorageRepository } from '../../core/storage/storage-repository';
 import { CalendarChip } from '../../shared/calendar-chip/calendar-chip';
 import { DragScrub } from '../../shared/drag-scrub/drag-scrub.directive';
 import { StatusBanner } from '../../shared/status-banner/status-banner';
 import { StreamBand } from '../../shared/stream-band/stream-band';
+import { SyncBadge } from '../../shared/sync-badge/sync-badge';
 
 interface AccountLane {
   account: Account;
@@ -30,17 +31,19 @@ interface AccountLane {
   boundaryX: number;
   balance: number;
   isOpposite: boolean;
+  /** Only set when this account has a Sync Issue and the connection-level banner isn't already showing something higher-priority — no indicator for a suppressed lower-priority state. */
+  syncIssueMessage: string | null;
 }
 
 @Component({
   selector: 'app-multi-account-stream',
-  imports: [CurrencyPipe, RouterLink, DragScrub, CalendarChip, StatusBanner, StreamBand],
+  imports: [CurrencyPipe, RouterLink, DragScrub, CalendarChip, StatusBanner, StreamBand, SyncBadge],
   templateUrl: './multi-account-stream.html',
   styleUrl: './multi-account-stream.css',
 })
 export class MultiAccountStream {
   private readonly storage = inject(StorageRepository);
-  private readonly simplefin = inject(SimpleFinAdapter);
+  private readonly syncCoordinator = inject(SyncCoordinator);
   private readonly router = inject(Router);
 
   protected readonly windowDays = WINDOW_DAYS;
@@ -50,8 +53,14 @@ export class MultiAccountStream {
   private readonly flowsByAccount = signal<Map<string, Flow[]>>(new Map());
   private readonly transfersByAccount = signal<Map<string, Transfer[]>>(new Map());
   protected readonly dayOffset = signal(0);
-  protected readonly isSyncing = signal(false);
-  protected readonly errorMessage = signal<string | null>(null);
+  protected readonly isSyncing = this.syncCoordinator.isSyncing;
+  protected readonly operationError = this.syncCoordinator.operationError;
+
+  /** Fanned (not per-lane) — see `connectionBannerState`. */
+  protected readonly bannerState = computed(() =>
+    connectionBannerState(this.operationError(), this.accounts()),
+  );
+  protected readonly banner = computed(() => bannerPresentation(this.bannerState()));
 
   protected readonly selectedDate = computed(() => selectedDateFor(this.dayOffset()));
 
@@ -63,6 +72,9 @@ export class MultiAccountStream {
     const transfersByAccount = this.transfersByAccount();
     const dates = this.windowDates();
     const selectedDate = this.selectedDate();
+    // The connection-level banner already covers needs-reauth/operation-error — a lane badge
+    // for Sync Issue on top of that would be a second indicator for a suppressed state.
+    const showSyncBadges = this.bannerState().kind === 'ok';
 
     return this.accounts().map((account) => {
       const transactions = transactionsByAccount.get(account.id) ?? [];
@@ -71,6 +83,7 @@ export class MultiAccountStream {
       const series = balanceSeries(account, transactions, dates, flows, transfers);
       const points = series.map((p, i) => ({ x: i, balance: p.balance }));
       const balance = balanceAtDate(account, transactions, selectedDate, flows, transfers);
+      const syncStatus = account.syncStatus;
       return {
         account,
         points,
@@ -78,6 +91,8 @@ export class MultiAccountStream {
         boundaryX: boundaryXFor(account.balanceDate, selectedDate),
         balance,
         isOpposite: balance * account.expectedSign < 0,
+        syncIssueMessage:
+          showSyncBadges && syncStatus?.kind === 'sync-issue' ? syncStatus.message : null,
       };
     });
   });
@@ -120,6 +135,17 @@ export class MultiAccountStream {
 
   constructor() {
     void this.load();
+
+    // Reflects a sync that finished elsewhere — e.g. ADR-0004's app-open auto-resync,
+    // already in flight by the time this view mounts — without the user taking any action.
+    let wasSyncing = false;
+    effect(() => {
+      const syncing = this.isSyncing();
+      if (wasSyncing && !syncing) {
+        void this.load();
+      }
+      wasSyncing = syncing;
+    });
 
     if (typeof matchMedia === 'function') {
       const query = matchMedia(`(max-width: ${NARROW_BREAKPOINT_PX}px)`);
@@ -165,15 +191,16 @@ export class MultiAccountStream {
   }
 
   protected async resync(): Promise<void> {
-    this.isSyncing.set(true);
-    this.errorMessage.set(null);
-    try {
-      await resyncKnownAccounts(this.storage, this.simplefin);
-      await this.load();
-    } catch (err) {
-      this.errorMessage.set(err instanceof Error ? err.message : 'Re-sync failed.');
-    } finally {
-      this.isSyncing.set(false);
+    await this.syncCoordinator.resync();
+    await this.load();
+  }
+
+  /** The banner's action button follows whichever state is showing (see `bannerPresentation`) — Reconnect routes back through the connect flow, anything else re-syncs. */
+  protected onBannerAction(): void {
+    if (this.bannerState().kind === 'needs-reauth') {
+      void this.router.navigateByUrl('/connect');
+    } else {
+      void this.resync();
     }
   }
 }

@@ -1,10 +1,17 @@
 @if (step() === 'connect') {
   <section class="connect">
-    <h1>Connect a bank Account</h1>
-    <p>
-      Paste the setup token from your SimpleFIN Bridge account to sync your real balance and
-      Transactions.
-    </p>
+    @if (isReauth()) {
+      <h1>Reconnect your SimpleFIN connection</h1>
+      <p>
+        Paste a new setup token from your SimpleFIN Bridge account to restore your sync.
+      </p>
+    } @else {
+      <h1>Connect a bank Account</h1>
+      <p>
+        Paste the setup token from your SimpleFIN Bridge account to sync your real balance and
+        Transactions.
+      </p>
+    }
 
     <app-status-banner [errorMessage]="errorMessage()" [isSyncing]="isConnecting()" (retry)="connect()" />
 
