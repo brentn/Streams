@@ -112,6 +112,41 @@ describe('AccountStream', () => {
     expect(component['dayOffset']()).toBe(SCRUB_MIN_DAYS);
   });
 
+  it('reports isAtToday and jumps back to today from any scrub position', () => {
+    const fixture = TestBed.createComponent(AccountStream);
+    const component = fixture.componentInstance;
+
+    expect(component['isAtToday']()).toBe(true);
+
+    component['dayOffset'].set(-30);
+    expect(component['isAtToday']()).toBe(false);
+
+    component['jumpToToday']();
+    expect(component['dayOffset']()).toBe(0);
+    expect(component['isAtToday']()).toBe(true);
+  });
+
+  it('renders the Today button only when scrubbed away from today, and hides it again after jumping back', async () => {
+    const fixture = TestBed.createComponent(AccountStream);
+    fixture.componentRef.setInput('id', 'acc-1');
+    const component = fixture.componentInstance;
+    await component['load']('acc-1');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.today')).toBeNull();
+
+    component['dayOffset'].set(-10);
+    fixture.detectChanges();
+    const todayButton = fixture.nativeElement.querySelector('.today') as HTMLButtonElement | null;
+    expect(todayButton).toBeTruthy();
+
+    todayButton!.click();
+    fixture.detectChanges();
+
+    expect(component['dayOffset']()).toBe(0);
+    expect(fixture.nativeElement.querySelector('.today')).toBeNull();
+  });
+
   it('re-syncs by fetching accounts and re-loading from storage', async () => {
     storage.getAccessUrl.mockResolvedValue('https://user:pass@bridge.simplefin.org/simplefin');
     simplefin.fetchAccounts.mockResolvedValue([{ account, transactions: [] }]);
@@ -141,9 +176,7 @@ describe('AccountStream', () => {
 
   describe('sync status banner', () => {
     it('shows a serious, Reauthorize-labeled banner when the account needs reauthentication', async () => {
-      storage.getAccounts.mockResolvedValue([
-        { ...account, syncStatus: { kind: 'needs-reauth' } },
-      ]);
+      storage.getAccounts.mockResolvedValue([{ ...account, syncStatus: { kind: 'needs-reauth' } }]);
 
       const fixture = TestBed.createComponent(AccountStream);
       const component = fixture.componentInstance;
@@ -157,9 +190,7 @@ describe('AccountStream', () => {
     });
 
     it('opens the SimpleFIN Bridge and still resyncs, staying on the same page, when the banner action fires for needs-reauth', async () => {
-      storage.getAccounts.mockResolvedValue([
-        { ...account, syncStatus: { kind: 'needs-reauth' } },
-      ]);
+      storage.getAccounts.mockResolvedValue([{ ...account, syncStatus: { kind: 'needs-reauth' } }]);
       storage.getAccessUrl.mockResolvedValue('https://user:pass@bridge.simplefin.org/simplefin');
       simplefin.fetchAccounts.mockResolvedValue([{ account, transactions: [] }]);
 
@@ -198,9 +229,7 @@ describe('AccountStream', () => {
 
     it('lets a transient operation error take priority over a persisted needs-reauth status', async () => {
       storage.getAccessUrl.mockResolvedValue(undefined);
-      storage.getAccounts.mockResolvedValue([
-        { ...account, syncStatus: { kind: 'needs-reauth' } },
-      ]);
+      storage.getAccounts.mockResolvedValue([{ ...account, syncStatus: { kind: 'needs-reauth' } }]);
 
       const fixture = TestBed.createComponent(AccountStream);
       fixture.componentRef.setInput('id', 'acc-1');

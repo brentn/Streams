@@ -1,4 +1,13 @@
-import { Component, computed, effect, inject, input, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  effect,
+  ElementRef,
+  inject,
+  input,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { Account } from '../../core/models/account';
@@ -74,6 +83,10 @@ export class AccountStream {
   protected readonly banner = computed(() => bannerPresentation(this.bannerState()));
 
   protected readonly selectedDate = computed(() => selectedDateFor(this.dayOffset()));
+  protected readonly isAtToday = computed(() => this.dayOffset() === 0);
+
+  /** Catches focus when the Today button disappears out from under it on click. */
+  private readonly resyncButton = viewChild<ElementRef<HTMLButtonElement>>('resyncButton');
 
   /** Recomputed from the current Account/Flow/Transfer/Transaction state, so it updates automatically as new Transactions sync in and the projection shifts. */
   protected readonly dryAlert = computed(() => {
@@ -184,6 +197,11 @@ export class AccountStream {
 
   protected shiftDay(delta: number): void {
     this.dayOffset.update((offset) => clampDayOffset(offset + delta));
+  }
+
+  protected jumpToToday(): void {
+    this.dayOffset.set(0);
+    this.resyncButton()?.nativeElement.focus();
   }
 
   protected async resync(): Promise<void> {

@@ -8,16 +8,22 @@
           <p class="institution">{{ account.institutionName }}</p>
         </div>
       </div>
-      <button
-        type="button"
-        class="resync"
-        (click)="resync()"
-        [disabled]="isSyncing()"
-        [attr.aria-label]="resyncLabel()"
-        [title]="resyncLabel()"
-      >
-        <app-resync-icon />
-      </button>
+      <div class="actions">
+        @if (!isAtToday()) {
+          <button type="button" class="today" (click)="jumpToToday()">Today</button>
+        }
+        <button
+          #resyncButton
+          type="button"
+          class="resync"
+          (click)="resync()"
+          [disabled]="isSyncing()"
+          [attr.aria-label]="resyncLabel()"
+          [title]="resyncLabel()"
+        >
+          <app-resync-icon />
+        </button>
+      </div>
     </header>
 
     <app-status-banner
