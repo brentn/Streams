@@ -1,16 +1,17 @@
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Ceiling on how far back any single fetch's `start-date` may reach. SimpleFIN Bridge's own
- * limit is an exact 90 days; 85 leaves margin for the normal-sync overlap buffer below plus
- * rounding/timezone edge cases, so a boundary-value request never trips the bridge's own
- * "Requested date range exceeds limit of 90 days" error.
+ * Ceiling on how far back any single fetch's `start-date` may reach. SimpleFIN Bridge's hard
+ * limit is 90 days, but it also warns past a softer 45-day advisory threshold ("may be capped"
+ * in the future); 40 leaves margin under that advisory threshold for the normal-sync overlap
+ * buffer below plus rounding/timezone edge cases, so a boundary-value request never trips it.
  */
-export const MAX_SYNC_LOOKBACK_DAYS = 85;
+export const MAX_SYNC_LOOKBACK_DAYS = 40;
 
 const NORMAL_SYNC_OVERLAP_DAYS = 3;
 const BACKFILL_CHUNK_OVERLAP_DAYS = 1;
-const MAX_BACKFILL_CHUNKS_PER_RESYNC = 5;
+/** 10 chunks of 40 days keeps a full backfill sweep's total reach roughly unchanged from the previous 5×85. */
+const MAX_BACKFILL_CHUNKS_PER_RESYNC = 10;
 const CHUNK_MS = MAX_SYNC_LOOKBACK_DAYS * DAY_MS;
 
 export interface SyncWindow {

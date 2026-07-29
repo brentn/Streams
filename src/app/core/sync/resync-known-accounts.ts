@@ -55,7 +55,7 @@ export interface NormalSyncResult {
   cursor: Date;
 }
 
-/** Bootstraps the backfill cursor (`getOldestFetchedAt`) the first time it's ever read for a connection: an existing connection predating this cursor, and a brand-new one, both realistically have no more than `MAX_SYNC_LOOKBACK_DAYS` of history fetched so far (the old code's rolling window never accumulated more), so both bootstrap to the same ~85-day-ago estimate. */
+/** Bootstraps the backfill cursor (`getOldestFetchedAt`) the first time it's ever read for a connection: an existing connection predating this cursor, and a brand-new one, both realistically have no more than `MAX_SYNC_LOOKBACK_DAYS` of history fetched so far (the old code's rolling window never accumulated more), so both bootstrap to the same ~40-day-ago estimate. */
 async function bootstrapCursorIfNeeded(storage: StorageRepository, now: Date): Promise<Date> {
   const cursor = await storage.getOldestFetchedAt();
   if (cursor) return cursor;

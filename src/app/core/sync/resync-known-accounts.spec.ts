@@ -202,7 +202,7 @@ describe('resyncKnownAccounts', () => {
     expect(simplefin.fetchAccounts).toHaveBeenCalledWith(ACCESS_URL, expectedStartDate);
   });
 
-  it('initializes the backfill cursor to the 85-day ceiling on first sync when none is stored', async () => {
+  it('initializes the backfill cursor to the 40-day ceiling on first sync when none is stored', async () => {
     storage.getOldestFetchedAt.mockResolvedValue(undefined);
 
     await resyncKnownAccounts(storage as never, simplefin as never);
@@ -279,7 +279,7 @@ describe('resyncKnownAccounts', () => {
     });
 
     it('does not chunk when the cursor is within the normal-sync ceiling', async () => {
-      storage.getOldestFetchedAt.mockResolvedValue(new Date(NOW.getTime() - 50 * DAY_MS));
+      storage.getOldestFetchedAt.mockResolvedValue(new Date(NOW.getTime() - 20 * DAY_MS));
 
       await resyncKnownAccounts(storage as never, simplefin as never);
 
@@ -330,7 +330,7 @@ describe('fetchNormalSyncWindow', () => {
     expect(storage.saveOldestFetchedAt).not.toHaveBeenCalled();
   });
 
-  it('uses the 85-day ceiling as start-date for a genuinely first-time connection', async () => {
+  it('uses the 40-day ceiling as start-date for a genuinely first-time connection', async () => {
     await fetchNormalSyncWindow(storage as never, simplefin as never, ACCESS_URL);
 
     expect(simplefin.fetchAccounts).toHaveBeenCalledWith(

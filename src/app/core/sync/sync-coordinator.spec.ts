@@ -134,7 +134,7 @@ describe('SyncCoordinator', () => {
   });
 
   describe('backfill gating', () => {
-    const dormantCursor = new Date('2026-01-01T00:00:00Z'); // well over 85 days before "now"
+    const dormantCursor = new Date('2026-01-01T00:00:00Z'); // well over 40 days before "now"
 
     it('never runs a dormant-gap backfill from auto-resync, even with a long-dormant cursor', async () => {
       storage.getOldestFetchedAt.mockResolvedValue(dormantCursor);

@@ -10,7 +10,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = new Date('2026-07-29T12:00:00Z');
 
 describe('computeNormalSyncStartDate', () => {
-  it('is the 85-day ceiling when never synced before', () => {
+  it('is the 40-day ceiling when never synced before', () => {
     expect(computeNormalSyncStartDate(undefined, NOW)).toEqual(
       new Date(NOW.getTime() - MAX_SYNC_LOOKBACK_DAYS * DAY_MS),
     );
@@ -24,7 +24,7 @@ describe('computeNormalSyncStartDate', () => {
     );
   });
 
-  it('never goes further back than the 85-day ceiling, even for a long-dormant connection', () => {
+  it('never goes further back than the 40-day ceiling, even for a long-dormant connection', () => {
     const lastSyncedAt = new Date(NOW.getTime() - 400 * DAY_MS);
 
     expect(computeNormalSyncStartDate(lastSyncedAt, NOW)).toEqual(
@@ -42,26 +42,26 @@ describe('computeNormalSyncStartDate', () => {
 });
 
 describe('initialBackfillCursor', () => {
-  it('is the same 85-day ceiling a first-ever normal sync would use', () => {
+  it('is the same 40-day ceiling a first-ever normal sync would use', () => {
     expect(initialBackfillCursor(NOW)).toEqual(computeNormalSyncStartDate(undefined, NOW));
   });
 });
 
 describe('computeBackfillChunks', () => {
-  it('is empty when the cursor is within 85 days of now', () => {
-    const cursor = new Date(NOW.getTime() - 50 * DAY_MS);
+  it('is empty when the cursor is within 40 days of now', () => {
+    const cursor = new Date(NOW.getTime() - 20 * DAY_MS);
 
     expect(computeBackfillChunks(cursor, NOW)).toEqual([]);
   });
 
-  it('is empty exactly at the 85-day boundary', () => {
+  it('is empty exactly at the 40-day boundary', () => {
     const cursor = new Date(NOW.getTime() - MAX_SYNC_LOOKBACK_DAYS * DAY_MS);
 
     expect(computeBackfillChunks(cursor, NOW)).toEqual([]);
   });
 
   it('produces exactly the one chunk needed to close a gap just over the ceiling, not the full cap', () => {
-    const cursor = new Date(NOW.getTime() - 90 * DAY_MS);
+    const cursor = new Date(NOW.getTime() - 45 * DAY_MS);
 
     const chunks = computeBackfillChunks(cursor, NOW);
 
@@ -73,9 +73,9 @@ describe('computeBackfillChunks', () => {
     ]);
   });
 
-  it('produces only as many chunks as needed for a mid-sized gap, short of the 5-chunk cap', () => {
-    // ~200-day gap needs 2 chunks (85 days each) to close, not the full 5-chunk cap.
-    const cursor = new Date(NOW.getTime() - 200 * DAY_MS);
+  it('produces only as many chunks as needed for a mid-sized gap, short of the 10-chunk cap', () => {
+    // ~100-day gap needs 2 chunks (40 days each) to close, not the full 10-chunk cap.
+    const cursor = new Date(NOW.getTime() - 100 * DAY_MS);
 
     expect(computeBackfillChunks(cursor, NOW)).toHaveLength(2);
   });
@@ -104,9 +104,9 @@ describe('computeBackfillChunks', () => {
     }
   });
 
-  it('caps at 5 chunks per call, however large the gap', () => {
+  it('caps at 10 chunks per call, however large the gap', () => {
     const cursor = new Date(NOW.getTime() - 5000 * DAY_MS);
 
-    expect(computeBackfillChunks(cursor, NOW)).toHaveLength(5);
+    expect(computeBackfillChunks(cursor, NOW)).toHaveLength(10);
   });
 });
