@@ -68,7 +68,9 @@ describe('buildTributaries', () => {
       amountChanges: [{ type: 'step', effectiveDate: d('2026-07-15'), amount: 1600 }],
     };
 
-    const result = buildTributaries([flow], [], accounts, 'acc-1', d('2026-08-01'));
+    // selectedDate centers the (now 60-day) window on 07-20, so both the 07-01 and 08-01
+    // occurrences fall inside it, straddling the 07-15 Step Change.
+    const result = buildTributaries([flow], [], accounts, 'acc-1', d('2026-07-20'));
 
     const before = result.filter((t) => t.date.getTime() < d('2026-07-15').getTime());
     const after = result.filter((t) => t.date.getTime() >= d('2026-07-15').getTime());

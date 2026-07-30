@@ -1,5 +1,5 @@
-/** ~6-month panning window centered on the scrub position, per docs/ux-spec.md. */
-export const WINDOW_DAYS = 183;
+/** ~2-month panning window centered on the scrub position, per docs/ux-spec.md. */
+export const WINDOW_DAYS = 60;
 export const HALF_WINDOW_DAYS = Math.floor(WINDOW_DAYS / 2);
 
 export function normalizeDay(date: Date): Date {

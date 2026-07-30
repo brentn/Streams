@@ -46,7 +46,7 @@ The accent steps rather than reusing one hex in both modes: raw brand green `#00
 
 ## Scrubber: chart, not a range input
 
-The `account-stream` scrubber is a graphical timeline, not a plain `<input type="range">` — balance encoded as **line thickness** around a flat centerline (not vertical position), zero-floored per the account's expected sign, inside a panning ~6-month window centered on the scrub position:
+The `account-stream` scrubber is a graphical timeline, not a plain `<input type="range">` — balance encoded as **line thickness** around a flat centerline (not vertical position), zero-floored per the account's expected sign, inside a panning ~2-month window centered on the scrub position (narrowed from an original ~6-month window once the account-stream tributary lines made the wider window feel crowded):
 
 - **Interaction:** direct drag-to-scrub on the timeline itself (pointer/touch drag mapped to days) — no separate range input or prev/next buttons.
 - **Marker:** a calendar-day chip (month band + day number (plus year if not current year)) tied to the scrub position, joined to the balance figure by a vertical accent-colored line, in a fixed vertical rhythm (calendar → chart → balance) rather than following the curve's data position.
