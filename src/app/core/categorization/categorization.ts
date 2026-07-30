@@ -1,5 +1,5 @@
 import { CategorizationRule } from '../models/categorization-rule';
-import { Transaction } from '../models/transaction';
+import { MatchedTarget, Transaction } from '../models/transaction';
 
 /** Canonical form for a Categorization Rule's match text — the key that makes exactly one rule exist per text. */
 export function normalizeMatchText(text: string): string {
@@ -17,7 +17,7 @@ export function isSubstringMatch(description: string, matchText: string): boolea
  * longest (most specific) match text wins. Returns `null` when no rule
  * matches, surfacing the Transaction for manual assignment.
  */
-export function matchFlowId(description: string, rules: CategorizationRule[]): string | null {
+export function matchTarget(description: string, rules: CategorizationRule[]): MatchedTarget | null {
   let best: CategorizationRule | null = null;
   for (const rule of rules) {
     const needle = normalizeMatchText(rule.matchText);
@@ -27,13 +27,13 @@ export function matchFlowId(description: string, rules: CategorizationRule[]): s
     }
   }
 
-  return best?.flowId ?? null;
+  return best?.target ?? null;
 }
 
-/** Re-derives every Transaction's `matchedFlowId` from the current rule set — the one place sync and manual-correction call sites share this logic. */
+/** Re-derives every Transaction's `matchedTarget` from the current rule set — the one place sync and manual-correction call sites share this logic. */
 export function categorizeTransactions(
   transactions: Transaction[],
   rules: CategorizationRule[],
 ): Transaction[] {
-  return transactions.map((t) => ({ ...t, matchedFlowId: matchFlowId(t.description, rules) }));
+  return transactions.map((t) => ({ ...t, matchedTarget: matchTarget(t.description, rules) }));
 }

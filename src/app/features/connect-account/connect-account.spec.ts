@@ -261,7 +261,7 @@ describe('ConnectAccount', () => {
               date: new Date('2026-07-24'),
               amount: -10,
               description: 'x',
-              matchedFlowId: null,
+              matchedTarget: null,
             },
           ],
         },
@@ -317,7 +317,7 @@ describe('ConnectAccount', () => {
           date: new Date('2026-07-24'),
           amount: -10,
           description: 'x',
-          matchedFlowId: null,
+          matchedTarget: null,
         },
       ]);
       expect(router.navigateByUrl).toHaveBeenCalledWith('/accounts');

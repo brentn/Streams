@@ -38,7 +38,7 @@ function txn(id: string, date: string, amount: number): Transaction {
     date: new Date(date),
     amount,
     description: `txn-${id}`,
-    matchedFlowId: null,
+    matchedTarget: null,
   };
 }
 
@@ -350,7 +350,7 @@ describe('runningDryAlert', () => {
 });
 
 function matchedTxn(id: string, date: string, amount: number, flowId: string): Transaction {
-  return { ...txn(id, date, amount), matchedFlowId: flowId };
+  return { ...txn(id, date, amount), matchedTarget: { kind: 'flow', id: flowId } };
 }
 
 describe('varianceAlert', () => {

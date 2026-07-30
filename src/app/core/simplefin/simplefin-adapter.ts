@@ -165,7 +165,7 @@ function toSyncedAccount(raw: SimpleFinAccount, errlist: SimpleFinError[]): Sync
       date: new Date(txn.posted * 1000),
       amount: Number(txn.amount),
       description: txn.description,
-      matchedFlowId: null,
+      matchedTarget: null,
     })),
   };
 }

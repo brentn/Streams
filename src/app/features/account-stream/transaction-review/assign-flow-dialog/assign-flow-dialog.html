@@ -1,5 +1,5 @@
 <div class="dialog">
-  <h2>{{ data.transaction.matchedFlowId ? 'Correct Flow' : 'Assign Flow' }}</h2>
+  <h2>{{ data.transaction.matchedTarget ? 'Correct Match' : 'Assign Match' }}</h2>
   <p class="txn-summary">
     {{ data.transaction.description }} · {{ data.transaction.date | date: 'mediumDate' }} ·
     {{ data.transaction.amount | currency }}
@@ -20,15 +20,34 @@
         />
       </label>
       <label>
-        Flow
+        Flow or Transfer
         <select
-          [value]="selectedFlowId()"
-          (change)="selectedFlowId.set($any($event.target).value)"
+          [value]="selectedTarget() ? encodeTarget(selectedTarget()!) : ''"
+          (change)="onTargetChange($any($event.target).value)"
         >
-          @for (flow of flows(); track flow.id) {
-            <option [value]="flow.id" [selected]="flow.id === selectedFlowId()">
-              {{ flow.name || '(unnamed)' }}
-            </option>
+          @if (flows().length > 0) {
+            <optgroup label="Flows">
+              @for (flow of flows(); track flow.id) {
+                <option
+                  [value]="encodeTarget({ kind: 'flow', id: flow.id })"
+                  [selected]="selectedTarget()?.kind === 'flow' && selectedTarget()?.id === flow.id"
+                >
+                  {{ flow.name || '(unnamed)' }}
+                </option>
+              }
+            </optgroup>
+          }
+          @if (data.transfers.length > 0) {
+            <optgroup label="Transfers">
+              @for (transfer of data.transfers; track transfer.id) {
+                <option
+                  [value]="encodeTarget({ kind: 'transfer', id: transfer.id })"
+                  [selected]="selectedTarget()?.kind === 'transfer' && selectedTarget()?.id === transfer.id"
+                >
+                  {{ transferLabel(transfer) }}
+                </option>
+              }
+            </optgroup>
           }
         </select>
       </label>

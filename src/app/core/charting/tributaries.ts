@@ -174,7 +174,7 @@ export function buildUncategorizedTributaries(
   const buckets = new Map<string, { direction: FlowDirection; date: Date; total: number }>();
 
   for (const t of transactions) {
-    if (t.matchedFlowId !== null) continue;
+    if (t.matchedTarget !== null) continue;
 
     const direction: FlowDirection = t.amount >= 0 ? 'in' : 'out';
     const monthStart = periodStart('month', t.date);

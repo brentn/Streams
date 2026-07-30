@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { DBSchema, IDBPDatabase, openDB } from 'idb';
+import { DBSchema, IDBPDatabase, IDBPTransaction, openDB, StoreNames } from 'idb';
 import { normalizeMatchText } from '../categorization/categorization';
 import { Account } from '../models/account';
 import { CategorizationRule } from '../models/categorization-rule';
@@ -36,6 +36,32 @@ interface StreamsDb extends DBSchema {
   };
 }
 
+/**
+ * v12 migration helper: rewrites every record in `storeName` that still has `oldKey` (a Flow id,
+ * string or null) into `newKey: {kind:'flow', id} | null`, in place, via a cursor. Shared by the
+ * `transactions`/`categorizationRules` rewrites — same shape, different store/field names.
+ */
+async function migrateFlowIdField(
+  transaction: IDBPTransaction<StreamsDb, ArrayLike<StoreNames<StreamsDb>>, 'versionchange'>,
+  storeName: 'transactions' | 'categorizationRules',
+  oldKey: string,
+  newKey: string,
+): Promise<void> {
+  let cursor = await transaction.objectStore(storeName).openCursor();
+  while (cursor) {
+    const old = cursor.value as unknown as Record<string, unknown>;
+    if (oldKey in old) {
+      const { [oldKey]: flowId, ...rest } = old;
+      await cursor.update(
+        { ...rest, [newKey]: flowId ? { kind: 'flow', id: flowId } : null } as unknown as
+          | Transaction
+          | CategorizationRule,
+      );
+    }
+    cursor = await cursor.continue();
+  }
+}
+
 const ACCESS_URL_KEY = 'simplefinAccessUrl';
 const LAST_SYNCED_AT_KEY = 'simplefinLastSyncedAt';
 const OLDEST_FETCHED_AT_KEY = 'simplefinOldestFetchedAt';
@@ -46,8 +72,8 @@ export class StorageRepository {
   private readonly dbPromise: Promise<IDBPDatabase<StreamsDb>>;
 
   constructor() {
-    this.dbPromise = openDB<StreamsDb>('streams', 11, {
-      upgrade(db, oldVersion) {
+    this.dbPromise = openDB<StreamsDb>('streams', 12, {
+      async upgrade(db, oldVersion, _newVersion, transaction) {
         if (oldVersion < 1) {
           db.createObjectStore('accounts', { keyPath: 'id' });
           const transactions = db.createObjectStore('transactions', { keyPath: 'id' });
@@ -94,6 +120,16 @@ export class StorageRepository {
         // the resumable-backfill cursor, tracking how far back transaction history has actually
         // been fetched, distinct from the `simplefinLastSyncedAt` throttle timestamp. No store
         // change needed, same as v10's addition.
+        // v12: Transaction.matchedFlowId → matchedTarget, and CategorizationRule.flowId →
+        // target — both now `{kind:'flow'|'transfer', id} | null`, since Transfers became a
+        // valid Categorization target alongside Flows (ADR-0008). Unlike every prior version,
+        // this changes an existing field's shape rather than just adding one, so it needs a
+        // real cursor rewrite instead of being normalized at the read site — every pre-v12
+        // record is unambiguous, since only Flows were ever matchable before now.
+        if (oldVersion < 12) {
+          await migrateFlowIdField(transaction, 'transactions', 'matchedFlowId', 'matchedTarget');
+          await migrateFlowIdField(transaction, 'categorizationRules', 'flowId', 'target');
+        }
       },
     });
   }

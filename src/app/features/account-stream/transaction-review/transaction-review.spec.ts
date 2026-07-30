@@ -2,8 +2,10 @@ import { Dialog } from '@angular/cdk/dialog';
 import { TestBed } from '@angular/core/testing';
 import { Subject } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Account } from '../../../core/models/account';
 import { Flow, RecurringFlow } from '../../../core/models/flow';
 import { Transaction } from '../../../core/models/transaction';
+import { Transfer } from '../../../core/models/transfer';
 import { StorageRepository } from '../../../core/storage/storage-repository';
 import { AssignFlowDialog, AssignFlowDialogResult } from './assign-flow-dialog/assign-flow-dialog';
 import { TransactionReview } from './transaction-review';
@@ -34,7 +36,7 @@ const unmatched: Transaction = {
   date: new Date('2026-07-20'),
   amount: -4.5,
   description: 'COFFEE SHOP #42',
-  matchedFlowId: null,
+  matchedTarget: null,
 };
 
 const matched: Transaction = {
@@ -43,7 +45,7 @@ const matched: Transaction = {
   date: new Date('2026-07-19'),
   amount: 2000,
   description: 'PAYROLL DEPOSIT',
-  matchedFlowId: 'flow-payroll',
+  matchedTarget: { kind: 'flow', id: 'flow-payroll' },
 };
 
 describe('TransactionReview', () => {
@@ -75,10 +77,17 @@ describe('TransactionReview', () => {
     }).compileComponents();
   });
 
-  function createComponent(transactions: Transaction[] = [], flows: Flow[] = []) {
+  function createComponent(
+    transactions: Transaction[] = [],
+    flows: Flow[] = [],
+    transfers: Transfer[] = [],
+    accounts: Account[] = [],
+  ) {
     const fixture = TestBed.createComponent(TransactionReview);
     fixture.componentRef.setInput('transactions', transactions);
     fixture.componentRef.setInput('flows', flows);
+    fixture.componentRef.setInput('transfers', transfers);
+    fixture.componentRef.setInput('accounts', accounts);
     return fixture.componentInstance;
   }
 
@@ -88,13 +97,16 @@ describe('TransactionReview', () => {
     expect(component['unmatched']()).toEqual([unmatched]);
   });
 
-  it('opens the Assign Flow dialog with the Transaction and available Flows', () => {
-    const component = createComponent([unmatched], [payrollFlow]);
+  it('opens the Assign Flow dialog with the Transaction, Flows, Transfers, and Accounts', () => {
+    const accounts: Account[] = [
+      { id: 'acc-1', name: 'Checking', institutionName: 'Bank', balance: 0, balanceDate: new Date(), expectedSign: 1, dryFloor: 0 },
+    ];
+    const component = createComponent([unmatched], [payrollFlow], [], accounts);
 
     component['openAssignForm'](unmatched);
 
     expect(dialog.open).toHaveBeenCalledWith(AssignFlowDialog, {
-      data: { transaction: unmatched, flows: [payrollFlow] },
+      data: { transaction: unmatched, flows: [payrollFlow], transfers: [], accounts },
     });
   });
 
@@ -103,19 +115,19 @@ describe('TransactionReview', () => {
     const changed = vi.fn();
     component.changed.subscribe(changed);
     storage.getCategorizationRules.mockResolvedValue([
-      { matchText: 'coffee shop', flowId: 'flow-coffee' },
+      { matchText: 'coffee shop', target: { kind: 'flow', id: 'flow-coffee' } },
     ]);
 
     component['openAssignForm'](unmatched);
-    dialogClosed.next({ matchText: 'coffee shop', flowId: 'flow-coffee' });
+    dialogClosed.next({ matchText: 'coffee shop', target: { kind: 'flow', id: 'flow-coffee' } });
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(storage.upsertCategorizationRule).toHaveBeenCalledWith({
       matchText: 'coffee shop',
-      flowId: 'flow-coffee',
+      target: { kind: 'flow', id: 'flow-coffee' },
     });
     expect(storage.upsertTransactions).toHaveBeenCalledWith([
-      { ...unmatched, matchedFlowId: 'flow-coffee' },
+      { ...unmatched, matchedTarget: { kind: 'flow', id: 'flow-coffee' } },
     ]);
     expect(changed).toHaveBeenCalled();
   });
@@ -132,17 +144,21 @@ describe('TransactionReview', () => {
     };
     const component = createComponent([unmatched]);
     storage.getCategorizationRules.mockResolvedValue([
-      { matchText: 'coffee shop', flowId: 'flow-new' },
+      { matchText: 'coffee shop', target: { kind: 'flow', id: 'flow-new' } },
     ]);
 
     component['openAssignForm'](unmatched);
-    dialogClosed.next({ matchText: 'coffee shop', flowId: 'flow-new', newFlow: brandNewFlow });
+    dialogClosed.next({
+      matchText: 'coffee shop',
+      target: { kind: 'flow', id: 'flow-new' },
+      newFlow: brandNewFlow,
+    });
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(storage.upsertFlow).toHaveBeenCalledWith(brandNewFlow);
     expect(storage.upsertCategorizationRule).toHaveBeenCalledWith({
       matchText: 'coffee shop',
-      flowId: 'flow-new',
+      target: { kind: 'flow', id: 'flow-new' },
     });
   });
 
@@ -153,20 +169,39 @@ describe('TransactionReview', () => {
       date: new Date('2026-07-18'),
       amount: -6,
       description: 'COFFEE SHOP #99',
-      matchedFlowId: null,
+      matchedTarget: null,
     };
     const component = createComponent([unmatched, otherCoffee], [coffeeFlow]);
     storage.getCategorizationRules.mockResolvedValue([
-      { matchText: 'coffee shop', flowId: 'flow-coffee' },
+      { matchText: 'coffee shop', target: { kind: 'flow', id: 'flow-coffee' } },
     ]);
 
     component['openAssignForm'](unmatched);
-    dialogClosed.next({ matchText: 'coffee shop', flowId: 'flow-coffee' });
+    dialogClosed.next({ matchText: 'coffee shop', target: { kind: 'flow', id: 'flow-coffee' } });
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(storage.upsertTransactions).toHaveBeenCalledWith([
-      { ...unmatched, matchedFlowId: 'flow-coffee' },
-      { ...otherCoffee, matchedFlowId: 'flow-coffee' },
+      { ...unmatched, matchedTarget: { kind: 'flow', id: 'flow-coffee' } },
+      { ...otherCoffee, matchedTarget: { kind: 'flow', id: 'flow-coffee' } },
+    ]);
+  });
+
+  it('assigning a Transfer upserts a Categorization Rule targeting it', async () => {
+    const component = createComponent([unmatched]);
+    storage.getCategorizationRules.mockResolvedValue([
+      { matchText: 'coffee shop', target: { kind: 'transfer', id: 'transfer-1' } },
+    ]);
+
+    component['openAssignForm'](unmatched);
+    dialogClosed.next({ matchText: 'coffee shop', target: { kind: 'transfer', id: 'transfer-1' } });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(storage.upsertCategorizationRule).toHaveBeenCalledWith({
+      matchText: 'coffee shop',
+      target: { kind: 'transfer', id: 'transfer-1' },
+    });
+    expect(storage.upsertTransactions).toHaveBeenCalledWith([
+      { ...unmatched, matchedTarget: { kind: 'transfer', id: 'transfer-1' } },
     ]);
   });
 

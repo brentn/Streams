@@ -146,7 +146,7 @@ describe('buildUncategorizedTributaries', () => {
       date: d('2026-07-10'),
       amount: -42,
       description: 'Coffee',
-      matchedFlowId: null,
+      matchedTarget: null,
       ...overrides,
     };
   }
@@ -195,7 +195,10 @@ describe('buildUncategorizedTributaries', () => {
   });
 
   it('excludes Transactions that already have a matched Flow', () => {
-    const result = buildUncategorizedTributaries([txn({ matchedFlowId: 'flow-1' })], d('2026-07-10'));
+    const result = buildUncategorizedTributaries(
+      [txn({ matchedTarget: { kind: 'flow', id: 'flow-1' } })],
+      d('2026-07-10'),
+    );
 
     expect(result).toEqual([]);
   });

@@ -75,6 +75,8 @@
     <app-transaction-review
       [transactions]="transactions()"
       [flows]="flows()"
+      [transfers]="transfers()"
+      [accounts]="allAccounts()"
       (changed)="reloadAll()"
     />
 

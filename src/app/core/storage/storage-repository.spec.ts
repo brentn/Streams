@@ -95,7 +95,7 @@ describe('StorageRepository', () => {
       date: new Date('2026-01-01'),
       amount: -10,
       description: 'Coffee',
-      matchedFlowId: null,
+      matchedTarget: null,
     };
     const t1Updated: Transaction = { ...t1, amount: -12 };
     const t2: Transaction = {
@@ -104,7 +104,7 @@ describe('StorageRepository', () => {
       date: new Date('2026-01-02'),
       amount: 500,
       description: 'Payroll',
-      matchedFlowId: null,
+      matchedTarget: null,
     };
 
     await repo.upsertTransactions([t1]);
@@ -123,7 +123,7 @@ describe('StorageRepository', () => {
       date: new Date('2026-01-01'),
       amount: -10,
       description: 'Coffee',
-      matchedFlowId: null,
+      matchedTarget: null,
     };
     const t2: Transaction = {
       id: 'txn-2',
@@ -131,7 +131,7 @@ describe('StorageRepository', () => {
       date: new Date('2026-01-02'),
       amount: 500,
       description: 'Payroll',
-      matchedFlowId: null,
+      matchedTarget: null,
     };
 
     await repo.upsertTransactions([t1, t2]);
@@ -340,7 +340,7 @@ describe('StorageRepository', () => {
   });
 
   it('upserts and retrieves Categorization Rules', async () => {
-    const rule: CategorizationRule = { matchText: 'amazon prime', flowId: 'flow-1' };
+    const rule: CategorizationRule = { matchText: 'amazon prime', target: { kind: 'flow', id: 'flow-1' } };
 
     await repo.upsertCategorizationRule(rule);
 
@@ -348,11 +348,11 @@ describe('StorageRepository', () => {
   });
 
   it('normalizes matchText so re-saving the same text (any case/whitespace) overwrites the rule in place', async () => {
-    await repo.upsertCategorizationRule({ matchText: 'Amazon Prime', flowId: 'flow-1' });
-    await repo.upsertCategorizationRule({ matchText: '  AMAZON PRIME  ', flowId: 'flow-2' });
+    await repo.upsertCategorizationRule({ matchText: 'Amazon Prime', target: { kind: 'flow', id: 'flow-1' } });
+    await repo.upsertCategorizationRule({ matchText: '  AMAZON PRIME  ', target: { kind: 'flow', id: 'flow-2' } });
 
     const rules = await repo.getCategorizationRules();
-    expect(rules).toEqual([{ matchText: 'amazon prime', flowId: 'flow-2' }]);
+    expect(rules).toEqual([{ matchText: 'amazon prime', target: { kind: 'flow', id: 'flow-2' } }]);
   });
 
   describe('exportAll / importAll', () => {
@@ -391,7 +391,7 @@ describe('StorageRepository', () => {
     it('reports the current database version alongside the dumped stores', async () => {
       const { dbVersion } = await repo.exportAll();
 
-      expect(dbVersion).toBe(11);
+      expect(dbVersion).toBe(12);
     });
 
     it('importAll replaces the contents of every named store, leaving stores absent from the bundle untouched', async () => {
@@ -405,7 +405,7 @@ describe('StorageRepository', () => {
         dryFloor: 0,
       };
       await repo.upsertAccount(staleAccount);
-      const rule: CategorizationRule = { matchText: 'kept rule', flowId: 'flow-x' };
+      const rule: CategorizationRule = { matchText: 'kept rule', target: { kind: 'flow', id: 'flow-x' } };
       await repo.upsertCategorizationRule(rule);
 
       const incomingAccount: Account = {
@@ -446,7 +446,7 @@ describe('StorageRepository', () => {
         date: new Date('2026-01-02'),
         amount: -10,
         description: 'Coffee',
-        matchedFlowId: null,
+        matchedTarget: null,
       };
       await repo.upsertAccount(account);
       await repo.upsertTransactions([transaction]);
@@ -460,5 +460,73 @@ describe('StorageRepository', () => {
       expect(await repo.getAccounts()).toEqual([account]);
       expect(await repo.getTransactionsForAccount('acc-1')).toEqual([transaction]);
     });
+  });
+});
+
+describe('v12 migration', () => {
+  afterEach(async () => {
+    await resetDb();
+  });
+
+  /** Opens the raw v11 database directly (bypassing StorageRepository) to seed pre-migration, old-shape records. */
+  async function seedV11Database(): Promise<void> {
+    await new Promise<void>((resolve, reject) => {
+      const req = indexedDB.open('streams', 11);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        db.createObjectStore('accounts', { keyPath: 'id' });
+        const transactions = db.createObjectStore('transactions', { keyPath: 'id' });
+        transactions.createIndex('accountId', 'accountId');
+        db.createObjectStore('settings', { keyPath: 'key' });
+        db.createObjectStore('categorizationRules', { keyPath: 'matchText' });
+        const flows = db.createObjectStore('flows', { keyPath: 'id' });
+        flows.createIndex('accountId', 'accountId');
+        db.createObjectStore('transfers', { keyPath: 'id' });
+      };
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction(['transactions', 'categorizationRules'], 'readwrite');
+        tx.objectStore('transactions').put({
+          id: 'txn-1',
+          accountId: 'acc-1',
+          date: new Date('2026-01-02'),
+          amount: -10,
+          description: 'Coffee',
+          matchedFlowId: 'flow-coffee',
+        });
+        tx.objectStore('transactions').put({
+          id: 'txn-2',
+          accountId: 'acc-1',
+          date: new Date('2026-01-03'),
+          amount: 2000,
+          description: 'Payroll',
+          matchedFlowId: null,
+        });
+        tx.objectStore('categorizationRules').put({ matchText: 'coffee', flowId: 'flow-coffee' });
+        tx.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+        tx.onerror = () => reject(tx.error);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  it('rewrites matchedFlowId/flowId records into matchedTarget/target on first open at v12', async () => {
+    await seedV11Database();
+
+    const repo = new StorageRepository();
+    const transactions = await repo.getTransactionsForAccount('acc-1');
+    const rules = await repo.getCategorizationRules();
+    await repo.close();
+
+    expect(transactions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'txn-1', matchedTarget: { kind: 'flow', id: 'flow-coffee' } }),
+        expect.objectContaining({ id: 'txn-2', matchedTarget: null }),
+      ]),
+    );
+    expect(rules).toEqual([{ matchText: 'coffee', target: { kind: 'flow', id: 'flow-coffee' } }]);
   });
 });

@@ -2,23 +2,27 @@ import { CurrencyPipe, DatePipe } from '@angular/common';
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { Component, inject, signal } from '@angular/core';
 import { isSubstringMatch, normalizeMatchText } from '../../../../core/categorization/categorization';
+import { Account } from '../../../../core/models/account';
 import { Flow } from '../../../../core/models/flow';
-import { Transaction } from '../../../../core/models/transaction';
+import { MatchedTarget, Transaction } from '../../../../core/models/transaction';
+import { Transfer } from '../../../../core/models/transfer';
 import { FlowForm } from '../../flow-form/flow-form';
 
 export interface AssignFlowDialogData {
   transaction: Transaction;
   flows: Flow[];
+  transfers: Transfer[];
+  accounts: Account[];
 }
 
 export interface AssignFlowDialogResult {
   matchText: string;
-  flowId: string;
+  target: MatchedTarget;
   /** Set when the chosen Flow was just created in this dialog and doesn't exist in storage yet — the caller persists it before the Categorization Rule. */
   newFlow?: Flow;
 }
 
-/** A focused dialog for assigning/correcting one Transaction's Flow — surfaced right where the user clicked, instead of an inline form buried at the bottom of a long list. */
+/** A focused dialog for assigning/correcting one Transaction's Flow or Transfer — surfaced right where the user clicked, instead of an inline form buried at the bottom of a long list. */
 @Component({
   selector: 'app-assign-flow-dialog',
   imports: [CurrencyPipe, DatePipe, FlowForm],
@@ -31,8 +35,10 @@ export class AssignFlowDialog {
 
   protected readonly flows = signal(this.data.flows);
   protected readonly matchText = signal(this.data.transaction.description);
-  protected readonly selectedFlowId = signal<string | null>(
-    this.data.transaction.matchedFlowId ?? this.data.flows[0]?.id ?? null,
+  protected readonly selectedTarget = signal<MatchedTarget | null>(
+    this.data.transaction.matchedTarget ??
+      (this.data.flows[0] ? { kind: 'flow', id: this.data.flows[0].id } : null) ??
+      (this.data.transfers[0] ? { kind: 'transfer', id: this.data.transfers[0].id } : null),
   );
   protected readonly formError = signal<string | null>(null);
   protected readonly isCreatingFlow = signal(false);
@@ -46,7 +52,7 @@ export class AssignFlowDialog {
   protected onFlowCreated(flow: Flow): void {
     this.pendingNewFlows.set(flow.id, flow);
     this.flows.update((flows) => [...flows, flow]);
-    this.selectedFlowId.set(flow.id);
+    this.selectedTarget.set({ kind: 'flow', id: flow.id });
     this.isCreatingFlow.set(false);
   }
 
@@ -54,19 +60,40 @@ export class AssignFlowDialog {
     this.isCreatingFlow.set(false);
   }
 
+  protected encodeTarget(target: MatchedTarget): string {
+    return `${target.kind}:${target.id}`;
+  }
+
+  protected onTargetChange(value: string): void {
+    const [kind, id] = value.split(':');
+    this.selectedTarget.set(kind === 'transfer' ? { kind: 'transfer', id } : { kind: 'flow', id });
+  }
+
+  /** Framed from this Transaction's Account point of view — Transfer has no name of its own. */
+  protected transferLabel(transfer: Transfer): string {
+    const accountId = this.data.transaction.accountId;
+    const otherId = transfer.fromAccountId === accountId ? transfer.toAccountId : transfer.fromAccountId;
+    const otherName = this.data.accounts.find((a) => a.id === otherId)?.name ?? '(unknown account)';
+    return transfer.fromAccountId === accountId ? `Transfer to ${otherName}` : `Transfer from ${otherName}`;
+  }
+
   protected onSubmit(event: Event): void {
     event.preventDefault();
 
     const matchText = normalizeMatchText(this.matchText());
-    const flowId = this.selectedFlowId();
-    if (!matchText || !flowId) return;
+    const target = this.selectedTarget();
+    if (!matchText || !target) return;
 
     if (!isSubstringMatch(this.data.transaction.description, matchText)) {
       this.formError.set("Match text must appear within this transaction's description.");
       return;
     }
 
-    this.dialogRef.close({ matchText, flowId, newFlow: this.pendingNewFlows.get(flowId) });
+    this.dialogRef.close({
+      matchText,
+      target,
+      newFlow: target.kind === 'flow' ? this.pendingNewFlows.get(target.id) : undefined,
+    });
   }
 
   protected cancel(): void {

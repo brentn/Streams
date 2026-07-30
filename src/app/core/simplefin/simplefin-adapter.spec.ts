@@ -96,7 +96,7 @@ describe('SimpleFinAdapter', () => {
               date: new Date(1753363200 * 1000),
               amount: -42.1,
               description: 'COFFEE SHOP',
-              matchedFlowId: null,
+              matchedTarget: null,
             },
             {
               id: 'TXN-2',
@@ -104,7 +104,7 @@ describe('SimpleFinAdapter', () => {
               date: new Date(1753276800 * 1000),
               amount: 2000,
               description: 'PAYROLL',
-              matchedFlowId: null,
+              matchedTarget: null,
             },
           ],
         },

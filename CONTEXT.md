@@ -43,7 +43,7 @@ _Avoid_: Seasonal template, schedule override
 ### Categorization
 
 **Categorization Rule**:
-A case-insensitive substring match on a Transaction's merchant/description text, mapping it to a Flow. Exactly one rule exists per match text — correcting a Transaction's Flow overwrites that rule in place rather than adding a competing one. When multiple rules' match text fits the same Transaction, the longest (most specific) match wins.
+A case-insensitive substring match on a Transaction's merchant/description text, mapping it to a Flow or a Transfer (its target). Exactly one rule exists per match text — correcting a Transaction's target overwrites that rule in place rather than adding a competing one. When multiple rules' match text fits the same Transaction, the longest (most specific) match wins. See ADR-0008.
 _Avoid_: Mapping, auto-tag
 
 ### Sync

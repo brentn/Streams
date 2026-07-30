@@ -320,7 +320,7 @@ describe('AccountStream', () => {
         date: new Date(),
         amount: -12,
         description: 'COFFEE SHOP',
-        matchedFlowId: null,
+        matchedTarget: null,
       };
       storage.getTransactionsForAccount.mockResolvedValue([unmatched]);
 

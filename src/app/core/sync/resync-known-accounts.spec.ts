@@ -124,7 +124,7 @@ describe('resyncKnownAccounts', () => {
         date: new Date('2026-07-24'),
         amount: -10,
         description: 'x',
-        matchedFlowId: null,
+        matchedTarget: null,
       },
     ];
     simplefin.fetchAccounts.mockResolvedValue([{ account: known, transactions }]);
@@ -142,7 +142,7 @@ describe('resyncKnownAccounts', () => {
         date: new Date('2026-07-24'),
         amount: -10,
         description: 'COFFEE SHOP #42',
-        matchedFlowId: null,
+        matchedTarget: null,
       },
       {
         id: 't2',
@@ -150,19 +150,19 @@ describe('resyncKnownAccounts', () => {
         date: new Date('2026-07-24'),
         amount: 500,
         description: 'PAYROLL DEPOSIT',
-        matchedFlowId: null,
+        matchedTarget: null,
       },
     ];
     simplefin.fetchAccounts.mockResolvedValue([{ account: known, transactions }]);
     storage.getCategorizationRules.mockResolvedValue([
-      { matchText: 'coffee shop', flowId: 'flow-coffee' },
+      { matchText: 'coffee shop', target: { kind: 'flow', id: 'flow-coffee' } },
     ]);
 
     await resyncKnownAccounts(storage as never, simplefin as never);
 
     expect(storage.upsertTransactions).toHaveBeenCalledWith([
-      { ...transactions[0], matchedFlowId: 'flow-coffee' },
-      { ...transactions[1], matchedFlowId: null },
+      { ...transactions[0], matchedTarget: { kind: 'flow', id: 'flow-coffee' } },
+      { ...transactions[1], matchedTarget: null },
     ]);
   });
 

@@ -209,7 +209,8 @@ function actualFlowMagnitude(
   const signedTotal = transactions
     .filter(
       (txn) =>
-        txn.matchedFlowId === flow.id &&
+        txn.matchedTarget?.kind === 'flow' &&
+        txn.matchedTarget.id === flow.id &&
         txn.date.getTime() > startExclusive.getTime() &&
         txn.date.getTime() < upperBoundExclusive.getTime(),
     )
