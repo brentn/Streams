@@ -1,0 +1,32 @@
+.host {
+  max-width: 40rem;
+  margin: 3rem auto;
+  padding: 0 1.5rem;
+  color: var(--color-ink-primary);
+}
+
+.host h1 {
+  font-size: var(--text-heading);
+}
+
+.host p {
+  color: var(--color-ink-secondary);
+  font-size: var(--text-body);
+  line-height: 1.5;
+}
+
+.current {
+  color: var(--color-ink-primary) !important;
+}
+
+.open {
+  font: inherit;
+  font-size: var(--text-body);
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--color-page);
+  background: var(--color-accent);
+  border: none;
+  border-radius: 0.375rem;
+  padding: 0.6rem 1.2rem;
+}

@@ -1,0 +1,129 @@
+<div class="dialog">
+  <h2>Correct Flow</h2>
+  <p class="txn-summary">ACME UTILITIES AUTOPAY · Jul 24, 2026 · -$42.17</p>
+
+  <form class="essentials">
+    <label>
+      Name
+      <input type="text" [value]="name()" (input)="name.set($any($event.target).value)" />
+    </label>
+    <div class="two-col">
+      <label>
+        Direction
+        <select [value]="direction()" (change)="direction.set($any($event.target).value)">
+          <option value="in">In</option>
+          <option value="out">Out</option>
+        </select>
+      </label>
+      <label>
+        Kind
+        <select [value]="kind()" (change)="kind.set($any($event.target).value)">
+          <option value="recurring">Recurring</option>
+          <option value="budget">Budget</option>
+        </select>
+      </label>
+    </div>
+    <label>
+      {{ kind() === 'recurring' ? 'Amount' : 'Limit' }}
+      <input
+        type="number"
+        step="0.01"
+        [value]="amount()"
+        (input)="amount.set(numberInputValue($event, amount()))"
+      />
+    </label>
+  </form>
+
+  <div class="advanced-label">Advanced</div>
+  <div class="scroll-area">
+    @if (kind() === 'recurring') {
+      <div class="advanced-block">
+        <label>
+          Cadence
+          <select [value]="cadenceShape()" (change)="cadenceShape.set($any($event.target).value)">
+            <option value="monthly">Monthly</option>
+            <option value="weekly">Weekly</option>
+          </select>
+        </label>
+
+        @if (cadenceShape() === 'monthly') {
+          <div class="button-group">
+            @for (day of daysOfMonth; track day) {
+              <label class="group-btn">
+                <input
+                  type="radio"
+                  name="day-of-month"
+                  [checked]="day === dayOfMonth()"
+                  (change)="dayOfMonth.set(day)"
+                />
+                {{ day }}
+              </label>
+            }
+          </div>
+        } @else {
+          <div class="button-group">
+            @for (opt of dayOfWeekOptions; track opt.value) {
+              <label class="group-btn wide">
+                <input
+                  type="radio"
+                  name="day-of-week"
+                  [checked]="opt.value === dayOfWeek()"
+                  (change)="dayOfWeek.set(opt.value)"
+                />
+                {{ opt.label }}
+              </label>
+            }
+          </div>
+        }
+      </div>
+    } @else {
+      <div class="advanced-block">
+        <label>
+          Period
+          <select [value]="budgetPeriod()" (change)="budgetPeriod.set($any($event.target).value)">
+            <option value="month">Month</option>
+            <option value="year">Year</option>
+          </select>
+        </label>
+      </div>
+    }
+
+    <div class="tiles">
+      @if (isEditingTolerance()) {
+        <div class="tile stepper">
+          <span class="tile-label">Tolerance</span>
+          <div class="stepper-controls">
+            <button type="button" (click)="stepTolerance(-1)">−</button>
+            <span class="stepper-value">{{ toleranceValue() }}</span>
+            <button type="button" (click)="stepTolerance(1)">+</button>
+            <select [value]="toleranceKind()" (change)="toleranceKind.set($any($event.target).value)">
+              <option value="percent">%</option>
+              <option value="fixed">$</option>
+            </select>
+            <button type="button" class="done" (click)="commitTolerance()">Done</button>
+          </div>
+        </div>
+      } @else {
+        <button type="button" class="tile" (click)="startEditingTolerance()">
+          <span class="tile-label">Tolerance</span>
+          <span class="tile-value">{{ toleranceDisplay() }}</span>
+        </button>
+      }
+
+      <button type="button" class="tile" (click)="openAmountChangeModal('step')">
+        <span class="tile-label">Step Changes</span>
+        <span class="tile-value">{{ stepChangeCount() }}</span>
+      </button>
+
+      <button type="button" class="tile" (click)="openAmountChangeModal('recurring')">
+        <span class="tile-label">Recurring Rule</span>
+        <span class="tile-value">{{ recurringRuleCount() }}</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <button type="button" class="primary" (click)="save()">Save</button>
+    <button type="button" (click)="cancel()">Cancel</button>
+  </div>
+</div>

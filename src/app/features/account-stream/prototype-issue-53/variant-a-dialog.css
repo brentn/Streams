@@ -1,0 +1,225 @@
+.dialog {
+  width: min(90vw, 26rem);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.25);
+}
+
+h2 {
+  font-size: var(--text-heading);
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  color: var(--color-ink-primary);
+}
+
+.txn-summary {
+  margin: 0 0 1rem;
+  color: var(--color-ink-secondary);
+  font-size: var(--text-body);
+}
+
+.scroll-area {
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  margin-right: -0.25rem;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: var(--text-body);
+  color: var(--color-ink-secondary);
+}
+
+input,
+select {
+  font: inherit;
+  font-size: var(--text-body);
+  color: var(--color-ink-primary);
+  background: var(--color-page);
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  padding: 0.4rem 0.6rem;
+}
+
+.badge-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.badge-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: var(--color-ink-secondary);
+  background: var(--color-page);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+}
+
+.badge-button .icon {
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 0.3rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--color-page);
+  background: var(--color-accent);
+  border-radius: 999px;
+}
+
+.day-pills {
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.day-pills legend {
+  font-size: var(--text-body);
+  color: var(--color-ink-secondary);
+  padding: 0;
+}
+
+.day-pills > .pill:first-of-type {
+  margin-top: 0;
+}
+
+.day-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  font-size: 0.8rem;
+  color: var(--color-ink-primary);
+  background: var(--color-page);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.pill.wide {
+  width: auto;
+  padding: 0 0.6rem;
+}
+
+.pill input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.pill:has(input:checked) {
+  color: var(--color-page);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.tolerance-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--text-body);
+}
+
+.tolerance-label {
+  color: var(--color-ink-secondary);
+}
+
+.tolerance-value {
+  font: inherit;
+  font-size: var(--text-body);
+  color: var(--color-ink-primary);
+  background: transparent;
+  border: none;
+  border-bottom: 1px dotted var(--color-ink-secondary);
+  cursor: pointer;
+  padding: 0;
+}
+
+.tolerance-edit {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.tolerance-edit input {
+  width: 4rem;
+}
+
+.tolerance-edit button {
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: var(--color-page);
+  background: var(--color-accent);
+  border: none;
+  border-radius: 0.375rem;
+  padding: 0.3rem 0.6rem;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.form-actions .primary {
+  font: inherit;
+  font-size: var(--text-body);
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--color-page);
+  background: var(--color-accent);
+  border: none;
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+}
+
+.form-actions button:not(.primary) {
+  font: inherit;
+  font-size: var(--text-body);
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+  color: var(--color-ink-secondary);
+}

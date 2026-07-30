@@ -1,0 +1,42 @@
+<div class="dialog">
+  <h2>{{ data.mode === 'step' ? 'Step Changes' : 'Recurring Rules' }}</h2>
+
+  @if (changes().length > 0) {
+    <ul>
+      @for (change of changes(); track $index) {
+        <li>
+          {{ describe(change) }}
+          <button type="button" (click)="remove($index)">Remove</button>
+        </li>
+      }
+    </ul>
+  } @else {
+    <p class="empty">None yet.</p>
+  }
+
+  <div class="add-row">
+    <label>
+      {{ data.mode === 'step' ? 'Effective date' : 'Anniversary date' }}
+      <input
+        type="date"
+        [value]="dateInputValue(newDate())"
+        (input)="onDateInput($any($event.target).value)"
+      />
+    </label>
+    <label>
+      {{ data.mode === 'step' ? 'New amount' : 'Delta' }}
+      <input
+        type="number"
+        step="0.01"
+        [value]="newValue()"
+        (input)="newValue.set(numberInputValue($event, newValue()))"
+      />
+    </label>
+    <button type="button" (click)="add()">Add</button>
+  </div>
+
+  <div class="form-actions">
+    <button type="button" (click)="save()">Done</button>
+    <button type="button" (click)="cancel()">Cancel</button>
+  </div>
+</div>

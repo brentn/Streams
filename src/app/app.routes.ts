@@ -3,6 +3,14 @@ import { hasAccountsGuard } from './core/routing/has-accounts-guard';
 
 export const routes: Routes = [
   { path: '', loadComponent: () => import('./features/home/home').then((m) => m.Home) },
+  // PROTOTYPE (wayfinder ticket #53) — delete once the ticket is resolved.
+  {
+    path: 'prototype/issue-53',
+    loadComponent: () =>
+      import('./features/account-stream/prototype-issue-53/prototype-issue-53').then(
+        (m) => m.PrototypeIssue53,
+      ),
+  },
   {
     path: 'connect',
     loadComponent: () =>

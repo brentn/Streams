@@ -1,0 +1,170 @@
+<div class="dialog">
+  <h2>Correct Flow</h2>
+  <p class="txn-summary">ACME UTILITIES AUTOPAY · Jul 24, 2026 · -$42.17</p>
+
+  <div class="scroll-area">
+    <form>
+      <section class="card">
+        <h3>Basics</h3>
+        <label>
+          Name
+          <input type="text" [value]="name()" (input)="name.set($any($event.target).value)" />
+        </label>
+        <div class="two-col">
+          <label>
+            Direction
+            <select [value]="direction()" (change)="direction.set($any($event.target).value)">
+              <option value="in">In</option>
+              <option value="out">Out</option>
+            </select>
+          </label>
+          <label>
+            Kind
+            <select [value]="kind()" (change)="kind.set($any($event.target).value)">
+              <option value="recurring">Recurring</option>
+              <option value="budget">Budget</option>
+            </select>
+          </label>
+        </div>
+        <label>
+          {{ kind() === 'recurring' ? 'Amount' : 'Limit' }}
+          <input
+            type="number"
+            step="0.01"
+            [value]="amount()"
+            (input)="amount.set(numberInputValue($event, amount()))"
+          />
+        </label>
+      </section>
+
+      <section class="card">
+        <h3>Schedule</h3>
+        @if (kind() === 'recurring') {
+          <label>
+            Cadence
+            <select [value]="cadenceShape()" (change)="cadenceShape.set($any($event.target).value)">
+              <option value="monthly">Monthly</option>
+              <option value="semi-monthly">Semi-monthly</option>
+              <option value="weekly">Weekly</option>
+            </select>
+          </label>
+
+          @if (cadenceShape() === 'monthly') {
+            <fieldset class="calendar-grid">
+              <legend>Day of month</legend>
+              @for (day of daysOfMonth; track day) {
+                <label class="cell">
+                  <input
+                    type="radio"
+                    name="day-of-month"
+                    [checked]="day === dayOfMonth()"
+                    (change)="dayOfMonth.set(day)"
+                  />
+                  {{ day }}
+                </label>
+              }
+            </fieldset>
+          } @else if (cadenceShape() === 'semi-monthly') {
+            <fieldset class="calendar-grid">
+              <legend>Days of month (pick two)</legend>
+              @for (day of daysOfMonth; track day) {
+                <button
+                  type="button"
+                  class="cell multi"
+                  [class.checked]="semiMonthlyDays().includes(day)"
+                  (click)="toggleSemiMonthlyDay(day)"
+                >
+                  {{ day }}
+                </button>
+              }
+            </fieldset>
+            <p class="grid-hint">
+              Selected:
+              @if (sortedSemiMonthlyDays().length > 0) {
+                {{ sortedSemiMonthlyDays().join(' & ') }}
+              } @else {
+                none yet
+              }
+            </p>
+          } @else {
+            <fieldset class="segmented">
+              <legend>Day of week</legend>
+              @for (opt of dayOfWeekOptions; track opt.value) {
+                <label class="segment">
+                  <input
+                    type="radio"
+                    name="day-of-week"
+                    [checked]="opt.value === dayOfWeek()"
+                    (change)="dayOfWeek.set(opt.value)"
+                  />
+                  {{ opt.label }}
+                </label>
+              }
+            </fieldset>
+          }
+        } @else {
+          <label>
+            Period
+            <select [value]="budgetPeriod()" (change)="budgetPeriod.set($any($event.target).value)">
+              <option value="month">Month</option>
+              <option value="year">Year</option>
+            </select>
+          </label>
+        }
+      </section>
+
+      <section class="card">
+        <h3>
+          Amount rules
+          <span class="dot-badges">
+            <button
+              type="button"
+              class="dot"
+              [class.set]="stepChangeCount() > 0"
+              (click)="openAmountChangeModal('step')"
+              title="Step Change"
+            >
+              ±{{ stepChangeCount() > 0 ? stepChangeCount() : '' }}
+            </button>
+            <button
+              type="button"
+              class="dot"
+              [class.set]="recurringRuleCount() > 0"
+              (click)="openAmountChangeModal('recurring')"
+              title="Recurring Rule"
+            >
+              ↻{{ recurringRuleCount() > 0 ? recurringRuleCount() : '' }}
+            </button>
+          </span>
+        </h3>
+        <div class="row">
+          <span class="row-label">Tolerance</span>
+          @if (isEditingTolerance()) {
+            <span class="tolerance-edit">
+              <input
+                type="number"
+                step="1"
+                [value]="toleranceValue()"
+                (input)="toleranceValue.set(numberInputValue($event, toleranceValue()))"
+              />
+              <select [value]="toleranceKind()" (change)="toleranceKind.set($any($event.target).value)">
+                <option value="percent">%</option>
+                <option value="fixed">$</option>
+              </select>
+              <button type="button" (click)="commitTolerance()">Done</button>
+            </span>
+          } @else {
+            <button type="button" class="chip" (click)="startEditingTolerance()">
+              {{ toleranceDisplay() }}
+            </button>
+          }
+        </div>
+      </section>
+    </form>
+  </div>
+
+  <div class="form-actions">
+    <button type="button" class="primary" (click)="save()">Save</button>
+    <button type="button" (click)="cancel()">Cancel</button>
+  </div>
+</div>

@@ -1,0 +1,17 @@
+<div class="host">
+  <h1>Prototype — Categorization dialog redesign (issue #53)</h1>
+  <p>
+    Three variants of the Assign/Correct Flow dialog's advanced fields — Step Change /
+    Recurring Rule as badge buttons opening their own modal, Tolerance defaulting to 10% as a
+    click-to-edit value, and Day of month/week as radio buttons. Flip with the arrows below,
+    then open the dialog to try it.
+  </p>
+  <p class="current">Current variant: <strong>{{ variant() }}</strong></p>
+  <button type="button" class="open" (click)="openDialog()">Open dialog</button>
+</div>
+
+<app-prototype-switcher
+  [variants]="variants"
+  [current]="variant()"
+  (variantChanged)="setVariant($event)"
+/>
