@@ -1,0 +1,41 @@
+.variant-a {
+  width: 100%;
+}
+
+.scene {
+  display: block;
+  width: 100%;
+  height: 260px;
+}
+
+.band {
+  fill: var(--color-accent);
+  opacity: 0.9;
+}
+
+.wedge {
+  fill: var(--color-accent);
+  opacity: 0.55;
+}
+
+.wedge.out {
+  fill: var(--color-opposite-sign);
+}
+
+.wedge.transfer {
+  fill: var(--color-ink-secondary);
+  opacity: 0.65;
+}
+
+.label {
+  font-family: var(--font-sans);
+  font-size: 9px;
+  fill: var(--color-ink-primary);
+}
+
+.amount {
+  font-family: var(--font-sans);
+  font-size: 8px;
+  fill: var(--color-ink-muted);
+  font-variant-numeric: tabular-nums;
+}

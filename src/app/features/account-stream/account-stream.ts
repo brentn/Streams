@@ -5,11 +5,12 @@ import {
   ElementRef,
   inject,
   input,
+  isDevMode,
   signal,
   viewChild,
 } from '@angular/core';
 import { CurrencyPipe, DatePipe } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { Account } from '../../core/models/account';
 import { Flow } from '../../core/models/flow';
 import { Transaction } from '../../core/models/transaction';
@@ -33,12 +34,34 @@ import { openSimpleFinBridge } from '../../core/simplefin/reconnect';
 import { StorageRepository } from '../../core/storage/storage-repository';
 import { CalendarChip } from '../../shared/calendar-chip/calendar-chip';
 import { DragScrub } from '../../shared/drag-scrub/drag-scrub.directive';
+import { PrototypeSwitcher, PrototypeVariant } from '../../shared/prototype-switcher/prototype-switcher';
 import { ResyncIcon } from '../../shared/resync-icon/resync-icon';
 import { StatusBanner } from '../../shared/status-banner/status-banner';
 import { StreamBand } from '../../shared/stream-band/stream-band';
 import { FlowList } from './flow-list/flow-list';
 import { TransactionReview } from './transaction-review/transaction-review';
 import { TransferList } from './transfer-list/transfer-list';
+import { buildPositionedTributaries, buildTributaries } from './tributary-prototype/tributary-data';
+import { TributaryVariantA } from './tributary-prototype/tributary-variant-a';
+import { TributaryVariantB } from './tributary-prototype/tributary-variant-b';
+import { TributaryVariantC } from './tributary-prototype/tributary-variant-c';
+import { TributaryVariantD } from './tributary-prototype/tributary-variant-d';
+import { TributaryVariantE } from './tributary-prototype/tributary-variant-e';
+import { TributaryVariantF } from './tributary-prototype/tributary-variant-f';
+
+// PROTOTYPE — wayfinder ticket #52. TRIBUTARY_VARIANTS/prototypeVariant/setPrototypeVariant
+// and the tributaries block below are throwaway; strip on capture (see ticket #52 resolution).
+// A/B/C: even-spaced wedges/lists/bars, first pass. D/E/F: meandering curves positioned at
+// the real occurrence date, per review feedback on the first pass (incoming from one
+// direction, outgoing to the opposite, map-style angled labels via <textPath>).
+const TRIBUTARY_VARIANTS: PrototypeVariant[] = [
+  { key: 'a', label: 'Branch join' },
+  { key: 'b', label: 'Peeled-off list' },
+  { key: 'c', label: 'In/out bars' },
+  { key: 'd', label: 'Corner-fan curves' },
+  { key: 'e', label: 'Parallel-rail curves' },
+  { key: 'f', label: 'Local squiggle curves' },
+];
 
 @Component({
   selector: 'app-account-stream',
@@ -54,6 +77,13 @@ import { TransferList } from './transfer-list/transfer-list';
     FlowList,
     TransferList,
     TransactionReview,
+    PrototypeSwitcher,
+    TributaryVariantA,
+    TributaryVariantB,
+    TributaryVariantC,
+    TributaryVariantD,
+    TributaryVariantE,
+    TributaryVariantF,
   ],
   templateUrl: './account-stream.html',
   styleUrl: './account-stream.css',
@@ -61,8 +91,31 @@ import { TransferList } from './transfer-list/transfer-list';
 export class AccountStream {
   private readonly storage = inject(StorageRepository);
   private readonly syncCoordinator = inject(SyncCoordinator);
+  private readonly router = inject(Router);
 
   readonly id = input.required<string>();
+  /** PROTOTYPE (ticket #52) — bound from `?variant=` via `withComponentInputBinding()`. */
+  readonly variant = input<string>();
+
+  protected readonly prototypeEnabled = isDevMode();
+  protected readonly tributaryVariants = TRIBUTARY_VARIANTS;
+  protected readonly activeTributaryVariant = computed(() => this.variant() ?? 'a');
+  protected readonly tributaries = computed(() =>
+    buildTributaries(this.flows(), this.transfers(), this.id(), this.allAccounts()),
+  );
+  protected readonly positionedTributaries = computed(() =>
+    buildPositionedTributaries(
+      this.flows(),
+      this.transfers(),
+      this.id(),
+      this.allAccounts(),
+      this.selectedDate(),
+    ),
+  );
+
+  protected setPrototypeVariant(key: string): void {
+    void this.router.navigate([], { queryParams: { variant: key }, queryParamsHandling: 'merge' });
+  }
 
   protected readonly windowDays = WINDOW_DAYS;
 

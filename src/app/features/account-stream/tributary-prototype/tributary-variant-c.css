@@ -1,0 +1,33 @@
+.variant-c {
+  width: 100%;
+}
+
+.scene {
+  display: block;
+  width: 100%;
+}
+
+.axis {
+  stroke: var(--color-gridline);
+  stroke-width: 1;
+}
+
+.bar {
+  fill: var(--color-accent);
+  opacity: 0.85;
+}
+
+.bar.out {
+  fill: var(--color-opposite-sign);
+}
+
+.bar.transfer {
+  fill: var(--color-ink-secondary);
+}
+
+.label {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  fill: var(--color-ink-primary);
+  font-variant-numeric: tabular-nums;
+}

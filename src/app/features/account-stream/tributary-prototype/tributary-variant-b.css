@@ -1,0 +1,46 @@
+.variant-b {
+  width: 100%;
+}
+
+.scene {
+  display: block;
+  width: 100%;
+}
+
+.band {
+  fill: var(--color-accent);
+  opacity: 0.9;
+}
+
+.leader {
+  stroke: var(--color-gridline);
+  stroke-width: 1.5;
+}
+
+.leader.out {
+  stroke: var(--color-opposite-sign);
+}
+
+.leader.transfer {
+  stroke-dasharray: 3 3;
+}
+
+.swatch {
+  fill: var(--color-accent);
+  opacity: 0.75;
+}
+
+.swatch.out {
+  fill: var(--color-opposite-sign);
+}
+
+.swatch.transfer {
+  fill: var(--color-ink-secondary);
+}
+
+.label {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  fill: var(--color-ink-primary);
+  font-variant-numeric: tabular-nums;
+}

@@ -70,6 +70,38 @@
       </div>
     </div>
 
+    @if (prototypeEnabled) {
+      <!-- PROTOTYPE — wayfinder ticket #52 (tributary visual model). Strip on capture. -->
+      <section class="tributary-prototype">
+        <p class="prototype-banner">Prototype: tributary visual model (ticket #52)</p>
+        @switch (activeTributaryVariant()) {
+          @case ('a') {
+            <app-tributary-variant-a [items]="tributaries()" />
+          }
+          @case ('b') {
+            <app-tributary-variant-b [items]="tributaries()" />
+          }
+          @case ('c') {
+            <app-tributary-variant-c [items]="tributaries()" />
+          }
+          @case ('d') {
+            <app-tributary-variant-d [items]="positionedTributaries()" />
+          }
+          @case ('e') {
+            <app-tributary-variant-e [items]="positionedTributaries()" />
+          }
+          @case ('f') {
+            <app-tributary-variant-f [items]="positionedTributaries()" />
+          }
+        }
+      </section>
+      <app-prototype-switcher
+        [variants]="tributaryVariants"
+        [current]="activeTributaryVariant()"
+        (changed)="setPrototypeVariant($event)"
+      />
+    }
+
     <app-flow-list
       [accountId]="account.id"
       [flows]="flows()"

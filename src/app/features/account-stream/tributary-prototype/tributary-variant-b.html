@@ -1,0 +1,36 @@
+<div class="variant-b">
+  <svg
+    class="scene"
+    [attr.viewBox]="'0 0 600 ' + sceneHeight()"
+    preserveAspectRatio="none"
+    [style.height.px]="sceneHeight()"
+  >
+    <rect x="0" y="0" width="600" height="40" rx="6" class="band" />
+
+    @for (row of rows(); track row.id) {
+      <path
+        [attr.d]="row.leaderPath"
+        class="leader"
+        [class.out]="row.direction === 'out'"
+        [class.transfer]="row.kind === 'transfer'"
+        fill="none"
+      />
+    }
+
+    @for (row of rows(); track row.id) {
+      <rect
+        [attr.x]="24"
+        [attr.y]="row.rowY - 8"
+        [attr.width]="row.swatchWidth"
+        height="16"
+        rx="3"
+        class="swatch"
+        [class.out]="row.direction === 'out'"
+        [class.transfer]="row.kind === 'transfer'"
+      />
+      <text [attr.x]="24 + row.swatchWidth + 8" [attr.y]="row.rowY + 4" class="label">
+        {{ row.label }} · {{ row.magnitude | currency: 'USD' : 'symbol' : '1.0-0' }}
+      </text>
+    }
+  </svg>
+</div>

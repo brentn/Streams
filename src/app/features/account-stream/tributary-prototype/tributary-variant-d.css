@@ -1,0 +1,37 @@
+.variant-d {
+  width: 100%;
+}
+
+.scene {
+  display: block;
+  width: 100%;
+}
+
+.curve {
+  stroke: var(--color-accent);
+  stroke-linecap: round;
+  opacity: 0.6;
+  fill: none;
+}
+
+.curve.out {
+  stroke: var(--color-opposite-sign);
+}
+
+.curve.transfer {
+  stroke: var(--color-ink-secondary);
+}
+
+.band {
+  fill: var(--color-accent);
+}
+
+.label {
+  font-family: var(--font-sans);
+  font-size: 6px;
+  fill: var(--color-ink-primary);
+}
+
+.label.out {
+  fill: var(--color-ink-secondary);
+}

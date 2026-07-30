@@ -1,0 +1,37 @@
+<div class="variant-a">
+  <svg class="scene" viewBox="0 0 600 220" preserveAspectRatio="none">
+    @for (wedge of incomingWedges(); track wedge.id) {
+      <polygon
+        [attr.points]="wedge.polygon"
+        class="wedge"
+        [class.transfer]="wedge.kind === 'transfer'"
+        [class.in]="true"
+      />
+    }
+    <rect x="0" y="90" width="600" height="40" rx="6" class="band" />
+    @for (wedge of outgoingWedges(); track wedge.id) {
+      <polygon
+        [attr.points]="wedge.polygon"
+        class="wedge"
+        [class.transfer]="wedge.kind === 'transfer'"
+        [class.out]="true"
+      />
+    }
+    @for (wedge of incomingWedges(); track wedge.id) {
+      <text [attr.x]="wedge.x" [attr.y]="wedge.labelY" class="label" text-anchor="middle">
+        {{ wedge.label }}
+      </text>
+      <text [attr.x]="wedge.x" [attr.y]="wedge.labelY - 12" class="amount" text-anchor="middle">
+        {{ wedge.magnitude | currency: 'USD' : 'symbol' : '1.0-0' }}
+      </text>
+    }
+    @for (wedge of outgoingWedges(); track wedge.id) {
+      <text [attr.x]="wedge.x" [attr.y]="wedge.labelY" class="label" text-anchor="middle">
+        {{ wedge.label }}
+      </text>
+      <text [attr.x]="wedge.x" [attr.y]="wedge.labelY + 12" class="amount" text-anchor="middle">
+        {{ wedge.magnitude | currency: 'USD' : 'symbol' : '1.0-0' }}
+      </text>
+    }
+  </svg>
+</div>

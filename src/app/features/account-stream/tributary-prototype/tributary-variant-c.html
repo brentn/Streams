@@ -1,0 +1,40 @@
+<div class="variant-c">
+  <svg
+    class="scene"
+    [attr.viewBox]="'0 0 600 ' + sceneHeight()"
+    preserveAspectRatio="none"
+    [style.height.px]="sceneHeight()"
+  >
+    <line [attr.x1]="300" y1="0" [attr.x2]="300" [attr.y2]="sceneHeight()" class="axis" />
+
+    @for (bar of outgoingBars(); track bar.id) {
+      <rect
+        [attr.x]="300 - bar.length"
+        [attr.y]="bar.y - 8"
+        [attr.width]="bar.length"
+        height="16"
+        rx="3"
+        class="bar out"
+        [class.transfer]="bar.kind === 'transfer'"
+      />
+      <text [attr.x]="300 - bar.length - 8" [attr.y]="bar.y + 4" class="label" text-anchor="end">
+        {{ bar.label }} · {{ bar.magnitude | currency: 'USD' : 'symbol' : '1.0-0' }}
+      </text>
+    }
+
+    @for (bar of incomingBars(); track bar.id) {
+      <rect
+        [attr.x]="300"
+        [attr.y]="bar.y - 8"
+        [attr.width]="bar.length"
+        height="16"
+        rx="3"
+        class="bar in"
+        [class.transfer]="bar.kind === 'transfer'"
+      />
+      <text [attr.x]="300 + bar.length + 8" [attr.y]="bar.y + 4" class="label">
+        {{ bar.label }} · {{ bar.magnitude | currency: 'USD' : 'symbol' : '1.0-0' }}
+      </text>
+    }
+  </svg>
+</div>

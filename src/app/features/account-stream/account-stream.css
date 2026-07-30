@@ -3,6 +3,21 @@
   margin: 0 auto;
 }
 
+/* PROTOTYPE — wayfinder ticket #52. Strip on capture. */
+.tributary-prototype {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border: 1px dashed var(--color-gridline);
+  border-radius: 0.5rem;
+}
+
+.prototype-banner {
+  margin: 0 0 0.5rem;
+  font-size: var(--text-eyebrow);
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
 header {
   display: flex;
   align-items: flex-start;
