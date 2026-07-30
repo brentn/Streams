@@ -1,28 +1,115 @@
+@import '../styles/form-controls.css';
+
 :host {
   display: contents;
-}
-
-label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  font-size: var(--text-body);
-  color: var(--color-ink-secondary);
-}
-
-input,
-select {
-  font: inherit;
-  font-size: var(--text-body);
-  color: var(--color-ink-primary);
-  background: var(--color-page);
-  border: 1px solid var(--color-border);
-  border-radius: 0.375rem;
-  padding: 0.4rem 0.6rem;
 }
 
 .field-error {
   margin: -0.25rem 0 0;
   color: var(--color-critical);
   font-size: var(--text-body);
+}
+
+.calendar-grid {
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.3rem;
+}
+
+.calendar-grid legend {
+  grid-column: 1 / -1;
+  font-size: var(--text-body);
+  color: var(--color-ink-secondary);
+  padding: 0 0 0.3rem;
+}
+
+.cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  font-size: 0.75rem;
+  color: var(--color-ink-primary);
+  background: var(--color-page);
+  border: 1px solid var(--color-border);
+  border-radius: 0.3rem;
+  cursor: pointer;
+}
+
+.cell input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.cell:has(input:checked) {
+  color: var(--color-page);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.cell.multi {
+  font: inherit;
+}
+
+.cell.multi.checked {
+  color: var(--color-page);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.segmented {
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+}
+
+.segmented legend {
+  width: 100%;
+  font-size: var(--text-body);
+  color: var(--color-ink-secondary);
+  padding: 0 0 0.3rem;
+}
+
+.segment {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.2rem;
+  font-size: 0.75rem;
+  color: var(--color-ink-primary);
+  background: var(--color-page);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+}
+
+.segment:first-of-type {
+  border-radius: 0.375rem 0 0 0.375rem;
+}
+
+.segment:last-of-type {
+  border-radius: 0 0.375rem 0.375rem 0;
+}
+
+.segment + .segment {
+  border-left: none;
+}
+
+.segment input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.segment:has(input:checked) {
+  color: var(--color-page);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
 }

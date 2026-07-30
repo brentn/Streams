@@ -1,0 +1,30 @@
+:host {
+  display: contents;
+}
+
+.dot-badges {
+  display: inline-flex;
+  gap: 0.3rem;
+}
+
+.dot {
+  font: inherit;
+  font-size: 0.65rem;
+  font-weight: 700;
+  cursor: pointer;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-page);
+  color: var(--color-ink-secondary);
+}
+
+.dot.set {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-page);
+}

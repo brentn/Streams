@@ -11,7 +11,8 @@ import {
 import { dateInputValue, parseDateInput } from '../date-input';
 import { numberInputValue } from '../number-input';
 
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+/** Abbreviated so all 7 fit the segmented control's single row at card width. */
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 /**
  * The Cadence half of a recurring-kind Flow's or a Transfer's schedule — shared so both forms
@@ -35,9 +36,21 @@ export class CadencePicker {
   protected readonly numberInputValue = numberInputValue;
   protected readonly endDateError = computed(() => cadenceEndDateError(this.option(), this.fields()));
 
+  protected readonly daysOfMonth = Array.from({ length: 31 }, (_, i) => i + 1);
+
   protected readonly dayOfWeekOptions: { value: DayOfWeek; label: string }[] = DAY_NAMES.map(
     (label, value) => ({ value: value as DayOfWeek, label }),
   );
+
+  /**
+   * Semi-monthly's two anchor days rendered from the same calendar grid, dual-select: `day`
+   * always holds the older pick, `day2` the newer, so a third pick can evict `day` without
+   * needing separate order-tracking state beyond the two fields the domain model already has.
+   */
+  protected readonly selectedSemiMonthlyDays = computed(() => {
+    const { day, day2 } = this.fields();
+    return day === day2 ? [day] : [day, day2];
+  });
 
   protected readonly nthOptions: { value: NthWeek; label: string }[] = [
     { value: 1, label: 'First' },
@@ -49,6 +62,21 @@ export class CadencePicker {
 
   protected updateField<K extends keyof CadenceFields>(key: K, value: CadenceFields[K]): void {
     this.fieldsChanged.emit({ ...this.fields(), [key]: value });
+  }
+
+  /** `day` is always the oldest pick, `day2` the newest — see `selectedSemiMonthlyDays` above. */
+  protected toggleSemiMonthlyDay(clicked: number): void {
+    const { day, day2 } = this.fields();
+    const selected = this.selectedSemiMonthlyDays();
+
+    if (selected.includes(clicked)) {
+      const remaining = selected.find((d) => d !== clicked) ?? clicked;
+      this.fieldsChanged.emit({ ...this.fields(), day: remaining, day2: remaining });
+    } else if (selected.length < 2) {
+      this.fieldsChanged.emit({ ...this.fields(), day: selected[0], day2: clicked });
+    } else {
+      this.fieldsChanged.emit({ ...this.fields(), day: day2, day2: clicked });
+    }
   }
 
   protected onOptionChange(value: string): void {

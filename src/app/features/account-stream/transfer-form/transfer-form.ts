@@ -10,7 +10,7 @@ import {
   defaultCadenceFields,
   describeCadence,
 } from '../../../core/projection/cadence-options';
-import { AmountChangesEditor } from '../../../shared/amount-changes-editor/amount-changes-editor';
+import { AmountRuleBadges } from '../../../shared/amount-rule-badges/amount-rule-badges';
 import { CadencePicker } from '../../../shared/cadence-picker/cadence-picker';
 import { numberInputValue } from '../../../shared/number-input';
 
@@ -23,7 +23,7 @@ export type TransferDirection = 'in' | 'out';
  */
 @Component({
   selector: 'app-transfer-form',
-  imports: [CadencePicker, AmountChangesEditor],
+  imports: [CadencePicker, AmountRuleBadges],
   templateUrl: './transfer-form.html',
   styleUrl: './transfer-form.css',
 })

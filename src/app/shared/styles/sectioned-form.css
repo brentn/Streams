@@ -1,0 +1,129 @@
+@import 'form-controls.css';
+
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+  margin-top: 1rem;
+}
+
+.scroll-area {
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  margin-right: -0.25rem;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.card {
+  border: 1px solid var(--color-border);
+  border-radius: 0.6rem;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.card h3 {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-ink-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--text-body);
+}
+
+.row-label {
+  color: var(--color-ink-secondary);
+}
+
+.chip {
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border: 1px solid var(--color-accent);
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+  cursor: pointer;
+}
+
+.tolerance-edit {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.tolerance-edit input {
+  width: 4rem;
+}
+
+.tolerance-edit button {
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: var(--color-page);
+  background: var(--color-accent);
+  border: none;
+  border-radius: 0.375rem;
+  padding: 0.3rem 0.6rem;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.form-actions button[type='submit'] {
+  font: inherit;
+  font-size: var(--text-body);
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--color-page);
+  background: var(--color-accent);
+  border: none;
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+}
+
+.form-actions button[type='submit']:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.form-actions button[type='button'] {
+  font: inherit;
+  font-size: var(--text-body);
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+  color: var(--color-ink-secondary);
+}

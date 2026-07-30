@@ -182,7 +182,7 @@ describe('FlowForm', () => {
     ]);
   });
 
-  it('omits tolerance on save by default', async () => {
+  it('defaults Tolerance to 10 percent on save for a new Flow', async () => {
     const { component } = await createComponent();
     const saved = vi.fn();
     component.saved.subscribe(saved);
@@ -193,7 +193,9 @@ describe('FlowForm', () => {
 
     component['save']();
 
-    expect(saved.mock.calls[0][0].tolerance).toBeUndefined();
+    expect(saved).toHaveBeenCalledWith(
+      expect.objectContaining({ tolerance: { kind: 'percent', value: 10 } }),
+    );
   });
 
   it('includes a fixed Tolerance on save when set', async () => {

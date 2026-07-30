@@ -19,48 +19,51 @@
     />
   </label>
 } @else if (option() === 'weekly' || option() === 'biweekly') {
-  <label>
-    Day of week
-    <select (change)="updateField('dayOfWeek', $any(selectNumber($event)))">
-      @for (day of dayOfWeekOptions; track day.value) {
-        <option [value]="day.value" [selected]="day.value === fields().dayOfWeek">
-          {{ day.label }}
-        </option>
-      }
-    </select>
-  </label>
+  <fieldset class="segmented">
+    <legend>Day of week</legend>
+    @for (day of dayOfWeekOptions; track day.value) {
+      <label class="segment">
+        <input
+          type="radio"
+          name="day-of-week"
+          [value]="day.value"
+          [checked]="day.value === fields().dayOfWeek"
+          (change)="updateField('dayOfWeek', day.value)"
+        />
+        {{ day.label }}
+      </label>
+    }
+  </fieldset>
 } @else if (option() === 'monthly' || option() === 'bi-monthly') {
-  <label>
-    Day of month
-    <input
-      type="number"
-      min="1"
-      max="31"
-      [value]="fields().day"
-      (input)="updateField('day', numberInputValue($event, fields().day))"
-    />
-  </label>
+  <fieldset class="calendar-grid">
+    <legend>Day of month</legend>
+    @for (day of daysOfMonth; track day) {
+      <label class="cell">
+        <input
+          type="radio"
+          name="day-of-month"
+          [value]="day"
+          [checked]="day === fields().day"
+          (change)="updateField('day', day)"
+        />
+        {{ day }}
+      </label>
+    }
+  </fieldset>
 } @else if (option() === 'semi-monthly') {
-  <label>
-    First day of month
-    <input
-      type="number"
-      min="1"
-      max="31"
-      [value]="fields().day"
-      (input)="updateField('day', numberInputValue($event, fields().day))"
-    />
-  </label>
-  <label>
-    Second day of month
-    <input
-      type="number"
-      min="1"
-      max="31"
-      [value]="fields().day2"
-      (input)="updateField('day2', numberInputValue($event, fields().day2))"
-    />
-  </label>
+  <fieldset class="calendar-grid">
+    <legend>Days of month (pick two)</legend>
+    @for (day of daysOfMonth; track day) {
+      <button
+        type="button"
+        class="cell multi"
+        [class.checked]="selectedSemiMonthlyDays().includes(day)"
+        (click)="toggleSemiMonthlyDay(day)"
+      >
+        {{ day }}
+      </button>
+    }
+  </fieldset>
 } @else if (option() === 'annually') {
   <label>
     Month
@@ -134,16 +137,21 @@
       }
     </select>
   </label>
-  <label>
-    Day of week
-    <select (change)="updateField('dayOfWeek', $any(selectNumber($event)))">
-      @for (day of dayOfWeekOptions; track day.value) {
-        <option [value]="day.value" [selected]="day.value === fields().dayOfWeek">
-          {{ day.label }}
-        </option>
-      }
-    </select>
-  </label>
+  <fieldset class="segmented">
+    <legend>Day of week</legend>
+    @for (day of dayOfWeekOptions; track day.value) {
+      <label class="segment">
+        <input
+          type="radio"
+          name="day-of-week"
+          [value]="day.value"
+          [checked]="day.value === fields().dayOfWeek"
+          (change)="updateField('dayOfWeek', day.value)"
+        />
+        {{ day.label }}
+      </label>
+    }
+  </fieldset>
 }
 
 @if (needsAnchorDate(option())) {

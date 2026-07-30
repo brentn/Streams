@@ -1,94 +1,103 @@
-<form class="entity-form" (submit)="onSubmit($event)">
-  <label>
-    Name
-    <input type="text" [value]="name()" (input)="name.set($any($event.target).value)" />
-  </label>
+<div class="scroll-area">
+  <form id="flow-form" (submit)="onSubmit($event)">
+    <section class="card">
+      <h3>Basics</h3>
+      <label>
+        Name
+        <input type="text" [value]="name()" (input)="name.set($any($event.target).value)" />
+      </label>
+      <div class="two-col">
+        <label>
+          Direction
+          <select [value]="direction()" (change)="direction.set($any($event.target).value)">
+            <option value="in">In</option>
+            <option value="out">Out</option>
+          </select>
+        </label>
+        <label>
+          Kind
+          <select
+            [value]="kind()"
+            [disabled]="flow() !== null"
+            (change)="kind.set($any($event.target).value)"
+          >
+            <option value="recurring">Recurring</option>
+            <option value="budget">Budget</option>
+          </select>
+        </label>
+      </div>
+      <label>
+        {{ kind() === 'recurring' ? 'Amount' : 'Limit' }}
+        <input
+          type="number"
+          step="0.01"
+          [value]="amount()"
+          (input)="amount.set(numberInputValue($event, amount()))"
+        />
+      </label>
+    </section>
 
-  <label>
-    Direction
-    <select
-      [value]="direction()"
-      (change)="direction.set($any($event.target).value)"
-    >
-      <option value="in">In</option>
-      <option value="out">Out</option>
-    </select>
-  </label>
+    <section class="card">
+      <h3>Schedule</h3>
+      @if (kind() === 'recurring') {
+        <app-cadence-picker
+          [option]="cadenceOption()"
+          [fields]="cadenceFields()"
+          (optionChanged)="cadenceOption.set($event)"
+          (fieldsChanged)="cadenceFields.set($event)"
+        />
+      } @else {
+        <label>
+          Period
+          <select [value]="budgetPeriod()" (change)="budgetPeriod.set($any($event.target).value)">
+            <option value="month">Month</option>
+            <option value="year">Year</option>
+          </select>
+        </label>
+      }
+    </section>
 
-  <label>
-    Kind
-    <select
-      [value]="kind()"
-      [disabled]="flow() !== null"
-      (change)="kind.set($any($event.target).value)"
-    >
-      <option value="recurring">Recurring</option>
-      <option value="budget">Budget</option>
-    </select>
-  </label>
+    <section class="card">
+      <h3>
+        Amount rules
+        <app-amount-rule-badges
+          [changes]="amountChanges()"
+          [amountLabel]="kind() === 'recurring' ? 'amount' : 'limit'"
+          (changesUpdated)="amountChanges.set($event)"
+        />
+      </h3>
+      <div class="row">
+        <span class="row-label">Tolerance</span>
+        @if (isEditingTolerance()) {
+          <span class="tolerance-edit">
+            <input
+              type="number"
+              step="1"
+              [value]="toleranceValue()"
+              (input)="toleranceValue.set(numberInputValue($event, toleranceValue()))"
+            />
+            <select
+              [value]="toleranceKind()"
+              (change)="toleranceKind.set($any($event.target).value)"
+            >
+              <option value="percent">%</option>
+              <option value="fixed">$</option>
+            </select>
+            <button type="button" (click)="commitTolerance()">Done</button>
+          </span>
+        } @else {
+          <button type="button" class="chip" (click)="startEditingTolerance()">
+            {{ toleranceDisplay() }}
+          </button>
+        }
+      </div>
+    </section>
+  </form>
+</div>
 
-  <label>
-    {{ kind() === 'recurring' ? 'Amount' : 'Limit' }}
-    <input
-      type="number"
-      step="0.01"
-      [value]="amount()"
-      (input)="amount.set(numberInputValue($event, amount()))"
-    />
-  </label>
-
-  <app-amount-changes-editor
-    [changes]="amountChanges()"
-    [amountLabel]="kind() === 'recurring' ? 'amount' : 'limit'"
-    (changesUpdated)="amountChanges.set($event)"
-  />
-
-  @if (kind() === 'recurring') {
-    <app-cadence-picker
-      [option]="cadenceOption()"
-      [fields]="cadenceFields()"
-      (optionChanged)="cadenceOption.set($event)"
-      (fieldsChanged)="cadenceFields.set($event)"
-    />
-  } @else {
-    <label>
-      Period
-      <select
-        [value]="budgetPeriod()"
-        (change)="budgetPeriod.set($any($event.target).value)"
-      >
-        <option value="month">Month</option>
-        <option value="year">Year</option>
-      </select>
-    </label>
-  }
-
-  <label>
-    Tolerance
-    <select
-      [value]="toleranceKind()"
-      (change)="toleranceKind.set($any($event.target).value)"
-    >
-      <option value="none">None</option>
-      <option value="percent">Percentage</option>
-      <option value="fixed">Fixed amount</option>
-    </select>
-  </label>
-
-  @if (toleranceKind() !== 'none') {
-    <label>
-      {{ toleranceKind() === 'percent' ? 'Tolerance (%)' : 'Tolerance ($)' }}
-      <input
-        type="number"
-        step="0.01"
-        [value]="toleranceValue()"
-        (input)="toleranceValue.set(numberInputValue($event, toleranceValue()))"
-      />
-    </label>
-  }
-
-  <div class="form-actions">
-    <button type="submit" [disabled]="!isValid()">{{ flow() === null ? 'Create' : 'Save' }}</button>
-    <button type="button" (click)="cancel()">Cancel</button>
-  </div>
-</form>
+<div class="form-actions">
+  <button type="submit" form="flow-form" [disabled]="!isValid()">
+    {{ flow() === null ? 'Create' : 'Save' }}
+  </button>
+  <button type="button" (click)="cancel()">Cancel</button>
+</div>

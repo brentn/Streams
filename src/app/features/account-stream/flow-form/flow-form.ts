@@ -17,7 +17,7 @@ import {
   defaultCadenceFields,
   describeCadence,
 } from '../../../core/projection/cadence-options';
-import { AmountChangesEditor } from '../../../shared/amount-changes-editor/amount-changes-editor';
+import { AmountRuleBadges } from '../../../shared/amount-rule-badges/amount-rule-badges';
 import { CadencePicker } from '../../../shared/cadence-picker/cadence-picker';
 import { numberInputValue } from '../../../shared/number-input';
 
@@ -30,7 +30,7 @@ import { numberInputValue } from '../../../shared/number-input';
  */
 @Component({
   selector: 'app-flow-form',
-  imports: [CadencePicker, AmountChangesEditor],
+  imports: [CadencePicker, AmountRuleBadges],
   templateUrl: './flow-form.html',
   styleUrl: './flow-form.css',
 })
@@ -50,8 +50,13 @@ export class FlowForm {
 
   protected readonly amountChanges = signal<AmountChange[]>([]);
 
-  protected readonly toleranceKind = signal<'none' | 'percent' | 'fixed'>('none');
-  protected readonly toleranceValue = signal(0);
+  /** Defaults to 10% per the categorization-dialog redesign — every Flow gets Tolerance-checked unless the user changes it. */
+  protected readonly toleranceKind = signal<'percent' | 'fixed'>('percent');
+  protected readonly toleranceValue = signal(10);
+  protected readonly isEditingTolerance = signal(false);
+  protected readonly toleranceDisplay = computed(() =>
+    this.toleranceKind() === 'percent' ? `${this.toleranceValue()}%` : `$${this.toleranceValue()}`,
+  );
 
   protected readonly numberInputValue = numberInputValue;
 
@@ -67,8 +72,8 @@ export class FlowForm {
       this.direction.set(flow.direction);
       this.kind.set(flow.kind);
       this.amountChanges.set(flow.amountChanges ?? []);
-      this.toleranceKind.set(flow.tolerance?.kind ?? 'none');
-      this.toleranceValue.set(flow.tolerance?.value ?? 0);
+      this.toleranceKind.set(flow.tolerance?.kind ?? 'percent');
+      this.toleranceValue.set(flow.tolerance?.value ?? 10);
       if (flow.kind === 'recurring') {
         this.amount.set(flow.amount);
         const { option, fields } = describeCadence(flow.cadence);
@@ -86,13 +91,19 @@ export class FlowForm {
     this.save();
   }
 
+  protected startEditingTolerance(): void {
+    this.isEditingTolerance.set(true);
+  }
+
+  protected commitTolerance(): void {
+    this.isEditingTolerance.set(false);
+  }
+
   protected save(): void {
     if (!this.isValid()) return;
 
     const id = this.flow()?.id ?? crypto.randomUUID();
-    const toleranceKind = this.toleranceKind();
-    const tolerance: Tolerance | undefined =
-      toleranceKind === 'none' ? undefined : { kind: toleranceKind, value: this.toleranceValue() };
+    const tolerance: Tolerance = { kind: this.toleranceKind(), value: this.toleranceValue() };
     const base = {
       id,
       accountId: this.accountId(),

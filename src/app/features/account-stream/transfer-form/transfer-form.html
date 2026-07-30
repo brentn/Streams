@@ -1,48 +1,60 @@
-<form class="entity-form" (submit)="onSubmit($event)">
-  <label>
-    Direction
-    <select [value]="direction()" (change)="direction.set($any($event.target).value)">
-      <option value="out">Out (to another Account)</option>
-      <option value="in">In (from another Account)</option>
-    </select>
-  </label>
+<div class="scroll-area">
+  <form id="transfer-form" (submit)="onSubmit($event)">
+    <section class="card">
+      <h3>Basics</h3>
+      <label>
+        Direction
+        <select [value]="direction()" (change)="direction.set($any($event.target).value)">
+          <option value="out">Out (to another Account)</option>
+          <option value="in">In (from another Account)</option>
+        </select>
+      </label>
+      <label>
+        {{ direction() === 'out' ? 'To Account' : 'From Account' }}
+        <select [value]="otherAccountId()" (change)="otherAccountId.set($any($event.target).value)">
+          @for (account of otherAccounts(); track account.id) {
+            <option [value]="account.id" [selected]="account.id === otherAccountId()">
+              {{ account.name }}
+            </option>
+          }
+        </select>
+      </label>
+      <label>
+        Amount
+        <input
+          type="number"
+          step="0.01"
+          [value]="amount()"
+          (input)="amount.set(numberInputValue($event, amount()))"
+        />
+      </label>
+    </section>
 
-  <label>
-    {{ direction() === 'out' ? 'To Account' : 'From Account' }}
-    <select [value]="otherAccountId()" (change)="otherAccountId.set($any($event.target).value)">
-      @for (account of otherAccounts(); track account.id) {
-        <option [value]="account.id" [selected]="account.id === otherAccountId()">
-          {{ account.name }}
-        </option>
-      }
-    </select>
-  </label>
+    <section class="card">
+      <h3>Schedule</h3>
+      <app-cadence-picker
+        [option]="cadenceOption()"
+        [fields]="cadenceFields()"
+        (optionChanged)="cadenceOption.set($event)"
+        (fieldsChanged)="cadenceFields.set($event)"
+      />
+    </section>
 
-  <label>
-    Amount
-    <input
-      type="number"
-      step="0.01"
-      [value]="amount()"
-      (input)="amount.set(numberInputValue($event, amount()))"
-    />
-  </label>
+    <section class="card">
+      <h3>
+        Amount rules
+        <app-amount-rule-badges
+          [changes]="amountChanges()"
+          (changesUpdated)="amountChanges.set($event)"
+        />
+      </h3>
+    </section>
+  </form>
+</div>
 
-  <app-amount-changes-editor
-    [changes]="amountChanges()"
-    amountLabel="amount"
-    (changesUpdated)="amountChanges.set($event)"
-  />
-
-  <app-cadence-picker
-    [option]="cadenceOption()"
-    [fields]="cadenceFields()"
-    (optionChanged)="cadenceOption.set($event)"
-    (fieldsChanged)="cadenceFields.set($event)"
-  />
-
-  <div class="form-actions">
-    <button type="submit" [disabled]="!isValid()">{{ transfer() === null ? 'Create' : 'Save' }}</button>
-    <button type="button" (click)="cancel()">Cancel</button>
-  </div>
-</form>
+<div class="form-actions">
+  <button type="submit" form="transfer-form" [disabled]="!isValid()">
+    {{ transfer() === null ? 'Create' : 'Save' }}
+  </button>
+  <button type="button" (click)="cancel()">Cancel</button>
+</div>
