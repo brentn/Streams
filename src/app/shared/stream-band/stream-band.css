@@ -22,3 +22,14 @@
   stroke-width: 1;
   stroke-dasharray: 3 3;
 }
+
+.tributary {
+  fill: none;
+  stroke: var(--color-ink-primary);
+  stroke-linecap: round;
+}
+
+.tributary-label {
+  font-size: 6px;
+  fill: var(--color-ink-primary);
+}

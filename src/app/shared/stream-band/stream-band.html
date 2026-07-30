@@ -13,4 +13,15 @@
       [class.projected]="segment.phase === 'projected'"
     />
   }
+  @for (line of tributaryLines(); track line.id) {
+    <path
+      [attr.id]="line.id"
+      [attr.d]="line.d"
+      [attr.stroke-width]="line.strokeWidth"
+      class="tributary"
+    />
+    <text class="tributary-label">
+      <textPath [attr.href]="'#' + line.id" startOffset="50%">{{ line.label }}</textPath>
+    </text>
+  }
 </svg>

@@ -1,8 +1,13 @@
 import { Component, computed, input } from '@angular/core';
 import { Sign } from '../../core/models/account';
 import { BandPoint } from '../../core/charting/band-segments';
-import { halfThicknessScale, ribbonPoints } from '../../core/charting/ribbon';
+import { magnitudeScale, ribbonPoints } from '../../core/charting/ribbon';
 import { buildRenderSegments } from '../../core/charting/render-segments';
+import { Tributary } from '../../core/charting/tributaries';
+import { buildTributaryLines } from '../../core/charting/tributary-lines';
+
+/** Cap on a tributary line's stroke width, independent of the balance ribbon's own thickness scale. */
+const MAX_TRIBUTARY_STROKE_WIDTH = 6;
 
 /**
  * One thickness-band stream: `|balance|` as line thickness around a flat
@@ -26,11 +31,13 @@ export class StreamBand {
   readonly height = input(120);
   /** 'expected'-side segments render accent green for an account, neutral ink for the Total lane. */
   readonly expectedColor = input<'accent' | 'neutral'>('accent');
+  /** Real Flow/Transfer occurrences to render as tributaries joining/leaving the river — absent for the multi-account view's lanes. */
+  readonly tributaries = input<Tributary[]>([]);
 
   protected readonly centerY = computed(() => this.height() / 2);
 
   private readonly halfThickness = computed(() =>
-    halfThicknessScale(this.maxAbsBalance(), this.height() / 2 - 2),
+    magnitudeScale(this.maxAbsBalance(), this.height() / 2 - 2),
   );
 
   protected readonly segments = computed(() => {
@@ -41,5 +48,14 @@ export class StreamBand {
         polygon: ribbonPoints(segment.points, this.centerY(), scale),
       }),
     );
+  });
+
+  private readonly maxTributaryAmount = computed(() =>
+    this.tributaries().reduce((max, t) => Math.max(max, t.amount), 0),
+  );
+
+  protected readonly tributaryLines = computed(() => {
+    const scale = magnitudeScale(this.maxTributaryAmount(), MAX_TRIBUTARY_STROKE_WIDTH);
+    return buildTributaryLines(this.tributaries(), this.centerY(), scale);
   });
 }

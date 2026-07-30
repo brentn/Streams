@@ -27,6 +27,7 @@ import {
   selectedDateFor,
   WINDOW_DAYS,
 } from '../../core/charting/date-window';
+import { buildTributaries } from '../../core/charting/tributaries';
 import { bannerPresentation, derivedBannerState } from '../../core/sync/sync-presentation';
 import { SyncCoordinator } from '../../core/sync/sync-coordinator';
 import { openSimpleFinBridge } from '../../core/simplefin/reconnect';
@@ -36,9 +37,7 @@ import { DragScrub } from '../../shared/drag-scrub/drag-scrub.directive';
 import { ResyncIcon } from '../../shared/resync-icon/resync-icon';
 import { StatusBanner } from '../../shared/status-banner/status-banner';
 import { StreamBand } from '../../shared/stream-band/stream-band';
-import { FlowList } from './flow-list/flow-list';
 import { TransactionReview } from './transaction-review/transaction-review';
-import { TransferList } from './transfer-list/transfer-list';
 
 @Component({
   selector: 'app-account-stream',
@@ -51,8 +50,6 @@ import { TransferList } from './transfer-list/transfer-list';
     ResyncIcon,
     StatusBanner,
     StreamBand,
-    FlowList,
-    TransferList,
     TransactionReview,
   ],
   templateUrl: './account-stream.html',
@@ -143,6 +140,18 @@ export class AccountStream {
     this.points().reduce((max, p) => Math.max(max, Math.abs(p.balance)), 0),
   );
 
+  protected readonly tributaries = computed(() => {
+    const account = this.account();
+    if (!account) return [];
+    return buildTributaries(
+      this.flows(),
+      this.transfers(),
+      this.allAccounts(),
+      account.id,
+      this.selectedDate(),
+    );
+  });
+
   protected readonly boundaryX = computed(() => {
     const account = this.account();
     return account ? boundaryXFor(account.balanceDate, this.selectedDate()) : 0;
@@ -180,10 +189,6 @@ export class AccountStream {
 
   protected async reloadFlows(): Promise<void> {
     this.flows.set(await this.storage.getFlowsForAccount(this.id()));
-  }
-
-  protected async reloadTransfers(): Promise<void> {
-    this.transfers.set(await this.storage.getTransfersForAccount(this.id()));
   }
 
   protected async reloadTransactions(): Promise<void> {

@@ -1,13 +1,9 @@
 import { BandPoint } from './band-segments';
 
-/** Half-thickness (px) for a balance magnitude, linear against the window's max, capped. */
-export function halfThicknessScale(
-  maxAbsBalance: number,
-  maxHalfThicknessPx: number,
-): (balance: number) => number {
-  if (maxAbsBalance <= 0) return () => 0;
-  return (balance: number) =>
-    Math.min(maxHalfThicknessPx, (Math.abs(balance) / maxAbsBalance) * maxHalfThicknessPx);
+/** Linear scale of a magnitude against a window's max, capped at maxPx — shared by the balance ribbon's half-thickness and a tributary line's stroke width. */
+export function magnitudeScale(maxMagnitude: number, maxPx: number): (magnitude: number) => number {
+  if (maxMagnitude <= 0) return () => 0;
+  return (magnitude: number) => Math.min(maxPx, (Math.abs(magnitude) / maxMagnitude) * maxPx);
 }
 
 /**

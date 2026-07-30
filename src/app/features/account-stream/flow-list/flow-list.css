@@ -1,6 +1,0 @@
-@import '../../../shared/styles/entity-list.css';
-
-.variance-alert {
-  color: var(--color-critical);
-  font-size: var(--text-body);
-}
