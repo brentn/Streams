@@ -1,0 +1,71 @@
+<div class="variant-c">
+  <div class="scene-wrap" style="height: 220px">
+    <svg
+      class="scene"
+      [attr.viewBox]="'0 0 ' + viewW + ' ' + viewH"
+      preserveAspectRatio="none"
+    >
+      <defs>
+        @for (curve of curves(); track curve.id) {
+          <path [attr.id]="curve.pathId" [attr.d]="curve.d" fill="none" />
+        }
+      </defs>
+
+      @for (curve of curves(); track curve.id) {
+        <use
+          [attr.href]="'#' + curve.pathId"
+          class="curve"
+          [class.out]="curve.direction === 'out'"
+          [class.transfer]="curve.kind === 'transfer'"
+          [attr.stroke-width]="curve.strokeWidth"
+        />
+      }
+
+      @for (bundle of bundles(); track bundle.direction) {
+        <path
+          [attr.d]="bundle.d"
+          class="bundle"
+          [class.out]="bundle.direction === 'out'"
+          [attr.stroke-width]="bundle.strokeWidth"
+          fill="none"
+          (click)="toggle(bundle.direction)"
+        />
+      }
+
+      <rect x="0" [attr.y]="bandTop" [attr.width]="viewW" [attr.height]="bandBottom - bandTop" class="band" />
+
+      @for (curve of curves(); track curve.id) {
+        <text class="label" [class.out]="curve.direction === 'out'">
+          <textPath [attr.href]="'#' + curve.pathId" startOffset="55%">{{ curve.label }}</textPath>
+        </text>
+      }
+    </svg>
+
+    <!-- Badges live outside the SVG's non-uniformly-scaled coordinate space, positioned by percent. -->
+    @for (bundle of bundles(); track bundle.direction) {
+      <button
+        type="button"
+        class="badge"
+        [style.left.%]="bundle.badgeLeftPct"
+        [style.top.%]="bundle.badgeTopPct"
+        (click)="toggle(bundle.direction)"
+      >
+        ×{{ bundle.count }}
+      </button>
+
+      @if (isExpanded(bundle.direction)) {
+        <div class="expansion" [class.out]="bundle.direction === 'out'">
+          <p class="expansion-title">{{ bundle.direction === 'in' ? 'Minor incoming' : 'Minor outgoing' }} ({{ bundle.count }})</p>
+          <ul>
+            @for (member of bundle.members; track member.id) {
+              <li>
+                <span class="name">{{ member.name }}</span>
+                <span class="amount">{{ member.magnitude | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+    }
+  </div>
+</div>

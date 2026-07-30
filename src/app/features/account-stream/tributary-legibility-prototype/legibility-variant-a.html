@@ -1,0 +1,44 @@
+<div class="variant-a">
+  <svg
+    class="scene"
+    [attr.viewBox]="'0 0 ' + viewW + ' ' + viewH"
+    preserveAspectRatio="none"
+    style="height: 220px"
+  >
+    <defs>
+      @for (curve of curves(); track curve.id) {
+        <path [attr.id]="curve.pathId" [attr.d]="curve.d" fill="none" />
+      }
+    </defs>
+
+    @for (curve of curves(); track curve.id) {
+      <use
+        [attr.href]="'#' + curve.pathId"
+        class="curve"
+        [class.out]="curve.direction === 'out'"
+        [class.transfer]="curve.kind === 'transfer'"
+        [class.minor]="curve.minor"
+        [attr.stroke-width]="curve.strokeWidth"
+      />
+      <use
+        [attr.href]="'#' + curve.pathId"
+        class="hit-area"
+        [attr.stroke-width]="hitWidth"
+        (click)="toggle(curve.id)"
+        (mouseenter)="reveal(curve.id)"
+        (mouseleave)="unreveal(curve.id)"
+      />
+    }
+
+    <rect x="0" [attr.y]="bandTop" [attr.width]="viewW" [attr.height]="bandBottom - bandTop" class="band" />
+
+    @for (curve of curves(); track curve.id) {
+      @if (showLabel(curve)) {
+        <text class="label" [class.out]="curve.direction === 'out'" [class.minor]="curve.minor">
+          <textPath [attr.href]="'#' + curve.pathId" startOffset="55%">{{ curve.label }}</textPath>
+        </text>
+      }
+    }
+  </svg>
+  <p class="hint">Tap or hover a thin line to reveal its label — the hit-area is wider than the line itself.</p>
+</div>

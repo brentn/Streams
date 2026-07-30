@@ -5,11 +5,12 @@ import {
   ElementRef,
   inject,
   input,
+  isDevMode,
   signal,
   viewChild,
 } from '@angular/core';
 import { CurrencyPipe, DatePipe } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { Account } from '../../core/models/account';
 import { Flow } from '../../core/models/flow';
 import { Transaction } from '../../core/models/transaction';
@@ -33,12 +34,33 @@ import { openSimpleFinBridge } from '../../core/simplefin/reconnect';
 import { StorageRepository } from '../../core/storage/storage-repository';
 import { CalendarChip } from '../../shared/calendar-chip/calendar-chip';
 import { DragScrub } from '../../shared/drag-scrub/drag-scrub.directive';
+import { PrototypeSwitcher, PrototypeVariant } from '../../shared/prototype-switcher/prototype-switcher';
 import { ResyncIcon } from '../../shared/resync-icon/resync-icon';
 import { StatusBanner } from '../../shared/status-banner/status-banner';
 import { StreamBand } from '../../shared/stream-band/stream-band';
 import { FlowList } from './flow-list/flow-list';
 import { TransactionReview } from './transaction-review/transaction-review';
 import { TransferList } from './transfer-list/transfer-list';
+import {
+  buildPositionedTributaries,
+  demoLegibilityItems,
+  PositionedTributary,
+} from './tributary-legibility-prototype/tributary-data';
+import { LegibilityVariantA } from './tributary-legibility-prototype/legibility-variant-a';
+import { LegibilityVariantB } from './tributary-legibility-prototype/legibility-variant-b';
+import { LegibilityVariantC } from './tributary-legibility-prototype/legibility-variant-c';
+import { LegibilityVariantD } from './tributary-legibility-prototype/legibility-variant-d';
+
+// PROTOTYPE — wayfinder ticket #60 (tributary legibility for tiny amounts / many flows),
+// part of map #51. Throwaway; strip on capture. Synthetic demo items are layered onto the
+// real account's tributaries so the crowding problem is visible regardless of which account
+// is being viewed — see `demoLegibilityItems`.
+const LEGIBILITY_VARIANTS: PrototypeVariant[] = [
+  { key: 'a', label: 'Wide hit-area, tap-to-reveal label' },
+  { key: 'b', label: 'Tap to zoom, local re-scale' },
+  { key: 'c', label: 'Minor-flows aggregate bundle' },
+  { key: 'd', label: 'Logarithmic thickness' },
+];
 
 @Component({
   selector: 'app-account-stream',
@@ -54,6 +76,11 @@ import { TransferList } from './transfer-list/transfer-list';
     FlowList,
     TransferList,
     TransactionReview,
+    PrototypeSwitcher,
+    LegibilityVariantA,
+    LegibilityVariantB,
+    LegibilityVariantC,
+    LegibilityVariantD,
   ],
   templateUrl: './account-stream.html',
   styleUrl: './account-stream.css',
@@ -61,8 +88,15 @@ import { TransferList } from './transfer-list/transfer-list';
 export class AccountStream {
   private readonly storage = inject(StorageRepository);
   private readonly syncCoordinator = inject(SyncCoordinator);
+  private readonly router = inject(Router);
 
   readonly id = input.required<string>();
+  /** PROTOTYPE (ticket #60) — bound from `?legibilityVariant=` via `withComponentInputBinding()`. */
+  readonly legibilityVariant = input<string>();
+
+  protected readonly prototypeEnabled = isDevMode();
+  protected readonly legibilityVariants = LEGIBILITY_VARIANTS;
+  protected readonly activeLegibilityVariant = computed(() => this.legibilityVariant() ?? 'a');
 
   protected readonly windowDays = WINDOW_DAYS;
 
@@ -148,6 +182,12 @@ export class AccountStream {
     return account ? boundaryXFor(account.balanceDate, this.selectedDate()) : 0;
   });
 
+  /** PROTOTYPE (ticket #60) — real tributaries plus the synthetic legibility demo. */
+  protected readonly legibilityItems = computed<PositionedTributary[]>(() => [
+    ...buildPositionedTributaries(this.flows(), this.transfers(), this.id(), this.allAccounts(), this.selectedDate()),
+    ...demoLegibilityItems(this.selectedDate()),
+  ]);
+
   constructor() {
     effect(() => {
       void this.load(this.id());
@@ -197,6 +237,11 @@ export class AccountStream {
 
   protected shiftDay(delta: number): void {
     this.dayOffset.update((offset) => clampDayOffset(offset + delta));
+  }
+
+  /** PROTOTYPE (ticket #60). */
+  protected setLegibilityVariant(key: string): void {
+    void this.router.navigate([], { queryParams: { legibilityVariant: key }, queryParamsHandling: 'merge' });
   }
 
   protected jumpToToday(): void {

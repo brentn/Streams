@@ -70,6 +70,35 @@
       </div>
     </div>
 
+    @if (prototypeEnabled) {
+      <!-- PROTOTYPE — wayfinder ticket #60 (tributary legibility for tiny amounts / many flows). Strip on capture. -->
+      <section class="tributary-prototype">
+        <p class="prototype-banner">
+          Prototype: tributary legibility for tiny amounts / many flows (ticket #60) — a synthetic
+          anchor flow plus a dozen tiny subscriptions are layered on top of this account's real data
+        </p>
+        @switch (activeLegibilityVariant()) {
+          @case ('a') {
+            <app-legibility-variant-a [items]="legibilityItems()" />
+          }
+          @case ('b') {
+            <app-legibility-variant-b [items]="legibilityItems()" />
+          }
+          @case ('c') {
+            <app-legibility-variant-c [items]="legibilityItems()" />
+          }
+          @case ('d') {
+            <app-legibility-variant-d [items]="legibilityItems()" />
+          }
+        }
+      </section>
+      <app-prototype-switcher
+        [variants]="legibilityVariants"
+        [current]="activeLegibilityVariant()"
+        (changed)="setLegibilityVariant($event)"
+      />
+    }
+
     <app-flow-list
       [accountId]="account.id"
       [flows]="flows()"

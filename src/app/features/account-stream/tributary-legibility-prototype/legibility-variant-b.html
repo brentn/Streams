@@ -1,0 +1,50 @@
+<div class="variant-b">
+  <div class="scene-wrap" style="height: 220px">
+    <svg
+      #scene
+      class="scene"
+      [class.zoomed]="isZoomed()"
+      [attr.viewBox]="viewBox()"
+      preserveAspectRatio="none"
+      (pointerdown)="onPointerDown($event)"
+      (pointermove)="onPointerMove($event)"
+      (pointerup)="onPointerUp($event)"
+      (pointercancel)="onPointerUp($event)"
+    >
+      <defs>
+        @for (curve of curves(); track curve.id) {
+          <path [attr.id]="curve.pathId" [attr.d]="curve.d" fill="none" />
+        }
+      </defs>
+
+      <rect x="0" y="0" [attr.width]="183" [attr.height]="190" class="hit-bg" />
+
+      @for (curve of curves(); track curve.id) {
+        <use
+          [attr.href]="'#' + curve.pathId"
+          class="curve"
+          [class.out]="curve.direction === 'out'"
+          [class.transfer]="curve.kind === 'transfer'"
+          [attr.stroke-width]="curve.strokeWidth"
+        />
+      }
+
+      <rect x="0" [attr.y]="bandTop" width="183" [attr.height]="bandBottom - bandTop" class="band" />
+
+      @for (curve of curves(); track curve.id) {
+        <text class="label" [class.out]="curve.direction === 'out'">
+          <textPath [attr.href]="'#' + curve.pathId" startOffset="55%">{{ curve.label }}</textPath>
+        </text>
+      }
+    </svg>
+
+    @if (isZoomed()) {
+      <button type="button" class="reset" (click)="resetZoom()">✕ Reset zoom</button>
+    }
+  </div>
+  <p class="hint">
+    Tap anywhere to zoom into that neighborhood — thickness re-scales against only what's
+    visible, so small items there grow relative to each other instead of staying pinned to
+    the whole window's scale. Once zoomed, drag to scrub the neighborhood left/right.
+  </p>
+</div>
