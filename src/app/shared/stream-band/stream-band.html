@@ -1,7 +1,7 @@
 <div class="band-wrap">
   <svg
     class="band"
-    [attr.viewBox]="'0 0 ' + viewWidth() + ' ' + height()"
+    [attr.viewBox]="viewBox()"
     preserveAspectRatio="none"
     [style.height.px]="height()"
   >
@@ -12,6 +12,15 @@
         [class.opposite]="segment.sign === 'opposite'"
         [class.neutral]="segment.sign === 'expected' && expectedColor() === 'neutral'"
         [class.projected]="segment.phase === 'projected'"
+      />
+    }
+    @for (bundle of bundles(); track bundle.id) {
+      <path
+        [attr.d]="bundle.d"
+        [attr.stroke-width]="bundle.strokeWidth"
+        class="tributary bundle"
+        [class.out]="bundle.direction === 'out'"
+        (click)="onBundleClick(bundle.id)"
       />
     }
     @for (line of tributaryLines(); track line.id) {
@@ -30,5 +39,15 @@
       [style.left.%]="label.leftPercent"
       [style.top.%]="label.topPercent"
     >{{ label.text }}</span>
+  }
+  @for (badge of bundleBadges(); track badge.id) {
+    <span
+      class="tributary-badge"
+      [style.left.%]="badge.leftPercent"
+      [style.top.%]="badge.topPercent"
+    >×{{ badge.count }}</span>
+  }
+  @if (isZoomed()) {
+    <button type="button" class="zoom-close" (click)="closeZoom()" aria-label="Close zoomed cluster view">×</button>
   }
 </div>

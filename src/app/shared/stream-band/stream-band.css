@@ -43,6 +43,11 @@
   stroke: var(--color-opposite-sign);
 }
 
+/* A collapsed cluster's stand-in line — dashed to read as "many, aggregated" rather than one real occurrence. */
+.tributary.bundle {
+  stroke-dasharray: 4 3;
+}
+
 /*
  * Plain HTML overlay, not SVG text — see tributary-lines.ts's TributaryLine doc comment for why.
  * Anchored (via translate) to the tip at the tributary's free end, then tilted a fixed amount to
@@ -62,4 +67,43 @@
     0 0 3px var(--color-page),
     0 0 3px var(--color-page),
     0 0 3px var(--color-page);
+}
+
+/*
+ * A bundle's ×N count badge — a plain HTML overlay so it renders as a true circle. Drawing it
+ * as an SVG element instead would put it in the `.band` SVG's coordinate space, which uses
+ * `preserveAspectRatio="none"` (non-uniform x/y scaling to fill the container); that distorts
+ * any circular SVG shape into an ellipse (see issue #66).
+ */
+.tributary-badge {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--color-ink-primary);
+  color: var(--color-page);
+  font-size: 0.65rem;
+  font-weight: 600;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.zoom-close {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--color-page);
+  color: var(--color-ink-primary);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
 }
