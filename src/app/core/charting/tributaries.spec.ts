@@ -151,11 +151,20 @@ describe('buildUncategorizedTributaries', () => {
     };
   }
 
-  it('places one tributary per unmatched Transaction in the window, sized by its absolute amount', () => {
-    const result = buildUncategorizedTributaries([txn({})], d('2026-07-10'));
+  it('buckets same-month, same-direction unmatched Transactions into one tributary on the 1st, sized by their summed absolute amount', () => {
+    const result = buildUncategorizedTributaries(
+      [txn({ id: 't1', date: d('2026-07-03'), amount: -10 }), txn({ id: 't2', date: d('2026-07-28'), amount: -32 })],
+      d('2026-07-10'),
+    );
 
     expect(result).toEqual([
-      expect.objectContaining({ kind: 'uncategorized', direction: 'out', amount: 42, label: 'Uncategorized' }),
+      expect.objectContaining({
+        kind: 'uncategorized',
+        direction: 'out',
+        date: d('2026-07-01'),
+        amount: 42,
+        label: 'Uncategorized',
+      }),
     ]);
   });
 
@@ -167,13 +176,31 @@ describe('buildUncategorizedTributaries', () => {
     expect(incoming[0].direction).toBe('in');
   });
 
+  it('keeps income and expense as separate buckets within the same month', () => {
+    const result = buildUncategorizedTributaries(
+      [txn({ id: 't1', date: d('2026-07-03'), amount: -10 }), txn({ id: 't2', date: d('2026-07-05'), amount: 25 })],
+      d('2026-07-10'),
+    );
+
+    expect(result).toEqual([
+      expect.objectContaining({ direction: 'out', date: d('2026-07-01'), amount: 10 }),
+      expect.objectContaining({ direction: 'in', date: d('2026-07-01'), amount: 25 }),
+    ]);
+  });
+
+  it('renders no tributary for a direction with zero unmatched Transactions in a month, even when the other direction has some', () => {
+    const result = buildUncategorizedTributaries([txn({ date: d('2026-07-03'), amount: -10 })], d('2026-07-10'));
+
+    expect(result.some((t) => t.direction === 'in')).toBe(false);
+  });
+
   it('excludes Transactions that already have a matched Flow', () => {
     const result = buildUncategorizedTributaries([txn({ matchedFlowId: 'flow-1' })], d('2026-07-10'));
 
     expect(result).toEqual([]);
   });
 
-  it('excludes unmatched Transactions outside the visible window', () => {
+  it('excludes buckets whose month falls outside the visible window', () => {
     const result = buildUncategorizedTributaries([txn({ date: d('2020-01-01') })], d('2026-07-10'));
 
     expect(result).toEqual([]);

@@ -158,10 +158,12 @@ export function buildTributaries(
 }
 
 /**
- * One Tributary per unmatched Transaction visible in the `selectedDate`-centered window — the
- * aggregate "uncategorized" tributary sourced from unmatched Transactions rather than a real
- * Flow/Transfer. Direction follows the Transaction's own signed amount, the same convention
- * `signedFlowAmount` uses for a Flow: positive is `in`, negative is `out`.
+ * One Tributary per `(direction, calendar month)` bucket of unmatched Transactions visible in
+ * the `selectedDate`-centered window — a rendering-only aggregation, not a real Flow/Transfer
+ * (see ADR-0007). Direction follows each Transaction's own signed amount, the same convention
+ * `signedFlowAmount` uses for a Flow: positive is `in`, negative is `out`. A bucket is positioned
+ * on the 1st of its month and sized by the summed absolute amount of its Transactions; a
+ * `(direction, month)` combination with no unmatched Transactions renders nothing.
  */
 export function buildUncategorizedTributaries(
   transactions: Transaction[],
@@ -169,16 +171,32 @@ export function buildUncategorizedTributaries(
 ): Tributary[] {
   const { startExclusive, endInclusive } = windowBounds(selectedDate);
 
-  return transactions
-    .filter((t) => t.matchedFlowId === null)
-    .filter((t) => t.date.getTime() > startExclusive.getTime() && t.date.getTime() <= endInclusive.getTime())
-    .map((t) => ({
-      id: `uncategorized-${t.id}`,
+  const buckets = new Map<string, { direction: FlowDirection; date: Date; total: number }>();
+
+  for (const t of transactions) {
+    if (t.matchedFlowId !== null) continue;
+
+    const direction: FlowDirection = t.amount >= 0 ? 'in' : 'out';
+    const monthStart = periodStart('month', t.date);
+    const key = `${direction}-${monthStart.getTime()}`;
+
+    const existing = buckets.get(key);
+    if (existing) {
+      existing.total += Math.abs(t.amount);
+    } else {
+      buckets.set(key, { direction, date: monthStart, total: Math.abs(t.amount) });
+    }
+  }
+
+  return Array.from(buckets.values())
+    .filter((b) => b.date.getTime() > startExclusive.getTime() && b.date.getTime() <= endInclusive.getTime())
+    .map((b) => ({
+      id: `uncategorized-${b.direction}-${b.date.getTime()}`,
       kind: 'uncategorized',
-      direction: t.amount >= 0 ? 'in' : 'out',
-      date: t.date,
-      x: boundaryXFor(t.date, selectedDate),
-      amount: Math.abs(t.amount),
+      direction: b.direction,
+      date: b.date,
+      x: boundaryXFor(b.date, selectedDate),
+      amount: b.total,
       label: 'Uncategorized',
     }));
 }
