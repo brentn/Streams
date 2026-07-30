@@ -54,8 +54,15 @@ export class StreamBand {
     this.tributaries().reduce((max, t) => Math.max(max, t.amount), 0),
   );
 
+  /** The ribbon's own half-thickness at a given x — where a tributary joins/leaves its edge, not the flat centerline. */
+  private readonly halfThicknessAt = computed(() => {
+    const balanceByX = new Map(this.points().map((p) => [p.x, p.balance]));
+    const scale = this.halfThickness();
+    return (x: number) => scale(balanceByX.get(x) ?? 0);
+  });
+
   protected readonly tributaryLines = computed(() => {
     const scale = magnitudeScale(this.maxTributaryAmount(), MAX_TRIBUTARY_STROKE_WIDTH);
-    return buildTributaryLines(this.tributaries(), this.centerY(), scale);
+    return buildTributaryLines(this.tributaries(), this.centerY(), this.halfThicknessAt(), scale);
   });
 }

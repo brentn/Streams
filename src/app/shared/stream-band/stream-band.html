@@ -19,6 +19,7 @@
       [attr.d]="line.d"
       [attr.stroke-width]="line.strokeWidth"
       class="tributary"
+      [class.out]="line.direction === 'out'"
     />
     <text class="tributary-label">
       <textPath [attr.href]="'#' + line.id" startOffset="50%">{{ line.label }}</textPath>

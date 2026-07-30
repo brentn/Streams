@@ -16,34 +16,47 @@ function tributary(overrides: Partial<Tributary>): Tributary {
 }
 
 describe('buildTributaryLines', () => {
-  it('draws an incoming line leaning in from the upper-left, joining the river at the occurrence x', () => {
-    const [line] = buildTributaryLines([tributary({ direction: 'in', x: 50 })], 60, () => 3);
+  it('joins an incoming line to the ribbon\'s top edge (above centerY) at the occurrence x, leaning in from the upper-left', () => {
+    const [line] = buildTributaryLines([tributary({ direction: 'in', x: 50 })], 60, () => 10, () => 3);
 
-    expect(line.x1).toBeLessThan(50);
-    expect(line.y1).toBeLessThan(60);
     expect(line.x2).toBe(50);
-    expect(line.y2).toBe(60);
+    expect(line.y2).toBe(50); // centerY(60) - halfThickness(10)
+    expect(line.x1).toBeLessThan(50);
+    expect(line.y1).toBeLessThan(line.y2);
   });
 
-  it('draws an outgoing line leaving from the river at the occurrence x toward the lower-right', () => {
-    const [line] = buildTributaryLines([tributary({ direction: 'out', x: 50 })], 60, () => 3);
+  it('leaves an outgoing line from the ribbon\'s bottom edge (below centerY) at the occurrence x, toward the lower-right', () => {
+    const [line] = buildTributaryLines([tributary({ direction: 'out', x: 50 })], 60, () => 10, () => 3);
 
     expect(line.x1).toBe(50);
-    expect(line.y1).toBe(60);
+    expect(line.y1).toBe(70); // centerY(60) + halfThickness(10)
     expect(line.x2).toBeGreaterThan(50);
-    expect(line.y2).toBeGreaterThan(60);
+    expect(line.y2).toBeGreaterThan(line.y1);
   });
 
-  it('mirrors the incoming and outgoing offsets through the band, at the same fixed angle for both', () => {
-    const [inLine] = buildTributaryLines([tributary({ direction: 'in', x: 50 })], 60, () => 3);
-    const [outLine] = buildTributaryLines([tributary({ direction: 'out', x: 50 })], 60, () => 3);
+  it('tracks the ribbon edge at each occurrence\'s own x, not a single fixed thickness', () => {
+    const halfThicknessAt = (x: number) => (x === 10 ? 5 : 20);
+    const lines = buildTributaryLines(
+      [tributary({ x: 10, direction: 'in' }), tributary({ x: 90, direction: 'in' })],
+      60,
+      halfThicknessAt,
+      () => 3,
+    );
+
+    expect(lines[0].y2).toBe(55); // 60 - 5
+    expect(lines[1].y2).toBe(40); // 60 - 20
+  });
+
+  it('mirrors the incoming and outgoing lean through the band, at the same fixed angle for both', () => {
+    const [inLine] = buildTributaryLines([tributary({ direction: 'in', x: 50 })], 60, () => 10, () => 3);
+    const [outLine] = buildTributaryLines([tributary({ direction: 'out', x: 50 })], 60, () => 10, () => 3);
 
     expect(inLine.x1 - 50).toBe(-(outLine.x2 - 50));
-    expect(inLine.y1 - 60).toBe(-(outLine.y2 - 60));
+    expect(inLine.y1 - inLine.y2).toBe(-(outLine.y2 - outLine.y1));
   });
 
   it('takes stroke width from the scale function applied to the amount', () => {
-    const [line] = buildTributaryLines([tributary({ amount: 500 })], 60, (amount) => amount / 10);
+    const [line] = buildTributaryLines([tributary({ amount: 500 })], 60, () => 10, (amount) => amount / 10);
 
     expect(line.strokeWidth).toBe(50);
   });
@@ -52,6 +65,7 @@ describe('buildTributaryLines', () => {
     const [line] = buildTributaryLines(
       [tributary({ id: 'flow-1-123', direction: 'out', label: '→ Savings' })],
       60,
+      () => 10,
       () => 1,
     );
 
@@ -62,8 +76,9 @@ describe('buildTributaryLines', () => {
 
   it('renders no per-item angle variation — every line uses the same fixed lean', () => {
     const lines = buildTributaryLines(
-      [tributary({ x: 10, direction: 'in' }), tributary({ x: 170, direction: 'in' })],
+      [tributary({ x: 10, direction: 'in' }), tributary({ x: 30, direction: 'in' })],
       60,
+      () => 10,
       () => 3,
     );
 

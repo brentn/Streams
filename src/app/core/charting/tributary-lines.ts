@@ -20,23 +20,29 @@ export interface TributaryLine {
 }
 
 /**
- * Straight, uniform-angle tributary lines: incoming leans in from the upper-left toward the
- * river at `(x, centerY)`; outgoing leans out from the river toward the lower-right — the same
- * fixed offset mirrored through the band, never varied per item, so a dense run of same-kind
- * occurrences reads as parallel lines rather than a tangle of individually-angled ones.
+ * Straight, uniform-angle tributary lines: incoming leans in from the upper-left and joins the
+ * ribbon's top edge at the occurrence's x; outgoing leaves the ribbon's bottom edge and leans out
+ * toward the lower-right — the ribbon's own edge at that x, not its flat centerline, since the
+ * ribbon's thickness already varies with the balance there. The lean itself is a fixed offset
+ * mirrored through the band, never varied per item, so a dense run of same-kind occurrences reads
+ * as parallel lines rather than a tangle of individually-angled ones.
  */
 export function buildTributaryLines(
   tributaries: Tributary[],
   centerY: number,
+  halfThicknessAt: (x: number) => number,
   strokeWidth: (amount: number) => number,
 ): TributaryLine[] {
   const leadY = centerY * LEAD_Y_FRACTION;
 
   return tributaries.map((tributary) => {
+    const half = halfThicknessAt(tributary.x);
+    const joinY = tributary.direction === 'in' ? centerY - half : centerY + half;
+
     const [x1, y1, x2, y2] =
       tributary.direction === 'in'
-        ? [tributary.x - LEAD_X, centerY - leadY, tributary.x, centerY]
-        : [tributary.x, centerY, tributary.x + LEAD_X, centerY + leadY];
+        ? [tributary.x - LEAD_X, joinY - leadY, tributary.x, joinY]
+        : [tributary.x, joinY, tributary.x + LEAD_X, joinY + leadY];
 
     return {
       id: tributary.id,
