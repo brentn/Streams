@@ -33,11 +33,13 @@ export class StreamBand {
   readonly expectedColor = input<'accent' | 'neutral'>('accent');
   /** Real Flow/Transfer occurrences to render as tributaries joining/leaving the river — absent for the multi-account view's lanes. */
   readonly tributaries = input<Tributary[]>([]);
+  /** Cap on the ribbon's total thickness, as a fraction of `height` — reserves vertical margin above/below for tributaries to lean into. Defaults to no cap (the ribbon may fill the full height, as the multi-account view's lanes do). */
+  readonly maxThicknessFraction = input(1);
 
   protected readonly centerY = computed(() => this.height() / 2);
 
   private readonly halfThickness = computed(() =>
-    magnitudeScale(this.maxAbsBalance(), this.height() / 2 - 2),
+    magnitudeScale(this.maxAbsBalance(), (this.maxThicknessFraction() * this.height()) / 2),
   );
 
   protected readonly segments = computed(() => {
@@ -65,4 +67,20 @@ export class StreamBand {
     const scale = magnitudeScale(this.maxTributaryAmount(), MAX_TRIBUTARY_STROKE_WIDTH);
     return buildTributaryLines(this.tributaries(), this.centerY(), this.halfThicknessAt(), scale);
   });
+
+  /**
+   * Tributary name labels as plain HTML, positioned by percentage over the SVG rather than
+   * rendered as SVG text — the chart's non-uniform x/y scaling (`preserveAspectRatio="none"`)
+   * stretches SVG glyphs into an illegible horizontal smear, the same distortion a circular SVG
+   * badge would suffer in this coordinate space.
+   */
+  protected readonly tributaryLabels = computed(() =>
+    this.tributaryLines().map((line) => ({
+      id: line.id,
+      text: line.label,
+      direction: line.direction,
+      leftPercent: (line.labelX / this.viewWidth()) * 100,
+      topPercent: (line.labelY / this.height()) * 100,
+    })),
+  );
 }

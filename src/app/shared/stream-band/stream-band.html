@@ -1,28 +1,34 @@
-<svg
-  class="band"
-  [attr.viewBox]="'0 0 ' + viewWidth() + ' ' + height()"
-  preserveAspectRatio="none"
-  [style.height.px]="height()"
->
-  @for (segment of segments(); track $index) {
-    <polygon
-      [attr.points]="segment.polygon"
-      class="segment"
-      [class.opposite]="segment.sign === 'opposite'"
-      [class.neutral]="segment.sign === 'expected' && expectedColor() === 'neutral'"
-      [class.projected]="segment.phase === 'projected'"
-    />
+<div class="band-wrap">
+  <svg
+    class="band"
+    [attr.viewBox]="'0 0 ' + viewWidth() + ' ' + height()"
+    preserveAspectRatio="none"
+    [style.height.px]="height()"
+  >
+    @for (segment of segments(); track $index) {
+      <polygon
+        [attr.points]="segment.polygon"
+        class="segment"
+        [class.opposite]="segment.sign === 'opposite'"
+        [class.neutral]="segment.sign === 'expected' && expectedColor() === 'neutral'"
+        [class.projected]="segment.phase === 'projected'"
+      />
+    }
+    @for (line of tributaryLines(); track line.id) {
+      <path
+        [attr.d]="line.d"
+        [attr.stroke-width]="line.strokeWidth"
+        class="tributary"
+        [class.out]="line.direction === 'out'"
+      />
+    }
+  </svg>
+  @for (label of tributaryLabels(); track label.id) {
+    <span
+      class="tributary-label"
+      [class.out]="label.direction === 'out'"
+      [style.left.%]="label.leftPercent"
+      [style.top.%]="label.topPercent"
+    >{{ label.text }}</span>
   }
-  @for (line of tributaryLines(); track line.id) {
-    <path
-      [attr.id]="line.id"
-      [attr.d]="line.d"
-      [attr.stroke-width]="line.strokeWidth"
-      class="tributary"
-      [class.out]="line.direction === 'out'"
-    />
-    <text class="tributary-label">
-      <textPath [attr.href]="'#' + line.id" startOffset="50%">{{ line.label }}</textPath>
-    </text>
-  }
-</svg>
+</div>

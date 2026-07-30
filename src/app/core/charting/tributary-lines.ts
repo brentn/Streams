@@ -6,7 +6,13 @@ const LEAD_X = 8;
 /** How far a tributary's free end leans from the centerline, as a fraction of centerY. */
 const LEAD_Y_FRACTION = 0.4;
 
-/** A tributary's rendered geometry: a straight line from its free end to where it joins/leaves the river at `centerY`. */
+/**
+ * A tributary's rendered geometry: a straight line from its free end to where it joins/leaves the
+ * river at the ribbon's edge. `labelX`/`labelY` sit at the free end (away from the crowded
+ * river) — where the name label renders, as a plain HTML overlay rather than SVG text, since the
+ * chart's non-uniform x/y scaling (`preserveAspectRatio="none"`) would otherwise smear glyphs
+ * horizontally.
+ */
 export interface TributaryLine {
   id: string;
   direction: FlowDirection;
@@ -15,6 +21,8 @@ export interface TributaryLine {
   y1: number;
   x2: number;
   y2: number;
+  labelX: number;
+  labelY: number;
   d: string;
   strokeWidth: number;
 }
@@ -52,6 +60,8 @@ export function buildTributaryLines(
       y1,
       x2,
       y2,
+      labelX: tributary.direction === 'in' ? x1 : x2,
+      labelY: tributary.direction === 'in' ? y1 : y2,
       d: `M${x1},${y1} L${x2},${y2}`,
       strokeWidth: strokeWidth(tributary.amount),
     };

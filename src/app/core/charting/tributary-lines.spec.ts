@@ -74,6 +74,16 @@ describe('buildTributaryLines', () => {
     expect(line.label).toBe('→ Savings');
   });
 
+  it('places the label at the free end, away from the crowded river — x1/y1 for incoming, x2/y2 for outgoing', () => {
+    const [inLine] = buildTributaryLines([tributary({ direction: 'in' })], 60, () => 10, () => 3);
+    const [outLine] = buildTributaryLines([tributary({ direction: 'out' })], 60, () => 10, () => 3);
+
+    expect(inLine.labelX).toBe(inLine.x1);
+    expect(inLine.labelY).toBe(inLine.y1);
+    expect(outLine.labelX).toBe(outLine.x2);
+    expect(outLine.labelY).toBe(outLine.y2);
+  });
+
   it('renders no per-item angle variation — every line uses the same fixed lean', () => {
     const lines = buildTributaryLines(
       [tributary({ x: 10, direction: 'in' }), tributary({ x: 30, direction: 'in' })],
