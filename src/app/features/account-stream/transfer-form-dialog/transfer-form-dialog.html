@@ -1,0 +1,9 @@
+<div class="dialog">
+  <h2>Add Transfer</h2>
+  <app-transfer-form
+    [accountId]="data.accountId"
+    [accounts]="data.accounts"
+    (saved)="onSaved($event)"
+    (cancelled)="onCancelled()"
+  />
+</div>

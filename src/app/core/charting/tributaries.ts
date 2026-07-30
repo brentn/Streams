@@ -1,19 +1,29 @@
 import { Account } from '../models/account';
 import { AmountChange, BudgetPeriod, Flow, FlowDirection } from '../models/flow';
+import { Transaction } from '../models/transaction';
 import { Transfer } from '../models/transfer';
 import { amountAtDate } from '../projection/amount-timeline';
 import { occurrencesInRange } from '../projection/cadence';
 import { addDays, boundaryXFor, buildWindowDates } from './date-window';
 
-/** One real Flow/Transfer occurrence to render as a tributary joining/leaving the balance river. */
+/** One real Flow/Transfer occurrence, or one unmatched Transaction, to render as a tributary joining/leaving the balance river. */
 export interface Tributary {
   id: string;
-  kind: 'flow' | 'transfer';
+  kind: 'flow' | 'transfer' | 'uncategorized';
   direction: FlowDirection;
   date: Date;
   x: number;
   amount: number;
   label: string;
+}
+
+/** The `(startExclusive, endInclusive]` bounds of the `selectedDate`-centered window (see `buildWindowDates`) that every Tributary builder filters occurrences/Transactions into. */
+function windowBounds(selectedDate: Date): { startExclusive: Date; endInclusive: Date } {
+  const windowDates = buildWindowDates(selectedDate);
+  return {
+    startExclusive: addDays(windowDates[0], -1),
+    endInclusive: windowDates[windowDates.length - 1],
+  };
 }
 
 function periodStart(period: BudgetPeriod, date: Date): Date {
@@ -137,9 +147,7 @@ export function buildTributaries(
   accountId: string,
   selectedDate: Date,
 ): Tributary[] {
-  const windowDates = buildWindowDates(selectedDate);
-  const startExclusive = addDays(windowDates[0], -1);
-  const endInclusive = windowDates[windowDates.length - 1];
+  const { startExclusive, endInclusive } = windowBounds(selectedDate);
 
   const flowTribs = flows.flatMap((flow) => flowTributaries(flow, startExclusive, endInclusive, selectedDate));
   const transferTribs = transfers.flatMap((transfer) =>
@@ -147,4 +155,30 @@ export function buildTributaries(
   );
 
   return [...flowTribs, ...transferTribs];
+}
+
+/**
+ * One Tributary per unmatched Transaction visible in the `selectedDate`-centered window — the
+ * aggregate "uncategorized" tributary sourced from unmatched Transactions rather than a real
+ * Flow/Transfer. Direction follows the Transaction's own signed amount, the same convention
+ * `signedFlowAmount` uses for a Flow: positive is `in`, negative is `out`.
+ */
+export function buildUncategorizedTributaries(
+  transactions: Transaction[],
+  selectedDate: Date,
+): Tributary[] {
+  const { startExclusive, endInclusive } = windowBounds(selectedDate);
+
+  return transactions
+    .filter((t) => t.matchedFlowId === null)
+    .filter((t) => t.date.getTime() > startExclusive.getTime() && t.date.getTime() <= endInclusive.getTime())
+    .map((t) => ({
+      id: `uncategorized-${t.id}`,
+      kind: 'uncategorized',
+      direction: t.amount >= 0 ? 'in' : 'out',
+      date: t.date,
+      x: boundaryXFor(t.date, selectedDate),
+      amount: Math.abs(t.amount),
+      label: 'Uncategorized',
+    }));
 }

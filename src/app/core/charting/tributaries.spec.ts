@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { Account } from '../models/account';
 import { Flow } from '../models/flow';
+import { Transaction } from '../models/transaction';
 import { Transfer } from '../models/transfer';
-import { buildTributaries } from './tributaries';
+import { buildTributaries, buildUncategorizedTributaries } from './tributaries';
 
 // Local-midnight parse — see cadence.spec.ts.
 function d(iso: string): Date {
@@ -132,6 +133,48 @@ describe('buildTributaries', () => {
     };
 
     const result = buildTributaries([flow], [], accounts, 'acc-1', d('2026-07-10'));
+
+    expect(result).toEqual([]);
+  });
+});
+
+describe('buildUncategorizedTributaries', () => {
+  function txn(overrides: Partial<Transaction>): Transaction {
+    return {
+      id: 'txn-1',
+      accountId: 'acc-1',
+      date: d('2026-07-10'),
+      amount: -42,
+      description: 'Coffee',
+      matchedFlowId: null,
+      ...overrides,
+    };
+  }
+
+  it('places one tributary per unmatched Transaction in the window, sized by its absolute amount', () => {
+    const result = buildUncategorizedTributaries([txn({})], d('2026-07-10'));
+
+    expect(result).toEqual([
+      expect.objectContaining({ kind: 'uncategorized', direction: 'out', amount: 42, label: 'Uncategorized' }),
+    ]);
+  });
+
+  it('derives direction from the amount sign: negative is out, positive is in', () => {
+    const outgoing = buildUncategorizedTributaries([txn({ amount: -10 })], d('2026-07-10'));
+    const incoming = buildUncategorizedTributaries([txn({ amount: 10 })], d('2026-07-10'));
+
+    expect(outgoing[0].direction).toBe('out');
+    expect(incoming[0].direction).toBe('in');
+  });
+
+  it('excludes Transactions that already have a matched Flow', () => {
+    const result = buildUncategorizedTributaries([txn({ matchedFlowId: 'flow-1' })], d('2026-07-10'));
+
+    expect(result).toEqual([]);
+  });
+
+  it('excludes unmatched Transactions outside the visible window', () => {
+    const result = buildUncategorizedTributaries([txn({ date: d('2020-01-01') })], d('2026-07-10'));
 
     expect(result).toEqual([]);
   });

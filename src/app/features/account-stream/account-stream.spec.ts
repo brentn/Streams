@@ -1,11 +1,18 @@
+import { Dialog } from '@angular/cdk/dialog';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
+import { Subject } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Account } from '../../core/models/account';
+import { RecurringFlow } from '../../core/models/flow';
+import { Transaction } from '../../core/models/transaction';
+import { Transfer } from '../../core/models/transfer';
 import { SCRUB_MAX_DAYS, SCRUB_MIN_DAYS } from '../../core/charting/date-window';
 import { SimpleFinAdapter } from '../../core/simplefin/simplefin-adapter';
 import { StorageRepository } from '../../core/storage/storage-repository';
 import { AccountStream } from './account-stream';
+import { FlowFormDialog } from './flow-form-dialog/flow-form-dialog';
+import { TransferFormDialog } from './transfer-form-dialog/transfer-form-dialog';
 
 // balanceDate is always "tomorrow" relative to test run time, so today's
 // default scrub position (dayOffset 0) is deterministically actual/pre-balanceDate
@@ -34,9 +41,12 @@ describe('AccountStream', () => {
     getLastSyncedAt: ReturnType<typeof vi.fn>;
     getOldestFetchedAt: ReturnType<typeof vi.fn>;
     saveOldestFetchedAt: ReturnType<typeof vi.fn>;
+    upsertFlow: ReturnType<typeof vi.fn>;
+    upsertTransfer: ReturnType<typeof vi.fn>;
   };
   let simplefin: { fetchAccounts: ReturnType<typeof vi.fn> };
   let router: { navigateByUrl: ReturnType<typeof vi.fn> };
+  let dialog: { open: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     storage = {
@@ -52,9 +62,12 @@ describe('AccountStream', () => {
       getLastSyncedAt: vi.fn().mockResolvedValue(undefined),
       getOldestFetchedAt: vi.fn().mockResolvedValue(new Date('2026-07-20T12:00:00Z')),
       saveOldestFetchedAt: vi.fn(),
+      upsertFlow: vi.fn(),
+      upsertTransfer: vi.fn(),
     };
     simplefin = { fetchAccounts: vi.fn() };
     router = { navigateByUrl: vi.fn() };
+    dialog = { open: vi.fn() };
     vi.stubGlobal('open', vi.fn());
 
     await TestBed.configureTestingModule({
@@ -64,6 +77,7 @@ describe('AccountStream', () => {
         { provide: SimpleFinAdapter, useValue: simplefin },
         { provide: Router, useValue: router },
         { provide: ActivatedRoute, useValue: {} },
+        { provide: Dialog, useValue: dialog },
       ],
     }).compileComponents();
   });
@@ -274,6 +288,125 @@ describe('AccountStream', () => {
       await component['load']('acc-1');
 
       expect(component['dryAlert']()).toEqual(expect.objectContaining({ balance: 1000 }));
+    });
+  });
+
+  describe('fresh account, no flows/transfers/transactions', () => {
+    it('renders no uncategorized list and no explanatory empty-state copy, just the chart and the two buttons', async () => {
+      const fixture = TestBed.createComponent(AccountStream);
+      fixture.componentRef.setInput('id', 'acc-1');
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+      fixture.detectChanges();
+
+      const text: string = fixture.nativeElement.textContent;
+      expect(text).not.toContain('No Transactions');
+      expect(text).not.toContain('No Flows');
+      expect(text).not.toContain('No Transfers');
+      expect(component['tributaries']()).toEqual([]);
+
+      const buttons = Array.from(fixture.nativeElement.querySelectorAll('.entity-actions button')).map(
+        (b) => (b as HTMLButtonElement).textContent?.trim(),
+      );
+      expect(buttons).toEqual(['Add Flow', 'Add Transfer']);
+    });
+  });
+
+  describe('aggregate uncategorized tributary', () => {
+    it('includes a tributary for an unmatched Transaction alongside real Flow/Transfer tributaries', async () => {
+      const unmatched: Transaction = {
+        id: 'txn-1',
+        accountId: 'acc-1',
+        date: new Date(),
+        amount: -12,
+        description: 'COFFEE SHOP',
+        matchedFlowId: null,
+      };
+      storage.getTransactionsForAccount.mockResolvedValue([unmatched]);
+
+      const fixture = TestBed.createComponent(AccountStream);
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+
+      expect(component['tributaries']()).toEqual([
+        expect.objectContaining({ kind: 'uncategorized', direction: 'out', amount: 12 }),
+      ]);
+    });
+  });
+
+  describe('Add Flow / Add Transfer modals', () => {
+    it('opens the Flow modal for the current account and persists the result', async () => {
+      const newFlow: RecurringFlow = {
+        id: 'flow-1',
+        accountId: 'acc-1',
+        name: 'Paycheck',
+        direction: 'in',
+        kind: 'recurring',
+        amount: 2000,
+        cadence: { period: 'month', interval: 1, anchors: [{ day: 1 }], anchorDate: new Date('2026-01-01') },
+      };
+      const closed = new Subject<RecurringFlow | undefined>();
+      dialog.open.mockReturnValue({ closed });
+
+      const fixture = TestBed.createComponent(AccountStream);
+      fixture.componentRef.setInput('id', 'acc-1');
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+
+      component['openAddFlow']();
+
+      expect(dialog.open).toHaveBeenCalledWith(FlowFormDialog, { data: { accountId: 'acc-1' } });
+
+      closed.next(newFlow);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(storage.upsertFlow).toHaveBeenCalledWith(newFlow);
+      expect(storage.getFlowsForAccount).toHaveBeenCalledWith('acc-1');
+    });
+
+    it('does not persist anything when the Flow modal is cancelled', async () => {
+      const closed = new Subject<RecurringFlow | undefined>();
+      dialog.open.mockReturnValue({ closed });
+
+      const fixture = TestBed.createComponent(AccountStream);
+      fixture.componentRef.setInput('id', 'acc-1');
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+
+      component['openAddFlow']();
+      closed.next(undefined);
+      await Promise.resolve();
+
+      expect(storage.upsertFlow).not.toHaveBeenCalled();
+    });
+
+    it('opens the Transfer modal with all known accounts and persists the result', async () => {
+      const newTransfer: Transfer = {
+        id: 'transfer-1',
+        fromAccountId: 'acc-1',
+        toAccountId: 'acc-2',
+        amount: 200,
+        cadence: { period: 'once', date: new Date('2026-07-10') },
+      };
+      const closed = new Subject<Transfer | undefined>();
+      dialog.open.mockReturnValue({ closed });
+
+      const fixture = TestBed.createComponent(AccountStream);
+      fixture.componentRef.setInput('id', 'acc-1');
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+
+      component['openAddTransfer']();
+
+      expect(dialog.open).toHaveBeenCalledWith(TransferFormDialog, {
+        data: { accountId: 'acc-1', accounts: [account] },
+      });
+
+      closed.next(newTransfer);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(storage.upsertTransfer).toHaveBeenCalledWith(newTransfer);
+      expect(storage.getTransfersForAccount).toHaveBeenCalledWith('acc-1');
     });
   });
 });

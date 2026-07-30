@@ -187,6 +187,24 @@ h1 {
   vertical-align: middle;
 }
 
+.entity-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.entity-actions button {
+  font: inherit;
+  font-size: var(--text-body);
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--color-accent);
+  background: transparent;
+  border: 1px solid var(--color-accent);
+  border-radius: 0.375rem;
+  padding: 0.4rem 0.85rem;
+}
+
 /* Bleed the chart to .card's edge, canceling .card's own horizontal padding. */
 @media (max-width: 480px) {
   .chart {

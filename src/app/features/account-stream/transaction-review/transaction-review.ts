@@ -33,22 +33,12 @@ export class TransactionReview {
   readonly flows = input.required<Flow[]>();
   readonly changed = output<void>();
 
-  /** Unmatched Transactions are surfaced first — nothing matched no Categorization Rule and needs a human decision. */
+  /** Nothing matched any Categorization Rule — needs a human decision. Paired 1:1 with the aggregate uncategorized tributary on the chart above: both are absent together when this is empty. */
   protected readonly unmatched = computed(() =>
     this.transactions()
       .filter((t) => t.matchedFlowId === null)
       .sort(byDateDescending),
   );
-
-  protected readonly matched = computed(() =>
-    this.transactions()
-      .filter((t) => t.matchedFlowId !== null)
-      .sort(byDateDescending),
-  );
-
-  protected flowName(flowId: string): string {
-    return this.flows().find((f) => f.id === flowId)?.name ?? '(unknown Flow)';
-  }
 
   protected openAssignForm(transaction: Transaction): void {
     const ref = this.dialog.open<AssignFlowDialogResult>(AssignFlowDialog, {

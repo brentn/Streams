@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { Dialog } from '@angular/cdk/dialog';
 import { Account } from '../../core/models/account';
 import { Flow } from '../../core/models/flow';
 import { Transaction } from '../../core/models/transaction';
@@ -27,7 +28,7 @@ import {
   selectedDateFor,
   WINDOW_DAYS,
 } from '../../core/charting/date-window';
-import { buildTributaries } from '../../core/charting/tributaries';
+import { buildTributaries, buildUncategorizedTributaries } from '../../core/charting/tributaries';
 import { bannerPresentation, derivedBannerState } from '../../core/sync/sync-presentation';
 import { SyncCoordinator } from '../../core/sync/sync-coordinator';
 import { openSimpleFinBridge } from '../../core/simplefin/reconnect';
@@ -37,6 +38,8 @@ import { DragScrub } from '../../shared/drag-scrub/drag-scrub.directive';
 import { ResyncIcon } from '../../shared/resync-icon/resync-icon';
 import { StatusBanner } from '../../shared/status-banner/status-banner';
 import { StreamBand } from '../../shared/stream-band/stream-band';
+import { FlowFormDialog } from './flow-form-dialog/flow-form-dialog';
+import { TransferFormDialog } from './transfer-form-dialog/transfer-form-dialog';
 import { TransactionReview } from './transaction-review/transaction-review';
 
 @Component({
@@ -58,6 +61,7 @@ import { TransactionReview } from './transaction-review/transaction-review';
 export class AccountStream {
   private readonly storage = inject(StorageRepository);
   private readonly syncCoordinator = inject(SyncCoordinator);
+  private readonly dialog = inject(Dialog);
 
   readonly id = input.required<string>();
 
@@ -140,16 +144,20 @@ export class AccountStream {
     this.points().reduce((max, p) => Math.max(max, Math.abs(p.balance)), 0),
   );
 
+  /** Real Flow/Transfer tributaries plus the aggregate "uncategorized" one sourced from unmatched Transactions — see ticket #63. */
   protected readonly tributaries = computed(() => {
     const account = this.account();
     if (!account) return [];
-    return buildTributaries(
-      this.flows(),
-      this.transfers(),
-      this.allAccounts(),
-      account.id,
-      this.selectedDate(),
-    );
+    return [
+      ...buildTributaries(
+        this.flows(),
+        this.transfers(),
+        this.allAccounts(),
+        account.id,
+        this.selectedDate(),
+      ),
+      ...buildUncategorizedTributaries(this.transactions(), this.selectedDate()),
+    ];
   });
 
   protected readonly boundaryX = computed(() => {
@@ -191,6 +199,10 @@ export class AccountStream {
     this.flows.set(await this.storage.getFlowsForAccount(this.id()));
   }
 
+  protected async reloadTransfers(): Promise<void> {
+    this.transfers.set(await this.storage.getTransfersForAccount(this.id()));
+  }
+
   protected async reloadTransactions(): Promise<void> {
     this.transactions.set(await this.storage.getTransactionsForAccount(this.id()));
   }
@@ -198,6 +210,38 @@ export class AccountStream {
   /** A Transaction assignment can also create a Flow inline (AssignFlowDialog), so reload both. */
   protected async reloadAll(): Promise<void> {
     await Promise.all([this.reloadFlows(), this.reloadTransactions()]);
+  }
+
+  protected openAddFlow(): void {
+    const account = this.account();
+    if (!account) return;
+
+    const ref = this.dialog.open<Flow>(FlowFormDialog, { data: { accountId: account.id } });
+    ref.closed.subscribe((flow) => {
+      if (flow) void this.saveNewFlow(flow);
+    });
+  }
+
+  protected openAddTransfer(): void {
+    const account = this.account();
+    if (!account) return;
+
+    const ref = this.dialog.open<Transfer>(TransferFormDialog, {
+      data: { accountId: account.id, accounts: this.allAccounts() },
+    });
+    ref.closed.subscribe((transfer) => {
+      if (transfer) void this.saveNewTransfer(transfer);
+    });
+  }
+
+  private async saveNewFlow(flow: Flow): Promise<void> {
+    await this.storage.upsertFlow(flow);
+    await this.reloadFlows();
+  }
+
+  private async saveNewTransfer(transfer: Transfer): Promise<void> {
+    await this.storage.upsertTransfer(transfer);
+    await this.reloadTransfers();
   }
 
   protected shiftDay(delta: number): void {

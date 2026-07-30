@@ -1,46 +1,16 @@
-<section class="review">
-  <header>
-    <h2>Transactions</h2>
-  </header>
-
-  @if (transactions().length === 0) {
-    <p class="empty">No Transactions yet.</p>
-  }
-
-  @if (unmatched().length > 0) {
-    <div class="group">
-      <h3>Needs categorization</h3>
-      <ul class="txn-rows">
-        @for (txn of unmatched(); track txn.id) {
-          <li class="txn-row">
-            <div class="txn-info">
-              <span class="description">{{ txn.description }}</span>
-              <span class="detail">{{ txn.date | date: 'mediumDate' }} · {{ txn.amount | currency }}</span>
-            </div>
-            <button type="button" (click)="openAssignForm(txn)">Assign</button>
-          </li>
-        }
-      </ul>
-    </div>
-  }
-
-  @if (matched().length > 0) {
-    <div class="group">
-      <h3>Categorized</h3>
-      <ul class="txn-rows">
-        @for (txn of matched(); track txn.id) {
-          <li class="txn-row">
-            <div class="txn-info">
-              <span class="description">{{ txn.description }}</span>
-              <span class="detail">
-                {{ txn.date | date: 'mediumDate' }} · {{ txn.amount | currency }} ·
-                {{ flowName(txn.matchedFlowId!) }}
-              </span>
-            </div>
-            <button type="button" (click)="openAssignForm(txn)">Correct</button>
-          </li>
-        }
-      </ul>
-    </div>
-  }
-</section>
+@if (unmatched().length > 0) {
+  <section class="review">
+    <h2>Needs categorization</h2>
+    <ul class="txn-rows">
+      @for (txn of unmatched(); track txn.id) {
+        <li class="txn-row">
+          <div class="txn-info">
+            <span class="description">{{ txn.description }}</span>
+            <span class="detail">{{ txn.date | date: 'mediumDate' }} · {{ txn.amount | currency }}</span>
+          </div>
+          <button type="button" (click)="openAssignForm(txn)">Assign</button>
+        </li>
+      }
+    </ul>
+  </section>
+}

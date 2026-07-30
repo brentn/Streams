@@ -82,26 +82,19 @@ describe('TransactionReview', () => {
     return fixture.componentInstance;
   }
 
-  it('separates unmatched Transactions from matched ones, most recent first', () => {
+  it('surfaces only unmatched Transactions, most recent first', () => {
     const component = createComponent([matched, unmatched]);
 
     expect(component['unmatched']()).toEqual([unmatched]);
-    expect(component['matched']()).toEqual([matched]);
-  });
-
-  it('resolves a matched Transaction to its Flow name', () => {
-    const component = createComponent([], [payrollFlow]);
-
-    expect(component['flowName']('flow-payroll')).toBe('Paycheck');
   });
 
   it('opens the Assign Flow dialog with the Transaction and available Flows', () => {
-    const component = createComponent([matched], [payrollFlow]);
+    const component = createComponent([unmatched], [payrollFlow]);
 
-    component['openAssignForm'](matched);
+    component['openAssignForm'](unmatched);
 
     expect(dialog.open).toHaveBeenCalledWith(AssignFlowDialog, {
-      data: { transaction: matched, flows: [payrollFlow] },
+      data: { transaction: unmatched, flows: [payrollFlow] },
     });
   });
 
@@ -151,25 +144,6 @@ describe('TransactionReview', () => {
       matchText: 'coffee shop',
       flowId: 'flow-new',
     });
-  });
-
-  it('correcting an already-matched Transaction overwrites the rule and the match in place', async () => {
-    const component = createComponent([matched], [payrollFlow, coffeeFlow]);
-    storage.getCategorizationRules.mockResolvedValue([
-      { matchText: 'payroll deposit', flowId: 'flow-coffee' },
-    ]);
-
-    component['openAssignForm'](matched);
-    dialogClosed.next({ matchText: 'payroll deposit', flowId: 'flow-coffee' });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    expect(storage.upsertCategorizationRule).toHaveBeenCalledWith({
-      matchText: 'payroll deposit',
-      flowId: 'flow-coffee',
-    });
-    expect(storage.upsertTransactions).toHaveBeenCalledWith([
-      { ...matched, matchedFlowId: 'flow-coffee' },
-    ]);
   });
 
   it('recategorizes other currently loaded Transactions that now match the corrected rule', async () => {
