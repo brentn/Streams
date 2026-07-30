@@ -1,0 +1,45 @@
+<div class="variant-a">
+  <div class="controls">
+    <button type="button" (click)="zoomOut()" aria-label="Zoom out" [disabled]="zoom() === 1">−</button>
+    <span class="zoom-label">{{ zoomLabel() }}</span>
+    <button type="button" (click)="zoomIn()" aria-label="Zoom in" [disabled]="zoom() === 8">+</button>
+    <button type="button" (click)="resetZoom()" [disabled]="zoom() === 1 && panDays() === 0">Reset</button>
+    <span class="hint">Scroll to zoom, drag to pan</span>
+  </div>
+  <svg
+    #scene
+    class="scene"
+    [attr.viewBox]="'0 0 ' + viewW + ' ' + viewH"
+    preserveAspectRatio="none"
+    style="height: 220px"
+    (wheel)="onWheel($event)"
+    (pointerdown)="onPointerDown($event)"
+    (pointermove)="onPointerMove($event)"
+    (pointerup)="onPointerUp()"
+    (pointerleave)="onPointerUp()"
+  >
+    <defs>
+      @for (curve of curves(); track curve.id) {
+        <path [attr.id]="curve.pathId" [attr.d]="curve.d" fill="none" />
+      }
+    </defs>
+
+    @for (curve of curves(); track curve.id) {
+      <use
+        [attr.href]="'#' + curve.pathId"
+        class="curve"
+        [class.out]="curve.direction === 'out'"
+        [class.transfer]="curve.kind === 'transfer'"
+        [attr.stroke-width]="curve.strokeWidth"
+      />
+    }
+
+    <rect x="0" [attr.y]="bandTop" [attr.width]="viewW" [attr.height]="bandBottom - bandTop" class="band" />
+
+    @for (curve of curves(); track curve.id) {
+      <text class="label" [class.out]="curve.direction === 'out'">
+        <textPath [attr.href]="'#' + curve.pathId" startOffset="55%">{{ curve.label }}</textPath>
+      </text>
+    }
+  </svg>
+</div>

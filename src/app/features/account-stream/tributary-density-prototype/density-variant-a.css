@@ -1,0 +1,73 @@
+.variant-a {
+  width: 100%;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.375rem;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+}
+
+.controls button {
+  border: 1px solid var(--color-ink-secondary);
+  background: none;
+  color: var(--color-ink-primary);
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.controls button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.zoom-label {
+  min-width: 3ch;
+  font-variant-numeric: tabular-nums;
+}
+
+.hint {
+  color: var(--color-ink-secondary);
+  margin-left: auto;
+}
+
+.scene {
+  display: block;
+  width: 100%;
+  touch-action: none;
+  cursor: grab;
+}
+
+.curve {
+  stroke: var(--color-accent);
+  stroke-linecap: round;
+  opacity: 0.65;
+  fill: none;
+}
+
+.curve.out {
+  stroke: var(--color-opposite-sign);
+}
+
+.curve.transfer {
+  stroke: var(--color-ink-secondary);
+}
+
+.band {
+  fill: var(--color-accent);
+}
+
+.label {
+  font-family: var(--font-sans);
+  font-size: 6px;
+  fill: var(--color-ink-primary);
+}
+
+.label.out {
+  fill: var(--color-ink-secondary);
+}

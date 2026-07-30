@@ -1,0 +1,33 @@
+<div class="variant-b">
+  <svg
+    class="scene"
+    [attr.viewBox]="'0 0 ' + viewW + ' ' + viewH"
+    preserveAspectRatio="none"
+    style="height: 220px"
+  >
+    <defs>
+      @for (curve of curves(); track curve.id) {
+        <path [attr.id]="curve.pathId" [attr.d]="curve.d" fill="none" />
+      }
+    </defs>
+
+    @for (curve of curves(); track curve.id) {
+      <use
+        [attr.href]="'#' + curve.pathId"
+        class="curve"
+        [class.out]="curve.direction === 'out'"
+        [class.transfer]="curve.kind === 'transfer'"
+        [class.clustered]="curve.clustered"
+        [attr.stroke-width]="curve.strokeWidth"
+      />
+    }
+
+    <rect x="0" [attr.y]="bandTop" [attr.width]="viewW" [attr.height]="bandBottom - bandTop" class="band" />
+
+    @for (curve of curves(); track curve.id) {
+      <text class="label" [class.out]="curve.direction === 'out'">
+        <textPath [attr.href]="'#' + curve.pathId" startOffset="55%">{{ curve.label }}</textPath>
+      </text>
+    }
+  </svg>
+</div>

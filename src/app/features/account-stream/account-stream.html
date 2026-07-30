@@ -70,6 +70,32 @@
       </div>
     </div>
 
+    @if (prototypeEnabled) {
+      <!-- PROTOTYPE — wayfinder ticket #59 (tributary density & zoom). Strip on capture. -->
+      <section class="tributary-prototype">
+        <p class="prototype-banner">
+          Prototype: tributary density &amp; zoom (ticket #59) — synthetic demo clusters layered on
+          top of this account's real data
+        </p>
+        @switch (activeDensityVariant()) {
+          @case ('a') {
+            <app-density-variant-a [items]="densityItems()" />
+          }
+          @case ('b') {
+            <app-density-variant-b [items]="densityItems()" />
+          }
+          @case ('c') {
+            <app-density-variant-c [items]="densityItems()" />
+          }
+        }
+      </section>
+      <app-prototype-switcher
+        [variants]="densityVariants"
+        [current]="activeDensityVariant()"
+        (changed)="setDensityVariant($event)"
+      />
+    }
+
     <app-flow-list
       [accountId]="account.id"
       [flows]="flows()"

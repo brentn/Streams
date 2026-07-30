@@ -1,0 +1,65 @@
+<div class="variant-c">
+  <svg
+    class="scene"
+    [attr.viewBox]="'0 0 ' + viewW + ' ' + viewH"
+    preserveAspectRatio="none"
+    style="height: 220px"
+  >
+    <defs>
+      @for (bundle of bundles(); track bundle.id) {
+        <path [attr.id]="bundle.pathId" [attr.d]="bundle.d" fill="none" />
+      }
+      @for (member of members(); track member.id) {
+        <path [attr.id]="member.pathId" [attr.d]="member.d" fill="none" />
+      }
+    </defs>
+
+    @for (bundle of bundles(); track bundle.id) {
+      <use
+        [attr.href]="'#' + bundle.pathId"
+        class="curve bundle"
+        [class.out]="bundle.direction === 'out'"
+        [attr.stroke-width]="bundle.strokeWidth"
+        (click)="toggle(bundle.id)"
+      />
+    }
+
+    @for (member of members(); track member.id) {
+      <use
+        [attr.href]="'#' + member.pathId"
+        class="curve"
+        [class.out]="member.direction === 'out'"
+        [class.transfer]="member.kind === 'transfer'"
+        [attr.stroke-width]="member.strokeWidth"
+      />
+    }
+
+    <rect x="0" [attr.y]="bandTop" [attr.width]="viewW" [attr.height]="bandBottom - bandTop" class="band" />
+
+    @for (member of members(); track member.id) {
+      <text class="label" [class.out]="member.direction === 'out'">
+        <textPath [attr.href]="'#' + member.pathId" startOffset="55%">{{ member.label }}</textPath>
+      </text>
+    }
+
+    @for (bundle of bundles(); track bundle.id) {
+      <g
+        class="badge"
+        (click)="toggle(bundle.id)"
+        [attr.transform]="
+          'translate(' + bundle.centerX + ',' + (bundle.direction === 'in' ? bundle.edgeY - 10 : bundle.edgeY + 10) + ')'
+        "
+      >
+        <circle r="6" />
+        <text>×{{ bundle.count }}</text>
+      </g>
+    }
+
+    @for (marker of expandedMarkers(); track marker.id) {
+      <g class="collapse" (click)="toggle(marker.id)" [attr.transform]="'translate(' + marker.x + ',' + marker.y + ')'">
+        <circle r="5" />
+        <text>×</text>
+      </g>
+    }
+  </svg>
+</div>

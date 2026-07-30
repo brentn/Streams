@@ -1,0 +1,59 @@
+.variant-c {
+  width: 100%;
+}
+
+.scene {
+  display: block;
+  width: 100%;
+}
+
+.curve {
+  stroke: var(--color-accent);
+  stroke-linecap: round;
+  opacity: 0.65;
+  fill: none;
+}
+
+.curve.out {
+  stroke: var(--color-opposite-sign);
+}
+
+.curve.transfer {
+  stroke: var(--color-ink-secondary);
+}
+
+.curve.bundle {
+  stroke-dasharray: 3 2;
+  opacity: 0.85;
+  cursor: pointer;
+}
+
+.band {
+  fill: var(--color-accent);
+}
+
+.label {
+  font-family: var(--font-sans);
+  font-size: 6px;
+  fill: var(--color-ink-primary);
+}
+
+.label.out {
+  fill: var(--color-ink-secondary);
+}
+
+.badge circle,
+.collapse circle {
+  fill: var(--color-ink-primary);
+  cursor: pointer;
+}
+
+.badge text,
+.collapse text {
+  font-family: var(--font-sans);
+  font-size: 6px;
+  fill: var(--color-surface);
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
