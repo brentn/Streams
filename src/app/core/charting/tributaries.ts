@@ -15,6 +15,10 @@ export interface Tributary {
   x: number;
   amount: number;
   label: string;
+  /** The source Flow's id, set only when `kind === 'flow'` — lets a click handler resolve the Flow directly, without parsing `id`. */
+  flowId?: string;
+  /** The source Transfer's id, set only when `kind === 'transfer'`. */
+  transferId?: string;
 }
 
 /** The `(startExclusive, endInclusive]` bounds of the `selectedDate`-centered window (see `buildWindowDates`) that every Tributary builder filters occurrences/Transactions into. */
@@ -61,7 +65,11 @@ function makeTributaries(
   initialAmount: number,
   changes: AmountChange[],
   selectedDate: Date,
+  sourceId?: string,
 ): Tributary[] {
+  const sourceIdField: Pick<Tributary, 'flowId' | 'transferId'> =
+    kind === 'flow' ? { flowId: sourceId } : kind === 'transfer' ? { transferId: sourceId } : {};
+
   return dates.map((date) => ({
     id: `${idPrefix}-${date.getTime()}`,
     kind,
@@ -70,6 +78,7 @@ function makeTributaries(
     x: boundaryXFor(date, selectedDate),
     amount: Math.abs(amountAtDate(initialAmount, changes, date)),
     label,
+    ...sourceIdField,
   }));
 }
 
@@ -94,6 +103,7 @@ function flowTributaries(
     initialAmount,
     flow.amountChanges ?? [],
     selectedDate,
+    flow.id,
   );
 }
 
@@ -131,6 +141,7 @@ function transferTributaries(
     transfer.amount,
     transfer.amountChanges ?? [],
     selectedDate,
+    transfer.id,
   );
 }
 

@@ -44,4 +44,10 @@ describe('FlowFormDialog', () => {
 
     expect(dialogRef.close).toHaveBeenCalledWith();
   });
+
+  it('passes the given Flow through for edit mode', () => {
+    const component = createComponent({ accountId: 'acc-1', flow: newFlow });
+
+    expect(component['data'].flow).toBe(newFlow);
+  });
 });

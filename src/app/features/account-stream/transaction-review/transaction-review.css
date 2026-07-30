@@ -2,6 +2,21 @@
   margin-top: 1.5rem;
 }
 
+/* Pulses once when the aggregate uncategorized tributary is clicked — a one-shot CSS animation needs no JS cleanup, unlike a timer-driven class toggle. */
+:host(.highlighted) .review {
+  animation: uncategorized-pulse 1.2s ease-out;
+  border-radius: 0.5rem;
+}
+
+@keyframes uncategorized-pulse {
+  from {
+    box-shadow: 0 0 0 0.3rem color-mix(in srgb, var(--color-accent) 35%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
 h2 {
   font-size: var(--text-body);
   font-weight: 600;

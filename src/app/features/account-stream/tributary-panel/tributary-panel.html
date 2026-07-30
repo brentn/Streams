@@ -1,0 +1,32 @@
+<div class="backdrop" (click)="close()"></div>
+<aside class="panel">
+  <header>
+    <h2>{{ targetLabel() }}</h2>
+    <button type="button" class="close-btn" (click)="close()" aria-label="Close">×</button>
+  </header>
+
+  <button type="button" class="edit-btn" (click)="editItem()">
+    Edit {{ flow() ? 'Flow' : 'Transfer' }}
+  </button>
+
+  <div class="transaction-list">
+    @for (group of dayGroups(); track group.date.getTime()) {
+      <div class="day-group" #dayGroupRef>
+        <div class="day-separator">{{ group.date | date: 'mediumDate' }}</div>
+        @for (txn of group.transactions; track txn.id) {
+          <div class="txn-row">
+            <div class="txn-info">
+              <span class="description">{{ txn.description }}</span>
+              <span class="amount">{{ txn.amount | currency }}</span>
+            </div>
+            <button type="button" class="category-badge" (click)="openAssignForm(txn)">
+              {{ targetLabel() }}
+            </button>
+          </div>
+        }
+      </div>
+    } @empty {
+      <p class="empty">No transactions yet.</p>
+    }
+  </div>
+</aside>

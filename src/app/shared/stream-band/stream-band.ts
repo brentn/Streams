@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, input, output } from '@angular/core';
 import { Sign } from '../../core/models/account';
 import { BandPoint } from '../../core/charting/band-segments';
 import { magnitudeScale, ribbonPoints } from '../../core/charting/ribbon';
@@ -35,6 +35,8 @@ export class StreamBand {
   readonly tributaries = input<Tributary[]>([]);
   /** Cap on the ribbon's total thickness, as a fraction of `height` — reserves vertical margin above/below for tributaries to lean into. Defaults to no cap (the ribbon may fill the full height, as the multi-account view's lanes do). */
   readonly maxThicknessFraction = input(1);
+  /** The source Tributary a user clicked its line to open — for drill-in (issue #65). The label stays `pointer-events: none` (see `stream-band.css`), so only the line itself is clickable. */
+  readonly tributaryClick = output<Tributary>();
 
   protected readonly centerY = computed(() => this.height() / 2);
 
@@ -67,6 +69,13 @@ export class StreamBand {
     const scale = magnitudeScale(this.maxTributaryAmount(), MAX_TRIBUTARY_STROKE_WIDTH);
     return buildTributaryLines(this.tributaries(), this.centerY(), this.halfThicknessAt(), scale);
   });
+
+  private readonly tributariesById = computed(() => new Map(this.tributaries().map((t) => [t.id, t])));
+
+  protected onTributaryClick(lineId: string): void {
+    const tributary = this.tributariesById().get(lineId);
+    if (tributary) this.tributaryClick.emit(tributary);
+  }
 
   /**
    * Tributary name labels as plain HTML, positioned by percentage over the SVG rather than

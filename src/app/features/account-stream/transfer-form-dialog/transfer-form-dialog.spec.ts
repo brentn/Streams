@@ -64,4 +64,10 @@ describe('TransferFormDialog', () => {
 
     expect(dialogRef.close).toHaveBeenCalledWith();
   });
+
+  it('passes the given Transfer through for edit mode', () => {
+    const component = createComponent({ accountId: 'acc-1', accounts, transfer: newTransfer });
+
+    expect(component['data'].transfer).toBe(newTransfer);
+  });
 });

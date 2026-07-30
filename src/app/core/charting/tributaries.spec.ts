@@ -53,6 +53,8 @@ describe('buildTributaries', () => {
       expect(t.direction).toBe('in');
       expect(t.amount).toBe(1000);
       expect(t.label).toBe('Paycheck');
+      expect(t.flowId).toBe('flow-1');
+      expect(t.transferId).toBeUndefined();
       expect(Number.isFinite(t.x)).toBe(true);
     }
   });
@@ -114,11 +116,24 @@ describe('buildTributaries', () => {
     const incoming = buildTributaries([], [transfer], accounts, 'acc-2', d('2026-07-10'));
 
     expect(outgoing).toEqual([
-      expect.objectContaining({ kind: 'transfer', direction: 'out', amount: 200, label: '→ Savings' }),
+      expect.objectContaining({
+        kind: 'transfer',
+        direction: 'out',
+        amount: 200,
+        label: '→ Savings',
+        transferId: 'transfer-1',
+      }),
     ]);
     expect(incoming).toEqual([
-      expect.objectContaining({ kind: 'transfer', direction: 'in', amount: 200, label: '← Checking' }),
+      expect.objectContaining({
+        kind: 'transfer',
+        direction: 'in',
+        amount: 200,
+        label: '← Checking',
+        transferId: 'transfer-1',
+      }),
     ]);
+    expect(outgoing[0].flowId).toBeUndefined();
   });
 
   it('excludes occurrences outside the visible window', () => {
@@ -166,6 +181,8 @@ describe('buildUncategorizedTributaries', () => {
         label: 'Uncategorized',
       }),
     ]);
+    expect(result[0].flowId).toBeUndefined();
+    expect(result[0].transferId).toBeUndefined();
   });
 
   it('derives direction from the amount sign: negative is out, positive is in', () => {

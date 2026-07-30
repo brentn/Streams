@@ -5,6 +5,8 @@ import { FlowForm } from '../flow-form/flow-form';
 
 export interface FlowFormDialogData {
   accountId: string;
+  /** Set to edit an existing Flow instead of creating a new one. */
+  flow?: Flow;
 }
 
 /** Opens `FlowForm` as a modal, per the CDK Dialog pattern `AssignFlowDialog` established — closes with the saved Flow, or no result on cancel. */

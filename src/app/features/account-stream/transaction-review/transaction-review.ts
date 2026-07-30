@@ -1,7 +1,7 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Dialog } from '@angular/cdk/dialog';
 import { Component, computed, inject, input, output } from '@angular/core';
-import { categorizeTransactions } from '../../../core/categorization/categorization';
+import { applyAssignment } from '../../../core/categorization/apply-assignment';
 import { Account } from '../../../core/models/account';
 import { Flow } from '../../../core/models/flow';
 import { Transaction } from '../../../core/models/transaction';
@@ -55,29 +55,13 @@ export class TransactionReview {
     });
 
     ref.closed.subscribe((result) => {
-      if (result) void this.applyAssignment(transaction.id, result);
+      if (result) void this.applyAssignmentAndEmit(result);
     });
   }
 
-  /**
-   * Saving overwrites the Categorization Rule for the given match text, then
-   * re-derives `matchedTarget` for every currently loaded Transaction — not
-   * just the one being corrected — so any other already-synced Transaction
-   * sharing that merchant text (still sitting in "Needs categorization")
-   * picks up the correction immediately rather than waiting for the next sync.
-   */
-  private async applyAssignment(
-    transactionId: string,
-    { matchText, target, newFlow }: AssignFlowDialogResult,
-  ): Promise<void> {
-    const transaction = this.transactions().find((t) => t.id === transactionId);
-    if (!transaction) return;
-
-    if (newFlow) await this.storage.upsertFlow(newFlow);
-    await this.storage.upsertCategorizationRule({ matchText, target });
-    const rules = await this.storage.getCategorizationRules();
-    await this.storage.upsertTransactions(categorizeTransactions(this.transactions(), rules));
-
+  /** Re-derives `matchedTarget` for every currently loaded Transaction, not just the one being corrected — see `applyAssignment`'s own doc comment. */
+  private async applyAssignmentAndEmit(result: AssignFlowDialogResult): Promise<void> {
+    await applyAssignment(this.storage, this.transactions(), result);
     this.changed.emit();
   }
 }

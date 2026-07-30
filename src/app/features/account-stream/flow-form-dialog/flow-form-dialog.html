@@ -1,4 +1,9 @@
 <div class="dialog">
-  <h2>Add Flow</h2>
-  <app-flow-form [accountId]="data.accountId" (saved)="onSaved($event)" (cancelled)="onCancelled()" />
+  <h2>{{ data.flow ? 'Edit Flow' : 'Add Flow' }}</h2>
+  <app-flow-form
+    [accountId]="data.accountId"
+    [flow]="data.flow ?? null"
+    (saved)="onSaved($event)"
+    (cancelled)="onCancelled()"
+  />
 </div>

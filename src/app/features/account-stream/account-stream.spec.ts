@@ -69,6 +69,7 @@ describe('AccountStream', () => {
     router = { navigateByUrl: vi.fn() };
     dialog = { open: vi.fn() };
     vi.stubGlobal('open', vi.fn());
+    Element.prototype.scrollIntoView = vi.fn();
 
     await TestBed.configureTestingModule({
       imports: [AccountStream],
@@ -407,6 +408,183 @@ describe('AccountStream', () => {
 
       expect(storage.upsertTransfer).toHaveBeenCalledWith(newTransfer);
       expect(storage.getTransfersForAccount).toHaveBeenCalledWith('acc-1');
+    });
+  });
+
+  describe('tributary drill-in', () => {
+    const recurringFlow: RecurringFlow = {
+      id: 'flow-rent',
+      accountId: 'acc-1',
+      name: 'Rent',
+      direction: 'out',
+      kind: 'recurring',
+      amount: 1500,
+      cadence: { period: 'month', interval: 1, anchors: [{ day: 1 }], anchorDate: new Date('2026-01-01') },
+    };
+
+    const oneTimeFlow: RecurringFlow = {
+      ...recurringFlow,
+      id: 'flow-onetime',
+      name: 'Bonus',
+      cadence: { period: 'once', date: new Date('2026-07-10') },
+    };
+
+    const oneTimeTransfer: Transfer = {
+      id: 'transfer-onetime',
+      fromAccountId: 'acc-1',
+      toAccountId: 'acc-2',
+      amount: 300,
+      cadence: { period: 'once', date: new Date('2026-07-10') },
+    };
+
+    it('opens FlowFormDialog directly, pre-filled, for a one-time Flow tributary — no panel', async () => {
+      storage.getFlowsForAccount.mockResolvedValue([oneTimeFlow]);
+      dialog.open.mockReturnValue({ closed: new Subject() });
+
+      const fixture = TestBed.createComponent(AccountStream);
+      fixture.componentRef.setInput('id', 'acc-1');
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+
+      component['onTributaryClick']({
+        id: 't1',
+        kind: 'flow',
+        direction: 'out',
+        date: new Date('2026-07-10'),
+        x: 0,
+        amount: 300,
+        label: 'Bonus',
+        flowId: 'flow-onetime',
+      });
+
+      expect(dialog.open).toHaveBeenCalledWith(FlowFormDialog, {
+        data: { accountId: 'acc-1', flow: oneTimeFlow },
+      });
+      expect(component['openTributary']()).toBeNull();
+    });
+
+    it('opens TransferFormDialog directly, pre-filled, for a one-time Transfer tributary — no panel', async () => {
+      storage.getTransfersForAccount.mockResolvedValue([oneTimeTransfer]);
+      dialog.open.mockReturnValue({ closed: new Subject() });
+
+      const fixture = TestBed.createComponent(AccountStream);
+      fixture.componentRef.setInput('id', 'acc-1');
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+
+      component['onTributaryClick']({
+        id: 't2',
+        kind: 'transfer',
+        direction: 'out',
+        date: new Date('2026-07-10'),
+        x: 0,
+        amount: 300,
+        label: '→ Savings',
+        transferId: 'transfer-onetime',
+      });
+
+      expect(dialog.open).toHaveBeenCalledWith(TransferFormDialog, {
+        data: { accountId: 'acc-1', accounts: [account], transfer: oneTimeTransfer },
+      });
+      expect(component['openTributary']()).toBeNull();
+    });
+
+    it('opens the drill-in panel, not a dialog, for a recurring Flow tributary', async () => {
+      storage.getFlowsForAccount.mockResolvedValue([recurringFlow]);
+
+      const fixture = TestBed.createComponent(AccountStream);
+      fixture.componentRef.setInput('id', 'acc-1');
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+
+      const tributary = {
+        id: 't3',
+        kind: 'flow' as const,
+        direction: 'out' as const,
+        date: new Date('2026-07-01'),
+        x: 0,
+        amount: 1500,
+        label: 'Rent',
+        flowId: 'flow-rent',
+      };
+      component['onTributaryClick'](tributary);
+
+      expect(dialog.open).not.toHaveBeenCalled();
+      expect(component['openTributary']()).toEqual(tributary);
+    });
+
+    it('clears openTributary when the panel closes', async () => {
+      storage.getFlowsForAccount.mockResolvedValue([recurringFlow]);
+
+      const fixture = TestBed.createComponent(AccountStream);
+      fixture.componentRef.setInput('id', 'acc-1');
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+
+      component['onTributaryClick']({
+        id: 't3',
+        kind: 'flow',
+        direction: 'out',
+        date: new Date('2026-07-01'),
+        x: 0,
+        amount: 1500,
+        label: 'Rent',
+        flowId: 'flow-rent',
+      });
+      expect(component['openTributary']()).not.toBeNull();
+
+      component['closeTributaryPanel']();
+
+      expect(component['openTributary']()).toBeNull();
+    });
+
+    it('scrolls to and highlights the uncategorized list, opening no dialog and no panel, for the aggregate uncategorized tributary', async () => {
+      const fixture = TestBed.createComponent(AccountStream);
+      fixture.componentRef.setInput('id', 'acc-1');
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+      fixture.detectChanges();
+
+      component['onTributaryClick']({
+        id: 'uncategorized-out-1',
+        kind: 'uncategorized',
+        direction: 'out',
+        date: new Date('2026-07-01'),
+        x: 0,
+        amount: 40,
+        label: 'Uncategorized',
+      });
+
+      expect(dialog.open).not.toHaveBeenCalled();
+      expect(component['openTributary']()).toBeNull();
+      await Promise.resolve(); // let the off->on microtask (re-trigger guard) settle
+      expect(component['isUncategorizedHighlighted']()).toBe(true);
+    });
+
+    it('re-triggers the highlight (off, then on again) on a repeat click, so the CSS pulse replays', async () => {
+      const fixture = TestBed.createComponent(AccountStream);
+      fixture.componentRef.setInput('id', 'acc-1');
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+      fixture.detectChanges();
+
+      const uncategorizedTributary = {
+        id: 'uncategorized-out-1',
+        kind: 'uncategorized' as const,
+        direction: 'out' as const,
+        date: new Date('2026-07-01'),
+        x: 0,
+        amount: 40,
+        label: 'Uncategorized',
+      };
+      component['onTributaryClick'](uncategorizedTributary);
+      await Promise.resolve();
+      expect(component['isUncategorizedHighlighted']()).toBe(true);
+
+      component['onTributaryClick'](uncategorizedTributary);
+      expect(component['isUncategorizedHighlighted']()).toBe(false);
+      await Promise.resolve();
+      expect(component['isUncategorizedHighlighted']()).toBe(true);
     });
   });
 });

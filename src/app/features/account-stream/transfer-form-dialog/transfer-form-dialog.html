@@ -1,8 +1,9 @@
 <div class="dialog">
-  <h2>Add Transfer</h2>
+  <h2>{{ data.transfer ? 'Edit Transfer' : 'Add Transfer' }}</h2>
   <app-transfer-form
     [accountId]="data.accountId"
     [accounts]="data.accounts"
+    [transfer]="data.transfer ?? null"
     (saved)="onSaved($event)"
     (cancelled)="onCancelled()"
   />

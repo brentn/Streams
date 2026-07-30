@@ -5,6 +5,7 @@ import { isSubstringMatch, normalizeMatchText } from '../../../../core/categoriz
 import { Account } from '../../../../core/models/account';
 import { Flow } from '../../../../core/models/flow';
 import { MatchedTarget, Transaction } from '../../../../core/models/transaction';
+import { transferLabel } from '../../../../core/models/transfer-label';
 import { Transfer } from '../../../../core/models/transfer';
 import { FlowForm } from '../../flow-form/flow-form';
 
@@ -69,12 +70,8 @@ export class AssignFlowDialog {
     this.selectedTarget.set(kind === 'transfer' ? { kind: 'transfer', id } : { kind: 'flow', id });
   }
 
-  /** Framed from this Transaction's Account point of view — Transfer has no name of its own. */
   protected transferLabel(transfer: Transfer): string {
-    const accountId = this.data.transaction.accountId;
-    const otherId = transfer.fromAccountId === accountId ? transfer.toAccountId : transfer.fromAccountId;
-    const otherName = this.data.accounts.find((a) => a.id === otherId)?.name ?? '(unknown account)';
-    return transfer.fromAccountId === accountId ? `Transfer to ${otherName}` : `Transfer from ${otherName}`;
+    return transferLabel(transfer, this.data.transaction.accountId, this.data.accounts);
   }
 
   protected onSubmit(event: Event): void {

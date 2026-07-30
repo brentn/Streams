@@ -20,6 +20,7 @@
         [attr.stroke-width]="line.strokeWidth"
         class="tributary"
         [class.out]="line.direction === 'out'"
+        (click)="onTributaryClick(line.id)"
       />
     }
   </svg>

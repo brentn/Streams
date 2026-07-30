@@ -56,6 +56,7 @@
             [height]="200"
             [tributaries]="tributaries()"
             [maxThicknessFraction]="0.3"
+            (tributaryClick)="onTributaryClick($event)"
           />
         </div>
 
@@ -73,6 +74,8 @@
     </div>
 
     <app-transaction-review
+      #transactionReview
+      [class.highlighted]="isUncategorizedHighlighted()"
       [transactions]="transactions()"
       [flows]="flows()"
       [transfers]="transfers()"
@@ -84,6 +87,20 @@
       <button type="button" (click)="openAddFlow()">Add Flow</button>
       <button type="button" (click)="openAddTransfer()">Add Transfer</button>
     </div>
+
+    @if (openTributary(); as tributary) {
+      <app-tributary-panel
+        [accountId]="account.id"
+        [tributary]="tributary"
+        [flows]="flows()"
+        [transfers]="transfers()"
+        [accounts]="allAccounts()"
+        [transactions]="transactions()"
+        [selectedDate]="selectedDate()"
+        (closed)="closeTributaryPanel()"
+        (changed)="reloadAll()"
+      />
+    }
   </section>
 } @else {
   <p>Loading…</p>

@@ -28,7 +28,7 @@ import {
   selectedDateFor,
   WINDOW_DAYS,
 } from '../../core/charting/date-window';
-import { buildTributaries, buildUncategorizedTributaries } from '../../core/charting/tributaries';
+import { buildTributaries, buildUncategorizedTributaries, Tributary } from '../../core/charting/tributaries';
 import { bannerPresentation, derivedBannerState } from '../../core/sync/sync-presentation';
 import { SyncCoordinator } from '../../core/sync/sync-coordinator';
 import { openSimpleFinBridge } from '../../core/simplefin/reconnect';
@@ -41,6 +41,7 @@ import { StreamBand } from '../../shared/stream-band/stream-band';
 import { FlowFormDialog } from './flow-form-dialog/flow-form-dialog';
 import { TransferFormDialog } from './transfer-form-dialog/transfer-form-dialog';
 import { TransactionReview } from './transaction-review/transaction-review';
+import { TributaryPanel } from './tributary-panel/tributary-panel';
 
 @Component({
   selector: 'app-account-stream',
@@ -54,6 +55,7 @@ import { TransactionReview } from './transaction-review/transaction-review';
     StatusBanner,
     StreamBand,
     TransactionReview,
+    TributaryPanel,
   ],
   templateUrl: './account-stream.html',
   styleUrl: './account-stream.css',
@@ -88,6 +90,12 @@ export class AccountStream {
 
   /** Catches focus when the Today button disappears out from under it on click. `read: ElementRef` because `#calendarChip` on a component tag otherwise resolves to the component instance, not its native element. */
   private readonly calendarChip = viewChild('calendarChip', { read: ElementRef<HTMLElement> });
+
+  /** Set for a recurring/budget tributary's drill-in panel — null for none open. A one-time Flow/Transfer skips the panel entirely and opens its edit modal directly (see #55's resolution comment). */
+  protected readonly openTributary = signal<Tributary | null>(null);
+  /** Set when the aggregate uncategorized tributary is clicked, to pulse-highlight the always-visible list below instead of opening a redundant panel. */
+  protected readonly isUncategorizedHighlighted = signal(false);
+  private readonly transactionReviewEl = viewChild('transactionReview', { read: ElementRef<HTMLElement> });
 
   /** Recomputed from the current Account/Flow/Transfer/Transaction state, so it updates automatically as new Transactions sync in and the projection shifts. */
   protected readonly dryAlert = computed(() => {
@@ -207,9 +215,9 @@ export class AccountStream {
     this.transactions.set(await this.storage.getTransactionsForAccount(this.id()));
   }
 
-  /** A Transaction assignment can also create a Flow inline (AssignFlowDialog), so reload both. */
+  /** A Transaction assignment can also create a Flow inline (AssignFlowDialog), and the drill-in panel can edit either kind, so reload everything mutable. */
   protected async reloadAll(): Promise<void> {
-    await Promise.all([this.reloadFlows(), this.reloadTransactions()]);
+    await Promise.all([this.reloadFlows(), this.reloadTransfers(), this.reloadTransactions()]);
   }
 
   protected openAddFlow(): void {
@@ -218,7 +226,7 @@ export class AccountStream {
 
     const ref = this.dialog.open<Flow>(FlowFormDialog, { data: { accountId: account.id } });
     ref.closed.subscribe((flow) => {
-      if (flow) void this.saveNewFlow(flow);
+      if (flow) void this.persistFlow(flow);
     });
   }
 
@@ -230,18 +238,73 @@ export class AccountStream {
       data: { accountId: account.id, accounts: this.allAccounts() },
     });
     ref.closed.subscribe((transfer) => {
-      if (transfer) void this.saveNewTransfer(transfer);
+      if (transfer) void this.persistTransfer(transfer);
     });
   }
 
-  private async saveNewFlow(flow: Flow): Promise<void> {
+  private async persistFlow(flow: Flow): Promise<void> {
     await this.storage.upsertFlow(flow);
     await this.reloadFlows();
   }
 
-  private async saveNewTransfer(transfer: Transfer): Promise<void> {
+  private async persistTransfer(transfer: Transfer): Promise<void> {
     await this.storage.upsertTransfer(transfer);
     await this.reloadTransfers();
+  }
+
+  /**
+   * One-time items (a Transfer, or a Flow with `cadence.period === 'once'`) skip the drill-in
+   * panel and open straight to editing — there's only one Transaction, so a panel with a
+   * one-row list plus an edit button would be pure ceremony. Everything else opens the panel.
+   */
+  protected onTributaryClick(tributary: Tributary): void {
+    if (tributary.kind === 'uncategorized') {
+      this.scrollToUncategorized();
+      return;
+    }
+
+    const flow = tributary.kind === 'flow' ? this.flows().find((f) => f.id === tributary.flowId) : undefined;
+    const transfer =
+      tributary.kind === 'transfer' ? this.transfers().find((t) => t.id === tributary.transferId) : undefined;
+    const isOneTime =
+      (flow?.kind === 'recurring' && flow.cadence.period === 'once') || transfer?.cadence.period === 'once';
+
+    if (isOneTime) {
+      this.openEditModal(flow, transfer);
+      return;
+    }
+
+    this.openTributary.set(tributary);
+  }
+
+  protected closeTributaryPanel(): void {
+    this.openTributary.set(null);
+  }
+
+  private openEditModal(flow: Flow | undefined, transfer: Transfer | undefined): void {
+    const account = this.account();
+    if (!account) return;
+
+    if (flow) {
+      const ref = this.dialog.open<Flow>(FlowFormDialog, { data: { accountId: account.id, flow } });
+      ref.closed.subscribe((saved) => {
+        if (saved) void this.persistFlow(saved);
+      });
+    } else if (transfer) {
+      const ref = this.dialog.open<Transfer>(TransferFormDialog, {
+        data: { accountId: account.id, accounts: this.allAccounts(), transfer },
+      });
+      ref.closed.subscribe((saved) => {
+        if (saved) void this.persistTransfer(saved);
+      });
+    }
+  }
+
+  /** Resets to `false` first so a repeat click still re-triggers the CSS pulse — `[class.highlighted]` only replays the animation on an off→on transition. */
+  private scrollToUncategorized(): void {
+    this.transactionReviewEl()?.nativeElement.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    this.isUncategorizedHighlighted.set(false);
+    queueMicrotask(() => this.isUncategorizedHighlighted.set(true));
   }
 
   protected shiftDay(delta: number): void {

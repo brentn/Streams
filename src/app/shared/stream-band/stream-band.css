@@ -36,6 +36,7 @@
   fill: none;
   stroke: var(--color-accent);
   stroke-linecap: round;
+  cursor: pointer;
 }
 
 .tributary.out {

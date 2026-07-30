@@ -7,6 +7,8 @@ import { TransferForm } from '../transfer-form/transfer-form';
 export interface TransferFormDialogData {
   accountId: string;
   accounts: Account[];
+  /** Set to edit an existing Transfer instead of creating a new one. */
+  transfer?: Transfer;
 }
 
 /** Opens `TransferForm` as a modal, per the CDK Dialog pattern `AssignFlowDialog` established — closes with the saved Transfer, or no result on cancel. */
