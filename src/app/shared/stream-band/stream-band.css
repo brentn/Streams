@@ -42,22 +42,23 @@
   stroke: var(--color-opposite-sign);
 }
 
-/* Plain HTML overlay, not SVG text — see tributary-lines.ts's TributaryLine doc comment for why. */
+/*
+ * Plain HTML overlay, not SVG text — see tributary-lines.ts's TributaryLine doc comment for why.
+ * Anchored (via translate) to the tip at the tributary's free end, then tilted a fixed amount to
+ * echo the lines' own uniform "\" lean — a fixed angle rather than each line's exact rendered
+ * slope, which would need accounting for the SVG's non-uniform x/y scaling to compute.
+ */
 .tributary-label {
   position: absolute;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) rotate(45deg);
   white-space: nowrap;
   pointer-events: none;
   font-size: 0.65rem;
   font-weight: 600;
-  color: var(--color-accent);
+  color: var(--color-ink-primary);
   text-shadow:
     0 0 3px var(--color-page),
     0 0 3px var(--color-page),
     0 0 3px var(--color-page),
     0 0 3px var(--color-page);
-}
-
-.tributary-label.out {
-  color: var(--color-opposite-sign);
 }

@@ -26,7 +26,6 @@
   @for (label of tributaryLabels(); track label.id) {
     <span
       class="tributary-label"
-      [class.out]="label.direction === 'out'"
       [style.left.%]="label.leftPercent"
       [style.top.%]="label.topPercent"
     >{{ label.text }}</span>

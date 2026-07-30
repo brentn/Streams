@@ -78,7 +78,6 @@ export class StreamBand {
     this.tributaryLines().map((line) => ({
       id: line.id,
       text: line.label,
-      direction: line.direction,
       leftPercent: (line.labelX / this.viewWidth()) * 100,
       topPercent: (line.labelY / this.height()) * 100,
     })),
