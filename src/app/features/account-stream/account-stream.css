@@ -163,11 +163,12 @@ h1 {
 
 .balance {
   margin: 0;
-  font-size: var(--text-hero-card);
+  font-size: var(--text-hero-inline);
   font-weight: 700;
   color: var(--color-ink-primary);
   background: var(--color-surface);
   padding: 0 0.5rem;
+  white-space: nowrap;
 }
 
 .balance.opposite {

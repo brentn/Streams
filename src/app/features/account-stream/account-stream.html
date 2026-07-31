@@ -46,8 +46,15 @@
           }
         </div>
 
-        <div class="chart" appDragScrub [windowDays]="windowDays" (scrubBy)="shiftDay($event)">
+        <div
+          class="chart"
+          appDragScrub
+          [windowDays]="windowDays"
+          (scrubBy)="shiftDay($event)"
+          (tap)="streamBand.handleTap($event)"
+        >
           <app-stream-band
+            #streamBand
             [points]="points()"
             [expectedSign]="account.expectedSign"
             [boundaryX]="boundaryX()"

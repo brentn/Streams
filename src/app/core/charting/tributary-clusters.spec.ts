@@ -1,13 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Tributary } from './tributaries';
-import {
-  bundleId,
-  CLUSTER_THRESHOLD_DAYS,
-  clusterTributaries,
-  spreadExactDateCollisions,
-  ZOOM_CONTEXT_DAYS,
-  zoomRangeFor,
-} from './tributary-clusters';
+import { bundleId, CLUSTER_THRESHOLD_DAYS, clusterTributaries, flattenGroupMembers } from './tributary-clusters';
 
 function tributary(overrides: Partial<Tributary>): Tributary {
   return {
@@ -99,83 +92,30 @@ describe('bundleId', () => {
   });
 });
 
-describe('zoomRangeFor', () => {
-  it('expands the cluster\'s x-range by the surrounding-context margin on both sides', () => {
-    const cluster = [tributary({ x: 20 }), tributary({ x: 25 })];
+describe('flattenGroupMembers', () => {
+  it('passes a real (non-minor) member through unchanged', () => {
+    const a = tributary({ id: 'a', kind: 'flow' });
+    const b = tributary({ id: 'b', kind: 'transfer' });
 
-    const { lo, hi } = zoomRangeFor(cluster, 59);
-
-    expect(lo).toBe(20 - ZOOM_CONTEXT_DAYS);
-    expect(hi).toBe(25 + ZOOM_CONTEXT_DAYS);
+    expect(flattenGroupMembers([a, b])).toEqual([a, b]);
   });
 
-  it('clamps to the window bounds rather than going negative or past maxX', () => {
-    const cluster = [tributary({ x: 1 }), tributary({ x: 2 })];
+  it("expands a 'minor' rollup member into its own real members, rather than listing it as one opaque row", () => {
+    const minorMemberA = tributary({ id: 'coffee', label: 'Coffee' });
+    const minorMemberB = tributary({ id: 'parking', label: 'Parking' });
+    const rollup = tributary({
+      id: 'minor-out-x',
+      kind: 'minor',
+      members: [minorMemberA, minorMemberB],
+    });
+    const major = tributary({ id: 'rent', kind: 'flow' });
 
-    const { lo, hi } = zoomRangeFor(cluster, 59);
+    const result = flattenGroupMembers([major, rollup]);
 
-    expect(lo).toBe(0);
-    expect(hi).toBe(2 + ZOOM_CONTEXT_DAYS);
+    expect(result).toEqual([major, minorMemberA, minorMemberB]);
   });
 
-  it('never collapses to a zero-width range', () => {
-    const cluster = [tributary({ x: 0 })];
-
-    const { lo, hi } = zoomRangeFor(cluster, 0);
-
-    expect(hi).toBeGreaterThan(lo);
-  });
-});
-
-describe('spreadExactDateCollisions', () => {
-  it('leaves a single member at its real x when no other member shares its date', () => {
-    const cluster = [tributary({ id: 'a', x: 10, date: new Date(2026, 6, 1) })];
-
-    const [result] = spreadExactDateCollisions(cluster);
-
-    expect(result.x).toBe(10);
-  });
-
-  it('spreads members sharing an exact date to distinct x positions around the real date', () => {
-    const sameDate = new Date(2026, 6, 15);
-    const cluster = [
-      tributary({ id: 'a', x: 30, date: sameDate }),
-      tributary({ id: 'b', x: 30, date: sameDate }),
-      tributary({ id: 'c', x: 30, date: sameDate }),
-    ];
-
-    const result = spreadExactDateCollisions(cluster);
-    const xs = result.map((t) => t.x);
-
-    expect(new Set(xs).size).toBe(3);
-    for (const x of xs) {
-      expect(x).toBeGreaterThan(29);
-      expect(x).toBeLessThan(31);
-    }
-  });
-
-  it('does not spread members that merely land nearby but on different dates', () => {
-    const cluster = [
-      tributary({ id: 'a', x: 30, date: new Date(2026, 6, 15) }),
-      tributary({ id: 'b', x: 31, date: new Date(2026, 6, 16) }),
-    ];
-
-    const result = spreadExactDateCollisions(cluster);
-
-    expect(result.find((t) => t.id === 'a')?.x).toBe(30);
-    expect(result.find((t) => t.id === 'b')?.x).toBe(31);
-  });
-
-  it('preserves every other field on spread members', () => {
-    const sameDate = new Date(2026, 6, 15);
-    const cluster = [
-      tributary({ id: 'a', x: 30, date: sameDate, label: 'Groceries', amount: 42 }),
-      tributary({ id: 'b', x: 30, date: sameDate, label: 'Gas', amount: 55 }),
-    ];
-
-    const result = spreadExactDateCollisions(cluster);
-
-    expect(result.find((t) => t.id === 'a')).toMatchObject({ label: 'Groceries', amount: 42 });
-    expect(result.find((t) => t.id === 'b')).toMatchObject({ label: 'Gas', amount: 55 });
+  it('returns nothing for an empty cluster', () => {
+    expect(flattenGroupMembers([])).toEqual([]);
   });
 });

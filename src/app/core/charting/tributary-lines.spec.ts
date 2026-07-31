@@ -95,4 +95,54 @@ describe('buildTributaryLines', () => {
     expect(lines[0].x1 - lines[0].x2).toBe(lines[1].x1 - lines[1].x2);
     expect(lines[0].y1 - lines[0].y2).toBe(lines[1].y1 - lines[1].y2);
   });
+
+  describe('d (filled taper shape)', () => {
+    /** Parses `M x,y L x,y L x,y ... Z` into its point list — `d`'s only ever produced this way (see `taperedLinePath`). */
+    function points(d: string): [number, number][] {
+      return d
+        .replace(/^M/, '')
+        .replace(/Z$/, '')
+        .split(' L')
+        .map((pair) => pair.split(',').map(Number) as [number, number]);
+    }
+
+    it('is a closed polygon (M...L...Z), not a two-point stroked line', () => {
+      const [line] = buildTributaryLines([tributary({ direction: 'in', x: 50 })], 60, () => 10, () => 4);
+
+      expect(line.d.startsWith('M')).toBe(true);
+      expect(line.d.endsWith('Z')).toBe(true);
+      expect(points(line.d)).toHaveLength(5);
+    });
+
+    it('tapers to a single point exactly at the river-join coordinates (x2,y2 for incoming, x1,y1 for outgoing)', () => {
+      const [inLine] = buildTributaryLines([tributary({ direction: 'in', x: 50 })], 60, () => 10, () => 4);
+      const [outLine] = buildTributaryLines([tributary({ direction: 'out', x: 50 })], 60, () => 10, () => 4);
+
+      // The middle of the 5 points is the taper's apex — a single point, not two straddling it.
+      expect(points(inLine.d)[2]).toEqual([inLine.x2, inLine.y2]);
+      expect(points(outLine.d)[2]).toEqual([outLine.x1, outLine.y1]);
+    });
+
+    it("is full `width` wide at the free end (the pair of points nearest the label, straddling x1/y1)", () => {
+      const width = 6;
+      const [line] = buildTributaryLines([tributary({ direction: 'in', x: 50 })], 60, () => 10, () => width);
+
+      const [p0, , , , p4] = points(line.d);
+      const spread = Math.hypot(p0[0] - p4[0], p0[1] - p4[1]);
+
+      expect(spread).toBeCloseTo(width, 5);
+    });
+
+    it('scales the free-end width with the given stroke-width scale, same as `strokeWidth`', () => {
+      const [thin] = buildTributaryLines([tributary({ direction: 'in', x: 50 })], 60, () => 10, () => 2);
+      const [thick] = buildTributaryLines([tributary({ direction: 'in', x: 50 })], 60, () => 10, () => 10);
+
+      const spreadOf = (d: string) => {
+        const [p0, , , , p4] = points(d);
+        return Math.hypot(p0[0] - p4[0], p0[1] - p4[1]);
+      };
+
+      expect(spreadOf(thick.d)).toBeGreaterThan(spreadOf(thin.d));
+    });
+  });
 });

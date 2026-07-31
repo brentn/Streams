@@ -1,3 +1,4 @@
+import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, computed, input, output, signal } from '@angular/core';
 import { Sign } from '../../core/models/account';
 import { BandPoint } from '../../core/charting/band-segments';
@@ -5,16 +6,15 @@ import { magnitudeScale, ribbonPoints } from '../../core/charting/ribbon';
 import { buildRenderSegments } from '../../core/charting/render-segments';
 import { Tributary } from '../../core/charting/tributaries';
 import { buildTributaryBundles } from '../../core/charting/tributary-bundles';
-import {
-  bundleId,
-  clusterTributaries,
-  spreadExactDateCollisions,
-  zoomRangeFor,
-} from '../../core/charting/tributary-clusters';
+import { bundleId, clusterTributaries, flattenGroupMembers } from '../../core/charting/tributary-clusters';
 import { buildTributaryLines } from '../../core/charting/tributary-lines';
+import { applyMinorRollup } from '../../core/charting/tributary-minor-rollup';
 
 /** Cap on a tributary line's stroke width, independent of the balance ribbon's own thickness scale. */
 const MAX_TRIBUTARY_STROKE_WIDTH = 6;
+
+/** Minimum gap kept between an open group-list panel and the specific badge that opened it, so a second tap at the badge's old position can't land on a list row instead — see `expandedGroupMembers`. */
+const GROUP_LIST_CLEARANCE = '1.75rem';
 
 /**
  * One thickness-band stream: `|balance|` as line thickness around a flat
@@ -26,6 +26,7 @@ const MAX_TRIBUTARY_STROKE_WIDTH = 6;
  */
 @Component({
   selector: 'app-stream-band',
+  imports: [CurrencyPipe, DatePipe],
   templateUrl: './stream-band.html',
   styleUrl: './stream-band.css',
 })
@@ -50,6 +51,8 @@ export class StreamBand {
   private readonly halfThickness = computed(() =>
     magnitudeScale(this.maxAbsBalance(), (this.maxThicknessFraction() * this.height()) / 2),
   );
+
+  protected readonly viewBox = computed(() => `0 0 ${this.viewWidth()} ${this.height()}`);
 
   protected readonly segments = computed(() => {
     const scale = this.halfThickness();
@@ -76,57 +79,41 @@ export class StreamBand {
     magnitudeScale(this.maxTributaryAmount(), MAX_TRIBUTARY_STROKE_WIDTH),
   );
 
-  private readonly clusters = computed(() => clusterTributaries(this.tributaries()));
+  /**
+   * Magnitude-based rollup (#67) runs before proximity clustering (#66), per #67's recommended
+   * composition order — the resulting per-direction minor aggregate is just another Tributary
+   * as far as clustering is concerned, and may itself end up folded into a proximity cluster
+   * alongside real (major) occurrences.
+   */
+  private readonly rolledUpTributaries = computed(() => applyMinorRollup(this.tributaries()));
+
+  private readonly clusters = computed(() => clusterTributaries(this.rolledUpTributaries()));
 
   /**
-   * Set when a bundle is tapped, to auto-zoom into that cluster's neighborhood — cleared by
-   * the close control to return to the default full-window view (see issue #66). Also clears
-   * implicitly on the next read if the underlying data changes such that no current cluster
-   * matches it (`expandedCluster` falls back to `null`).
+   * A "group" is anything rendered as a stand-in line with a ×N badge rather than as its own
+   * labeled line: a proximity cluster of 2+ (#66), or a single `kind: 'minor'` magnitude rollup
+   * (#67) standing in for its own 2+ real members. Both behave identically —
+   * tapping shows a plain name+date+amount list of the group's real underlying Tributaries
+   * (`flattenGroupMembers`), never a zoom or a fanned re-layout of lines. (An earlier version
+   * auto-zoomed into a #66 cluster's neighborhood instead; that was reverted — see #59's
+   * follow-up amendment — since it distorted the chart under the SVG's non-uniform
+   * `preserveAspectRatio="none"` scaling and needlessly diverged from #67's own list-only
+   * interaction for the exact same "too many/too tight to show as lines" problem.)
    */
-  private readonly expandedBundleId = signal<string | null>(null);
+  private readonly groupClusters = computed(() =>
+    this.clusters().filter((cluster) => cluster.length > 1 || cluster[0].kind === 'minor'),
+  );
 
-  private readonly expandedCluster = computed(() => {
-    const id = this.expandedBundleId();
-    if (id === null) return null;
-    return this.clusters().find((cluster) => bundleId(cluster) === id) ?? null;
-  });
+  protected readonly groups = computed(() =>
+    buildTributaryBundles(this.groupClusters(), this.centerY(), this.halfThicknessAt(), this.strokeScale()),
+  );
 
-  protected readonly isZoomed = computed(() => this.expandedCluster() !== null);
-
-  /** The SVG's visible x-range: the full window by default, or a tapped cluster's neighborhood (`zoomRangeFor`) once expanded. */
-  private readonly zoomRange = computed(() => {
-    const cluster = this.expandedCluster();
-    return cluster ? zoomRangeFor(cluster, this.viewWidth()) : { lo: 0, hi: this.viewWidth() };
-  });
-
-  protected readonly viewBox = computed(() => {
-    const { lo, hi } = this.zoomRange();
-    return `${lo} 0 ${hi - lo} ${this.height()}`;
-  });
-
-  /** Every cluster still collapsed — all but the one currently expanded, if any. */
-  protected readonly bundles = computed(() => {
-    const expandedId = this.expandedBundleId();
-    const collapsed = this.clusters().filter(
-      (cluster) => cluster.length > 1 && bundleId(cluster) !== expandedId,
-    );
-    return buildTributaryBundles(collapsed, this.centerY(), this.halfThicknessAt(), this.strokeScale());
-  });
-
-  /**
-   * Tributaries rendered as individual lines: every uncrowded singleton, plus the currently
-   * expanded cluster's members with their exact-date collisions spread apart (see #59's
-   * amendments) — zooming alone can't separate two items sharing an identical x.
-   */
-  private readonly individualTributaries = computed<Tributary[]>(() => {
-    const expandedId = this.expandedBundleId();
-    return this.clusters().flatMap((cluster) => {
-      if (cluster.length === 1) return cluster;
-      if (bundleId(cluster) === expandedId) return spreadExactDateCollisions(cluster);
-      return [];
-    });
-  });
+  /** Every tributary rendered as its own labeled line: singletons that aren't a magnitude rollup. */
+  private readonly individualTributaries = computed<Tributary[]>(() =>
+    this.clusters()
+      .filter((cluster) => cluster.length === 1 && cluster[0].kind !== 'minor')
+      .flat(),
+  );
 
   protected readonly tributaryLines = computed(() =>
     buildTributaryLines(this.individualTributaries(), this.centerY(), this.halfThicknessAt(), this.strokeScale()),
@@ -134,34 +121,102 @@ export class StreamBand {
 
   private readonly tributariesById = computed(() => new Map(this.tributaries().map((t) => [t.id, t])));
 
-  /** Bundle vs. individual-tributary click stay distinct: an unbundled tributary drills in (#65); a bundle zooms in instead — see `onBundleClick`. */
-  protected onTributaryClick(lineId: string): void {
+  /** An individual (ungrouped) tributary's line click drills in (#65); a group's click never does — see `onGroupClick`. */
+  private onTributaryClick(lineId: string): void {
     const tributary = this.tributariesById().get(lineId);
     if (tributary) this.tributaryClick.emit(tributary);
   }
 
-  protected onBundleClick(id: string): void {
-    this.expandedBundleId.set(id);
+  /**
+   * The account-stream chart wraps this component in `appDragScrub`, whose `setPointerCapture`
+   * call (needed for drag-to-scrub) retargets the browser's own `click` event to the capturing
+   * `.chart` div instead of whatever tributary/group element the pointer actually landed on. Its
+   * `preventDefault()` on pointerdown is meant to stop the browser synthesizing that click at
+   * all, but that's not reliable across every browser/input device — so rather than risk a
+   * native `(click)` binding *also* firing and double-dispatching the same tap (observed in
+   * practice as the group list flickering open then immediately shut), this component has no
+   * native click bindings of its own at all. `DragScrub`'s `tap` output, carrying the
+   * pointerdown's real target, is the *only* interaction channel — a DragScrub-wrapped consumer
+   * forwards it here; this method resolves the target back to the tributary/group/list-row it
+   * belongs to via `data-*` attributes and dispatches exactly once.
+   */
+  handleTap(target: HTMLElement): void {
+    // `.closest()`, not a direct `dataset` read: the real pointerdown target can be a child of
+    // the marked element (e.g. one of a group-list row's `<span>`s), not the marked element
+    // itself.
+    if (target.closest('[data-group-close]')) {
+      this.closeGroupList();
+      return;
+    }
+    const memberRow = target.closest<HTMLElement>('[data-group-member-id]');
+    if (memberRow) {
+      this.onGroupMemberClick(memberRow.dataset['groupMemberId']!);
+      return;
+    }
+    const group = target.closest<HTMLElement>('[data-group-id]');
+    if (group) {
+      this.onGroupClick(group.dataset['groupId']!);
+      return;
+    }
+    const tributary = target.closest<HTMLElement>('[data-tributary-id]');
+    if (tributary) {
+      this.onTributaryClick(tributary.dataset['tributaryId']!);
+    }
   }
 
-  protected closeZoom(): void {
-    this.expandedBundleId.set(null);
+  /** Set to whichever group's list is open — at most one at a time. Self-heals to closed if the underlying data changes such that no current group matches it (`expandedGroupMembers` falls back to `null`). */
+  private readonly expandedGroupId = signal<string | null>(null);
+
+  protected onGroupClick(id: string): void {
+    this.expandedGroupId.update((current) => (current === id ? null : id));
   }
+
+  protected closeGroupList(): void {
+    this.expandedGroupId.set(null);
+  }
+
+  /** A row in the open group's list drills straight into that real Tributary (same as clicking its own line would, had it not been collapsed into the group) and closes the list, since drilling in navigates away. */
+  protected onGroupMemberClick(id: string): void {
+    this.onTributaryClick(id);
+    this.closeGroupList();
+  }
+
+  private readonly expandedGroup = computed(() => {
+    const id = this.expandedGroupId();
+    if (id === null) return null;
+    return this.groupClusters().find((cluster) => bundleId(cluster) === id) ?? null;
+  });
 
   /**
-   * Converts an SVG-space (x, y) into the overlay's percentage coordinates, relative to the
-   * current visible x-range (`zoomRange`, not the fixed full window, so it tracks the zoomed-in
-   * view) and the fixed height. Shared by tributary name labels and bundle count badges — both
-   * plain HTML overlays rather than SVG text/shapes, since the chart's non-uniform x/y scaling
-   * (`preserveAspectRatio="none"`) stretches SVG glyphs into an illegible horizontal smear and
-   * would distort a circular badge into an ellipse.
+   * The open list is positioned with guaranteed clearance from the specific badge that opened
+   * it (`calc()`, not a fixed chart-edge offset) — a static top/bottom-of-chart anchor isn't
+   * reliably far enough from the triggering badge (depends on that badge's own y and the list's
+   * content height), so a second tap landing where the badge used to be lands on a list row
+   * instead and silently drills into whichever real Tributary happens to render there.
+   */
+  protected readonly expandedGroupMembers = computed(() => {
+    const cluster = this.expandedGroup();
+    if (!cluster) return null;
+    const direction = cluster[0].direction;
+    const badgeTopPercent = this.groupBadges().find((b) => b.id === this.expandedGroupId())?.topPercent ?? 50;
+    const verticalStyle =
+      direction === 'in'
+        ? { top: `calc(${badgeTopPercent}% + ${GROUP_LIST_CLEARANCE})`, bottom: null }
+        : { top: null, bottom: `calc(${100 - badgeTopPercent}% + ${GROUP_LIST_CLEARANCE})` };
+    return { direction, members: flattenGroupMembers(cluster), verticalStyle };
+  });
+
+  /**
+   * Converts an SVG-space (x, y) into the overlay's percentage coordinates. Shared by tributary
+   * name labels and group count badges — both plain HTML overlays rather than SVG text/shapes,
+   * since the chart's non-uniform x/y scaling (`preserveAspectRatio="none"`) stretches SVG
+   * glyphs into an illegible horizontal smear and would distort a circular badge into an ellipse.
    */
   private readonly toPercent = computed(() => {
-    const { lo, hi } = this.zoomRange();
-    const width = hi - lo;
+    const width = this.viewWidth();
     const height = this.height();
     return (x: number, y: number) => ({
-      leftPercent: ((x - lo) / width) * 100,
+      leftPercent: (x / width) * 100,
       topPercent: (y / height) * 100,
     });
   });
@@ -175,12 +230,12 @@ export class StreamBand {
     }));
   });
 
-  protected readonly bundleBadges = computed(() => {
+  protected readonly groupBadges = computed(() => {
     const toPercent = this.toPercent();
-    return this.bundles().map((bundle) => ({
-      id: bundle.id,
-      count: bundle.count,
-      ...toPercent(bundle.badgeX, bundle.badgeY),
+    return this.groups().map((group) => ({
+      id: group.id,
+      count: group.count,
+      ...toPercent(group.badgeX, group.badgeY),
     }));
   });
 }

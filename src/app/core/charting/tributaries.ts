@@ -9,7 +9,7 @@ import { addDays, boundaryXFor, buildWindowDates } from './date-window';
 /** One real Flow/Transfer occurrence, or one unmatched Transaction, to render as a tributary joining/leaving the balance river. */
 export interface Tributary {
   id: string;
-  kind: 'flow' | 'transfer' | 'uncategorized';
+  kind: 'flow' | 'transfer' | 'uncategorized' | 'minor';
   direction: FlowDirection;
   date: Date;
   x: number;
@@ -19,6 +19,8 @@ export interface Tributary {
   flowId?: string;
   /** The source Transfer's id, set only when `kind === 'transfer'`. */
   transferId?: string;
+  /** Set only when `kind === 'minor'` — the below-threshold Tributaries this aggregate rolled up, for its tap-to-expand name+amount list (see issue #67). */
+  members?: Tributary[];
 }
 
 /** The `(startExclusive, endInclusive]` bounds of the `selectedDate`-centered window (see `buildWindowDates`) that every Tributary builder filters occurrences/Transactions into. */

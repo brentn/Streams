@@ -1,14 +1,18 @@
 import { FlowDirection } from '../models/flow';
 import { buildTributaryLines } from './tributary-lines';
 import { Tributary } from './tributaries';
-import { bundleId } from './tributary-clusters';
+import { bundleId, flattenGroupMembers } from './tributary-clusters';
 
 /**
- * A collapsed cluster's rendered geometry: one dashed line standing in for every member,
- * joining the river at the cluster's centroid x and sized from the members' combined
- * magnitude. `badgeX`/`badgeY` sit at the line's free end, where the ×N count badge overlay
- * anchors (see `stream-band.ts` — the badge renders as plain HTML, not SVG, same reasoning as
- * an individual tributary's name label).
+ * A collapsed cluster's rendered geometry: one line standing in for every member, joining the
+ * river at the cluster's centroid x and sized from the members' combined magnitude. `badgeX`/
+ * `badgeY` sit at the line's free end, where the ×N count badge overlay anchors (see
+ * `stream-band.ts` — the badge renders as plain HTML, not SVG, same reasoning as an individual
+ * tributary's name label — it's the only thing distinguishing a group's stand-in line from a
+ * real tributary's own line, both otherwise sharing the same filled-taper geometry). `count` is
+ * the real (flattened) number of underlying Flows/Transfers the group represents, not
+ * `cluster.length` — a `kind: 'minor'` member (issue #67) stands in for several real occurrences
+ * on its own.
  */
 export interface TributaryBundle {
   id: string;
@@ -52,7 +56,7 @@ export function buildTributaryBundles(
     return {
       id,
       direction: line.direction,
-      count: cluster.length,
+      count: flattenGroupMembers(cluster).length,
       x1: line.x1,
       y1: line.y1,
       x2: line.x2,

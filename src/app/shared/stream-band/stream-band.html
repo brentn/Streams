@@ -14,22 +14,20 @@
         [class.projected]="segment.phase === 'projected'"
       />
     }
-    @for (bundle of bundles(); track bundle.id) {
+    @for (group of groups(); track group.id) {
       <path
-        [attr.d]="bundle.d"
-        [attr.stroke-width]="bundle.strokeWidth"
-        class="tributary bundle"
-        [class.out]="bundle.direction === 'out'"
-        (click)="onBundleClick(bundle.id)"
+        [attr.d]="group.d"
+        class="tributary group"
+        [class.out]="group.direction === 'out'"
+        [attr.data-group-id]="group.id"
       />
     }
     @for (line of tributaryLines(); track line.id) {
       <path
         [attr.d]="line.d"
-        [attr.stroke-width]="line.strokeWidth"
         class="tributary"
         [class.out]="line.direction === 'out'"
-        (click)="onTributaryClick(line.id)"
+        [attr.data-tributary-id]="line.id"
       />
     }
   </svg>
@@ -40,14 +38,32 @@
       [style.top.%]="label.topPercent"
     >{{ label.text }}</span>
   }
-  @for (badge of bundleBadges(); track badge.id) {
-    <span
+  @for (badge of groupBadges(); track badge.id) {
+    <button
+      type="button"
       class="tributary-badge"
       [style.left.%]="badge.leftPercent"
       [style.top.%]="badge.topPercent"
-    >×{{ badge.count }}</span>
+      [attr.data-group-id]="badge.id"
+    >×{{ badge.count }}</button>
   }
-  @if (isZoomed()) {
-    <button type="button" class="zoom-close" (click)="closeZoom()" aria-label="Close zoomed cluster view">×</button>
+  @if (expandedGroupMembers(); as group) {
+    <div class="group-list" [style.top]="group.verticalStyle.top" [style.bottom]="group.verticalStyle.bottom">
+      <div class="group-list-header">
+        <span>{{ group.direction === 'in' ? 'Incoming' : 'Outgoing' }} ({{ group.members.length }})</span>
+        <button type="button" class="group-list-close" data-group-close aria-label="Close list">×</button>
+      </div>
+      <ul>
+        @for (member of group.members; track member.id) {
+          <li>
+            <button type="button" class="group-list-item" [attr.data-group-member-id]="member.id">
+              <span class="name">{{ member.label }}</span>
+              <span class="date">{{ member.date | date: 'MMM d' }}</span>
+              <span class="amount">{{ member.amount | currency }}</span>
+            </button>
+          </li>
+        }
+      </ul>
+    </div>
   }
 </div>

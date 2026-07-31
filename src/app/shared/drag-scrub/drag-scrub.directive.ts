@@ -47,6 +47,13 @@ export class DragScrub {
     this.carryDays = 0;
     this.downTarget = event.target as HTMLElement;
     this.el.nativeElement.setPointerCapture(event.pointerId);
+    // Suppresses the browser's own synthesized mousedown/mouseup/click for this interaction.
+    // Without this, `setPointerCapture` retargets that synthesized click to this host on some
+    // browsers but not reliably on all of them — on the ones where it doesn't, a native
+    // `(click)` bound inside the chart fires *in addition to* `tap` above, double-dispatching
+    // the same interaction (once via each channel, sometimes against different resolved
+    // targets). Forcing every interaction through the single `tap` channel removes that race.
+    event.preventDefault();
   }
 
   protected onPointerMove(event: PointerEvent): void {

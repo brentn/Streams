@@ -5,6 +5,8 @@ import { Tributary } from './tributaries';
 const LEAD_X = 8;
 /** How far a tributary's free end leans from the centerline, as a fraction of centerY. */
 const LEAD_Y_FRACTION = 0.4;
+/** Fraction of the line's length, measured from the free end, that stays full width before tapering to a point at the river join. */
+const TAPER_FRACTION = 2 / 3;
 
 /**
  * A tributary's rendered geometry: a straight line from its free end to where it joins/leaves the
@@ -25,6 +27,34 @@ export interface TributaryLine {
   labelY: number;
   d: string;
   strokeWidth: number;
+}
+
+/**
+ * A filled taper shape rather than a stroked line: full `width` for the first `TAPER_FRACTION` of
+ * the run from `freeX`,`freeY`, then narrowing linearly to a single point exactly at `joinX`,
+ * `joinY` — so a thick tributary tucks cleanly into the ribbon's edge instead of butting against
+ * it at full width.
+ */
+function taperedLinePath(freeX: number, freeY: number, joinX: number, joinY: number, width: number): string {
+  const half = width / 2;
+  const dx = joinX - freeX;
+  const dy = joinY - freeY;
+  const length = Math.hypot(dx, dy) || 1;
+  const px = -dy / length;
+  const py = dx / length;
+
+  const taperX = freeX + dx * TAPER_FRACTION;
+  const taperY = freeY + dy * TAPER_FRACTION;
+
+  const points = [
+    [freeX + px * half, freeY + py * half],
+    [taperX + px * half, taperY + py * half],
+    [joinX, joinY],
+    [taperX - px * half, taperY - py * half],
+    [freeX - px * half, freeY - py * half],
+  ];
+
+  return `M${points.map(([x, y]) => `${x},${y}`).join(' L')} Z`;
 }
 
 /**
@@ -52,6 +82,10 @@ export function buildTributaryLines(
         ? [tributary.x - LEAD_X, joinY - leadY, tributary.x, joinY]
         : [tributary.x, joinY, tributary.x + LEAD_X, joinY + leadY];
 
+    const [freeX, freeY, joinX, joinY2] =
+      tributary.direction === 'in' ? [x1, y1, x2, y2] : [x2, y2, x1, y1];
+    const width = strokeWidth(tributary.amount);
+
     return {
       id: tributary.id,
       direction: tributary.direction,
@@ -62,8 +96,8 @@ export function buildTributaryLines(
       y2,
       labelX: tributary.direction === 'in' ? x1 : x2,
       labelY: tributary.direction === 'in' ? y1 : y2,
-      d: `M${x1},${y1} L${x2},${y2}`,
-      strokeWidth: strokeWidth(tributary.amount),
+      d: taperedLinePath(freeX, freeY, joinX, joinY2, width),
+      strokeWidth: width,
     };
   });
 }
