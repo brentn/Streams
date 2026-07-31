@@ -1,0 +1,39 @@
+.prototype-switcher {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 999px;
+  background: #1a1a19;
+  color: #ffffff;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.35);
+  font-size: 0.8rem;
+  font-family: system-ui, sans-serif;
+}
+
+.prototype-switcher button {
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: inherit;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.prototype-switcher button:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.prototype-switcher .label {
+  min-width: 12rem;
+  text-align: center;
+  white-space: nowrap;
+}

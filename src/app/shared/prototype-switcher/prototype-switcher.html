@@ -1,0 +1,7 @@
+@if (isDev) {
+  <div class="prototype-switcher">
+    <button type="button" (click)="cycle(-1)" aria-label="Previous variant">‹</button>
+    <span class="label">{{ currentVariant().key }} — {{ currentVariant().label }}</span>
+    <button type="button" (click)="cycle(1)" aria-label="Next variant">›</button>
+  </div>
+}

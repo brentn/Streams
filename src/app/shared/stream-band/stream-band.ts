@@ -1,9 +1,11 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, computed, input, output, signal } from '@angular/core';
 import { Sign } from '../../core/models/account';
+import { balanceGradientStops, segmentsByPoint } from '../../core/charting/balance-color';
 import { BandPoint } from '../../core/charting/band-segments';
 import { magnitudeScale, ribbonPoints } from '../../core/charting/ribbon';
-import { buildRenderSegments } from '../../core/charting/render-segments';
+import { BandPhase, buildRenderSegments } from '../../core/charting/render-segments';
+import { splitAtX } from '../../core/charting/split-at-x';
 import { Tributary } from '../../core/charting/tributaries';
 import { buildTributaryBundles } from '../../core/charting/tributary-bundles';
 import { bundleId, clusterTributaries, flattenGroupMembers } from '../../core/charting/tributary-clusters';
@@ -12,6 +14,11 @@ import { applyMinorRollup } from '../../core/charting/tributary-minor-rollup';
 
 /** Cap on a tributary line's stroke width, independent of the balance ribbon's own thickness scale. */
 const MAX_TRIBUTARY_STROKE_WIDTH = 6;
+
+/** PROTOTYPE (see `balance-color.ts`) — a non-`width` encoding's half-thickness, as a fraction of the max the width encoding could reach. Fixed rather than magnitude-scaled, since the whole point is to stop the band's thickness moving. */
+const CONSTANT_HALF_THICKNESS_FRACTION = 0.7;
+
+let nextGradientId = 0;
 
 /** Minimum gap kept between an open group-list panel and the specific badge that opened it, so a second tap at the badge's old position can't land on a list row instead — see `expandedGroupMembers`. */
 const GROUP_LIST_CLEARANCE = '1.75rem';
@@ -45,12 +52,34 @@ export class StreamBand {
   readonly maxThicknessFraction = input(1);
   /** The source Tributary a user clicked its line to open — for drill-in (issue #65). The label stays `pointer-events: none` (see `stream-band.css`), so only the line itself is clickable. */
   readonly tributaryClick = output<Tributary>();
+  /**
+   * PROTOTYPE — which of three ways to render `|balance|` this instance uses: `'width'` is the
+   * shipped thickness-band behavior; `'gradient'` and `'bands'` hold width constant and encode
+   * balance as color instead (see `balance-color.ts`). Defaults to `'width'` so every existing
+   * caller is unaffected.
+   */
+  readonly encoding = input<'width' | 'gradient' | 'bands'>('width');
+
+  protected readonly gradientId = `balance-gradient-${nextGradientId++}`;
 
   protected readonly centerY = computed(() => this.height() / 2);
 
-  private readonly halfThickness = computed(() =>
+  private readonly widthScale = computed(() =>
     magnitudeScale(this.maxAbsBalance(), (this.maxThicknessFraction() * this.height()) / 2),
   );
+
+  private readonly constantHalfThickness = computed(
+    () => (this.maxThicknessFraction() * this.height() * CONSTANT_HALF_THICKNESS_FRACTION) / 2,
+  );
+
+  /** The half-thickness function actually used to draw the ribbon and to anchor tributaries — magnitude-scaled for `'width'`, fixed for the color-encoded prototypes. */
+  private readonly halfThickness = computed(() => {
+    if (this.encoding() !== 'width') {
+      const constant = this.constantHalfThickness();
+      return () => constant;
+    }
+    return this.widthScale();
+  });
 
   protected readonly viewBox = computed(() => `0 0 ${this.viewWidth()} ${this.height()}`);
 
@@ -62,6 +91,53 @@ export class StreamBand {
         polygon: ribbonPoints(segment.points, this.centerY(), scale),
       }),
     );
+  });
+
+  /** PROTOTYPE — `'gradient'` encoding: one constant-width polygon per actual/projected phase, both filled by the same full-width `<linearGradient>` so the color blend is continuous across the phase boundary. */
+  protected readonly gradientStops = computed(() =>
+    this.encoding() === 'gradient'
+      ? balanceGradientStops(this.points(), this.maxAbsBalance(), this.viewWidth())
+      : [],
+  );
+
+  protected readonly gradientSegments = computed(() => {
+    if (this.encoding() !== 'gradient') return [];
+    const scale = this.halfThickness();
+    const { before, after } = splitAtX(this.points(), this.boundaryX());
+    return ([
+      { points: before, phase: 'actual' as BandPhase },
+      { points: after, phase: 'projected' as BandPhase },
+    ] satisfies { points: BandPoint[]; phase: BandPhase }[])
+      .filter((s) => s.points.length > 0)
+      .map((s) => ({ phase: s.phase, polygon: ribbonPoints(s.points, this.centerY(), scale) }));
+  });
+
+  /**
+   * PROTOTYPE — `'bands'` encoding: one flat-filled polygon per consecutive point pair, each
+   * colored by its own exact balance (see `segmentsByPoint`) — changes with every sample rather
+   * than snapping between a handful of fixed range buckets, but without an SVG `<linearGradient>`
+   * (per the interaction transcript: "it should end up looking like B, but without using
+   * 'gradients' directly").
+   */
+  protected readonly bandSegments = computed(() => {
+    if (this.encoding() !== 'bands') return [];
+    const scale = this.halfThickness();
+    const { before, after } = splitAtX(this.points(), this.boundaryX());
+    const build = (pts: BandPoint[], phase: BandPhase) =>
+      segmentsByPoint(pts, this.maxAbsBalance()).map((segment) => ({
+        phase,
+        color: segment.color,
+        polygon: ribbonPoints(segment.points, this.centerY(), scale),
+      }));
+    return [...build(before, 'actual'), ...build(after, 'projected')];
+  });
+
+  /** PROTOTYPE — a constant-width encoding's flat top/bottom border, so a light near-zero fill still reads against the card's near-white background instead of disappearing into it. */
+  protected readonly constantBandEdges = computed(() => {
+    if (this.encoding() === 'width') return null;
+    const half = this.constantHalfThickness();
+    const centerY = this.centerY();
+    return { top: centerY - half, bottom: centerY + half };
   });
 
   private readonly maxTributaryAmount = computed(() =>

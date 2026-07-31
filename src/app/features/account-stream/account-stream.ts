@@ -9,7 +9,8 @@ import {
   viewChild,
 } from '@angular/core';
 import { CurrencyPipe, DatePipe } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { Dialog } from '@angular/cdk/dialog';
 import { Account } from '../../core/models/account';
 import { Flow } from '../../core/models/flow';
@@ -35,6 +36,7 @@ import { openSimpleFinBridge } from '../../core/simplefin/reconnect';
 import { StorageRepository } from '../../core/storage/storage-repository';
 import { CalendarChip } from '../../shared/calendar-chip/calendar-chip';
 import { DragScrub } from '../../shared/drag-scrub/drag-scrub.directive';
+import { PrototypeSwitcher, PrototypeVariant } from '../../shared/prototype-switcher/prototype-switcher';
 import { ResyncIcon } from '../../shared/resync-icon/resync-icon';
 import { StatusBanner } from '../../shared/status-banner/status-banner';
 import { StreamBand } from '../../shared/stream-band/stream-band';
@@ -51,6 +53,7 @@ import { TributaryPanel } from './tributary-panel/tributary-panel';
     RouterLink,
     DragScrub,
     CalendarChip,
+    PrototypeSwitcher,
     ResyncIcon,
     StatusBanner,
     StreamBand,
@@ -64,8 +67,44 @@ export class AccountStream {
   private readonly storage = inject(StorageRepository);
   private readonly syncCoordinator = inject(SyncCoordinator);
   private readonly dialog = inject(Dialog);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   readonly id = input.required<string>();
+
+  /**
+   * PROTOTYPE (see `stream-band.ts`'s `encoding` input) — three ways of showing `|balance|`,
+   * switchable via `?variant=` so it's shareable/reload-stable: `A` is the shipped width-encoded
+   * ribbon; `B`/`C` hold width constant and encode balance as color instead. Delete this, the
+   * `<app-prototype-switcher>` below, and the non-`width` `StreamBand` encodings together once a
+   * variant wins or loses.
+   */
+  protected readonly variants: PrototypeVariant[] = [
+    { key: 'A', label: 'Width (current)' },
+    { key: 'B', label: 'Constant width, color gradient' },
+    { key: 'C', label: 'Constant width, color bands' },
+  ];
+  private readonly queryParamMap = toSignal(this.route.queryParamMap, {
+    initialValue: this.route.snapshot.queryParamMap,
+  });
+  protected readonly variant = computed(() => this.queryParamMap().get('variant') ?? 'A');
+  protected readonly bandEncoding = computed<'width' | 'gradient' | 'bands'>(() => {
+    switch (this.variant()) {
+      case 'B':
+        return 'gradient';
+      case 'C':
+        return 'bands';
+      default:
+        return 'width';
+    }
+  });
+  protected setVariant(key: string): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { variant: key },
+      queryParamsHandling: 'merge',
+    });
+  }
 
   protected readonly windowDays = WINDOW_DAYS;
 

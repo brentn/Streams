@@ -29,6 +29,34 @@
   opacity: 0.45;
 }
 
+/*
+ * PROTOTYPE — top/bottom border for the `gradient`/`bands` encodings' constant-width ribbon
+ * (see `constantBandEdges` in stream-band.ts). Purely horizontal, so unlike a stroke on the
+ * tributary lines it isn't distorted by the SVG's non-uniform `preserveAspectRatio="none"`
+ * scaling (that only stretches the x axis; a horizontal line's stroke width is entirely in y).
+ * `vector-effect: non-scaling-stroke` is a belt-and-suspenders safeguard against that regardless.
+ */
+.band-edge {
+  stroke: var(--color-ink-primary);
+  stroke-width: 1.5;
+  opacity: 0.3;
+  vector-effect: non-scaling-stroke;
+}
+
+/*
+ * PROTOTYPE — `'bands'` encoding renders one flat-filled `<polygon>` per consecutive day (see
+ * `segmentsByPoint`). Left at default anti-aliasing, each polygon's independently-blended edge
+ * shows a hairline seam against its neighbor — under `.projected`'s `opacity: 0.45` this got
+ * visibly worse (a barcode-like stripe) once an earlier fix tried closing the gap by overlapping
+ * adjacent polygons, since two translucent layers overlapping compound their opacity right at the
+ * seam. `crispEdges` turns off anti-aliasing entirely — every pixel is either fully in or fully
+ * out of a given polygon, so exactly-abutting polygons meet with no blended edge pixel to show a
+ * seam or double up opacity, regardless of `.projected`.
+ */
+.segment.band-fill {
+  shape-rendering: crispEdges;
+}
+
 .tributary {
   fill: var(--color-accent);
   stroke: none;

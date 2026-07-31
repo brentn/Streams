@@ -63,6 +63,7 @@
             [height]="200"
             [tributaries]="tributaries()"
             [maxThicknessFraction]="0.3"
+            [encoding]="bandEncoding()"
             (tributaryClick)="onTributaryClick($event)"
           />
         </div>
@@ -109,6 +110,12 @@
       />
     }
   </section>
+
+  <app-prototype-switcher
+    [variants]="variants"
+    [current]="variant()"
+    (variantChange)="setVariant($event)"
+  />
 } @else {
   <p>Loading…</p>
 }
