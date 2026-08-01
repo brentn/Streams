@@ -19,6 +19,11 @@ export interface TributaryDayGroup {
   transactions: Transaction[];
 }
 
+/** Sorts newest first — matches the transaction review list's convention. */
+function byDateDescending(a: Transaction, b: Transaction): number {
+  return b.date.getTime() - a.date.getTime();
+}
+
 /**
  * The slide-over panel a real (non-uncategorized) tributary click opens: an edit button plus a
  * date-grouped transaction list, day-separated and initially scrolled to `selectedDate` — see
@@ -76,7 +81,7 @@ export class TributaryPanel {
   });
 
   protected readonly dayGroups = computed<TributaryDayGroup[]>(() => {
-    const sorted = [...this.matchingTransactions()].sort((a, b) => a.date.getTime() - b.date.getTime());
+    const sorted = [...this.matchingTransactions()].sort(byDateDescending);
     const groups: TributaryDayGroup[] = [];
     for (const txn of sorted) {
       const dayStart = new Date(txn.date.getFullYear(), txn.date.getMonth(), txn.date.getDate());
@@ -94,12 +99,23 @@ export class TributaryPanel {
     afterNextRender(() => this.scrollToSelectedDate());
   }
 
+  /**
+   * Groups render newest-first. Scanning from the oldest group forward, the first one still
+   * at/after `selectedDate` is the target — same threshold rule as a plain ascending scan, just
+   * walked from the other end of the (now reversed) array. No qualifying group means
+   * `selectedDate` is later than everything, so fall back to the newest group.
+   */
   private scrollToSelectedDate(): void {
     const groups = this.dayGroups();
     if (groups.length === 0) return;
     const selected = this.selectedDate().getTime();
-    const index = groups.findIndex((g) => g.date.getTime() >= selected);
-    const targetIndex = index === -1 ? groups.length - 1 : index;
+    let targetIndex = 0;
+    for (let i = groups.length - 1; i >= 0; i--) {
+      if (groups[i].date.getTime() >= selected) {
+        targetIndex = i;
+        break;
+      }
+    }
     this.dayGroupRefs()[targetIndex]?.nativeElement.scrollIntoView({ block: 'center' });
   }
 

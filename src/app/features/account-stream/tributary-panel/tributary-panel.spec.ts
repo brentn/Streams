@@ -144,7 +144,7 @@ describe('TributaryPanel', () => {
     expect(component['targetLabel']()).toBe('Transfer to Savings');
   });
 
-  it('groups matching Transactions by calendar day, sorted chronologically', async () => {
+  it('groups matching Transactions by calendar day, newest day first', async () => {
     const t1 = txn({ id: 't1', date: new Date(2026, 6, 1), matchedTarget: { kind: 'flow', id: 'flow-rent' } });
     const t2 = txn({
       id: 't2',
@@ -161,9 +161,9 @@ describe('TributaryPanel', () => {
 
     const groups = component['dayGroups']();
     expect(groups).toHaveLength(2);
-    expect(groups[0].date).toEqual(new Date(2026, 5, 1));
-    expect(groups[1].date).toEqual(new Date(2026, 6, 1));
-    expect(groups[1].transactions).toEqual([t1, t2]);
+    expect(groups[0].date).toEqual(new Date(2026, 6, 1));
+    expect(groups[1].date).toEqual(new Date(2026, 5, 1));
+    expect(groups[0].transactions).toEqual([t2, t1]);
   });
 
   it('filters to only Transactions matching this Transfer', async () => {
@@ -180,6 +180,57 @@ describe('TributaryPanel', () => {
     });
 
     expect(component['dayGroups']()).toEqual([{ date: new Date(2026, 6, 15), transactions: [matching] }]);
+  });
+
+  function scrolledToDate(fixture: { nativeElement: HTMLElement }): string | undefined {
+    const scrollIntoView = Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>;
+    const scrolledEl = scrollIntoView.mock.contexts[0] as HTMLElement;
+    return scrolledEl.querySelector('.day-separator')?.textContent?.trim();
+  }
+
+  it('scrolls to the day group closest to the current scrub position', async () => {
+    const t1 = txn({ id: 't1', date: new Date(2026, 5, 1), matchedTarget: { kind: 'flow', id: 'flow-rent' } });
+    const t2 = txn({ id: 't2', date: new Date(2026, 5, 15), matchedTarget: { kind: 'flow', id: 'flow-rent' } });
+    const t3 = txn({ id: 't3', date: new Date(2026, 6, 1), matchedTarget: { kind: 'flow', id: 'flow-rent' } });
+    const t4 = txn({ id: 't4', date: new Date(2026, 6, 20), matchedTarget: { kind: 'flow', id: 'flow-rent' } });
+
+    const { fixture } = await createComponent({
+      tributary: flowTributary,
+      transactions: [t1, t2, t3, t4],
+      selectedDate: new Date(2026, 5, 20),
+    });
+
+    const dayGroupEls = fixture.nativeElement.querySelectorAll('.day-group');
+    expect(dayGroupEls).toHaveLength(4);
+    // Newest-first order is [Jul 20, Jul 1, Jun 15, Jun 1]; scrubbing at Jun 20 should land on Jul 1
+    // — the earliest group still at/after the scrub position, same threshold rule as before, adapted for the reversed order.
+    expect(scrolledToDate(fixture)).toBe('Jul 1, 2026');
+  });
+
+  it('scrolls to the oldest day group when the scrub position is before all Transactions', async () => {
+    const t1 = txn({ id: 't1', date: new Date(2026, 6, 1), matchedTarget: { kind: 'flow', id: 'flow-rent' } });
+    const t2 = txn({ id: 't2', date: new Date(2026, 6, 15), matchedTarget: { kind: 'flow', id: 'flow-rent' } });
+
+    const { fixture } = await createComponent({
+      tributary: flowTributary,
+      transactions: [t1, t2],
+      selectedDate: new Date(2026, 5, 1),
+    });
+
+    expect(scrolledToDate(fixture)).toBe('Jul 1, 2026');
+  });
+
+  it('scrolls to the newest day group when the scrub position is after all Transactions', async () => {
+    const t1 = txn({ id: 't1', date: new Date(2026, 6, 1), matchedTarget: { kind: 'flow', id: 'flow-rent' } });
+    const t2 = txn({ id: 't2', date: new Date(2026, 6, 15), matchedTarget: { kind: 'flow', id: 'flow-rent' } });
+
+    const { fixture } = await createComponent({
+      tributary: flowTributary,
+      transactions: [t1, t2],
+      selectedDate: new Date(2026, 7, 1),
+    });
+
+    expect(scrolledToDate(fixture)).toBe('Jul 15, 2026');
   });
 
   it('opens FlowFormDialog pre-filled with the Flow on Edit, and persists the saved result', async () => {
