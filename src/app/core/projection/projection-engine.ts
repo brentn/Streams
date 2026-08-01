@@ -1,9 +1,9 @@
 import { Account } from '../models/account';
-import { AmountChange, Cadence, Flow, Tolerance, signedFlowAmount } from '../models/flow';
+import { AmountChange, BudgetFlow, Cadence, Flow, Tolerance, signedFlowAmount } from '../models/flow';
 import { Transaction } from '../models/transaction';
 import { Transfer } from '../models/transfer';
 import { amountAtDate } from './amount-timeline';
-import { budgetContribution, previousCompletedPeriod } from './budget-period';
+import { budgetContribution, currentPeriod, previousCompletedPeriod } from './budget-period';
 import { lastCompletedPeriod, occurrencesInRange } from './cadence';
 
 /** The sum of a Cadence's occurrences over `(startExclusive, endInclusive]`, each valued via its amount-change timeline. */
@@ -255,4 +255,21 @@ export function varianceAlert(
   if (!breached) return null;
 
   return { flowId: flow.id, periodStart: startExclusive, periodEnd: endInclusive, expected, actual };
+}
+
+/**
+ * How much of a budget-kind Flow's current, in-progress Budget Period has been used — the
+ * Budgets list's progress bar (see #72). `used` is clamped to a non-negative magnitude (a
+ * partial refund landing against an otherwise-unused Budget shouldn't show as negative
+ * progress); `limit` reflects any Step Change/Recurring Rule in effect as of `today`.
+ */
+export function budgetProgress(
+  flow: BudgetFlow,
+  transactions: Transaction[],
+  today: Date,
+): { used: number; limit: number } {
+  const { startExclusive, endInclusive } = currentPeriod(flow.period, today);
+  const used = Math.max(0, actualFlowMagnitude(flow, transactions, startExclusive, endInclusive));
+  const limit = amountAtDate(flow.limit, flow.amountChanges ?? [], today);
+  return { used, limit };
 }

@@ -31,6 +31,8 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  max-height: var(--list-max-height);
+  overflow-y: auto;
 }
 
 .txn-row {

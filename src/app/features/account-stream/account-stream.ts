@@ -12,7 +12,7 @@ import { CurrencyPipe, DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { Dialog } from '@angular/cdk/dialog';
 import { Account } from '../../core/models/account';
-import { Flow } from '../../core/models/flow';
+import { BudgetFlow, Flow } from '../../core/models/flow';
 import { Transaction } from '../../core/models/transaction';
 import { Transfer } from '../../core/models/transfer';
 import {
@@ -29,7 +29,12 @@ import {
   selectedDateFor,
   WINDOW_DAYS,
 } from '../../core/charting/date-window';
-import { buildTributaries, buildUncategorizedTributaries, Tributary } from '../../core/charting/tributaries';
+import {
+  budgetDrillInTributary,
+  buildTributaries,
+  buildUncategorizedTributaries,
+  Tributary,
+} from '../../core/charting/tributaries';
 import { bannerPresentation, derivedBannerState } from '../../core/sync/sync-presentation';
 import { SyncCoordinator } from '../../core/sync/sync-coordinator';
 import { openSimpleFinBridge } from '../../core/simplefin/reconnect';
@@ -38,6 +43,7 @@ import { CalendarChip } from '../../shared/calendar-chip/calendar-chip';
 import { DragScrub } from '../../shared/drag-scrub/drag-scrub.directive';
 import { StatusBanner } from '../../shared/status-banner/status-banner';
 import { StreamBand } from '../../shared/stream-band/stream-band';
+import { BudgetList } from './budget-list/budget-list';
 import { FlowFormDialog } from './flow-form-dialog/flow-form-dialog';
 import { TransferFormDialog } from './transfer-form-dialog/transfer-form-dialog';
 import { TransactionReview } from './transaction-review/transaction-review';
@@ -54,6 +60,7 @@ import { TributaryPanel } from './tributary-panel/tributary-panel';
     StatusBanner,
     StreamBand,
     TransactionReview,
+    BudgetList,
     TributaryPanel,
   ],
   templateUrl: './account-stream.html',
@@ -277,6 +284,11 @@ export class AccountStream {
 
   protected closeTributaryPanel(): void {
     this.openTributary.set(null);
+  }
+
+  /** A budget-kind Flow has no stream tributary to click (#72) — its Budgets-list row opens the same drill-in panel via a synthetic Tributary. */
+  protected onBudgetClick(flow: BudgetFlow): void {
+    this.openTributary.set(budgetDrillInTributary(flow, this.selectedDate()));
   }
 
   private openEditModal(flow: Flow | undefined, transfer: Transfer | undefined): void {

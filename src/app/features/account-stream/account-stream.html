@@ -81,6 +81,8 @@
       (changed)="reloadAll()"
     />
 
+    <app-budget-list [flows]="flows()" [transactions]="transactions()" (budgetClick)="onBudgetClick($event)" />
+
     <div class="entity-actions">
       <button type="button" (click)="openAddFlow()">Add Flow</button>
       <button type="button" (click)="openAddTransfer()">Add Transfer</button>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AmountChange } from '../models/flow';
-import { budgetContribution, previousCompletedPeriod } from './budget-period';
+import { budgetContribution, currentPeriod, previousCompletedPeriod } from './budget-period';
 
 function d(iso: string): Date {
   const [year, month, day] = iso.split('-').map(Number);
@@ -98,6 +98,29 @@ describe('previousCompletedPeriod', () => {
     expect(previousCompletedPeriod('year', d('2026-07-15'))).toEqual({
       startExclusive: d('2024-12-31'),
       endInclusive: d('2025-12-31'),
+    });
+  });
+});
+
+describe('currentPeriod', () => {
+  it('returns the in-progress month, up through "today", for a mid-month date', () => {
+    expect(currentPeriod('month', d('2026-07-15'))).toEqual({
+      startExclusive: d('2026-06-30'),
+      endInclusive: d('2026-07-15'),
+    });
+  });
+
+  it('returns just today itself when "today" falls exactly on the period start', () => {
+    expect(currentPeriod('month', d('2026-07-01'))).toEqual({
+      startExclusive: d('2026-06-30'),
+      endInclusive: d('2026-07-01'),
+    });
+  });
+
+  it('returns the in-progress year, up through "today", for the year period', () => {
+    expect(currentPeriod('year', d('2026-07-15'))).toEqual({
+      startExclusive: d('2025-12-31'),
+      endInclusive: d('2026-07-15'),
     });
   });
 });

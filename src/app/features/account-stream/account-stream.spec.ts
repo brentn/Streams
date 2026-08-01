@@ -4,7 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Account } from '../../core/models/account';
-import { RecurringFlow } from '../../core/models/flow';
+import { BudgetFlow, RecurringFlow } from '../../core/models/flow';
 import { Transaction } from '../../core/models/transaction';
 import { Transfer } from '../../core/models/transfer';
 import { SCRUB_MAX_DAYS, SCRUB_MIN_DAYS } from '../../core/charting/date-window';
@@ -305,6 +305,7 @@ describe('AccountStream', () => {
       expect(text).not.toContain('No Flows');
       expect(text).not.toContain('No Transfers');
       expect(component['tributaries']()).toEqual([]);
+      expect(fixture.nativeElement.querySelector('.budgets')).toBeNull();
 
       const buttons = Array.from(fixture.nativeElement.querySelectorAll('.entity-actions button')).map(
         (b) => (b as HTMLButtonElement).textContent?.trim(),
@@ -332,6 +333,53 @@ describe('AccountStream', () => {
       expect(component['tributaries']()).toEqual([
         expect.objectContaining({ kind: 'uncategorized', direction: 'out', amount: 12 }),
       ]);
+    });
+  });
+
+  describe('Budgets list', () => {
+    const groceriesBudget: BudgetFlow = {
+      id: 'budget-groceries',
+      accountId: 'acc-1',
+      name: 'Groceries',
+      direction: 'out',
+      kind: 'budget',
+      limit: 400,
+      period: 'month',
+    };
+
+    it('renders no tributary for a budget-kind Flow, but does render it as a row in the Budgets list beneath the uncategorized list', async () => {
+      storage.getFlowsForAccount.mockResolvedValue([groceriesBudget]);
+
+      const fixture = TestBed.createComponent(AccountStream);
+      fixture.componentRef.setInput('id', 'acc-1');
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+      fixture.detectChanges();
+
+      expect(component['tributaries']()).toEqual([]);
+      const rows = fixture.nativeElement.querySelectorAll('.budget-row');
+      expect(rows.length).toBe(1);
+      expect(rows[0].textContent).toContain('Groceries');
+    });
+
+    it('clicking a budget row opens the same drill-in panel a recurring Flow tributary click does', async () => {
+      storage.getFlowsForAccount.mockResolvedValue([groceriesBudget]);
+
+      const fixture = TestBed.createComponent(AccountStream);
+      fixture.componentRef.setInput('id', 'acc-1');
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+      fixture.detectChanges();
+
+      const row = fixture.nativeElement.querySelector('.budget-row') as HTMLElement;
+      row.click();
+      fixture.detectChanges();
+
+      expect(dialog.open).not.toHaveBeenCalled();
+      expect(component['openTributary']()).toEqual(
+        expect.objectContaining({ kind: 'flow', flowId: 'budget-groceries', label: 'Groceries' }),
+      );
+      expect(fixture.nativeElement.querySelector('app-tributary-panel')).toBeTruthy();
     });
   });
 

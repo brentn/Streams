@@ -1,0 +1,15 @@
+@if (rows().length > 0) {
+  <section class="budgets">
+    <h2>Budgets</h2>
+    <ul class="budget-rows">
+      @for (row of rows(); track row.flow.id) {
+        <li class="budget-row" [class.over]="row.used > row.limit" (click)="budgetClick.emit(row.flow)">
+          <span class="name">{{ row.flow.name }}</span>
+          <div class="progress-track">
+            <div class="progress-fill" [style.width.%]="row.pct"></div>
+          </div>
+        </li>
+      }
+    </ul>
+  </section>
+}

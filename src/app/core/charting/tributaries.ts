@@ -1,5 +1,5 @@
 import { Account } from '../models/account';
-import { AmountChange, BudgetPeriod, Flow, FlowDirection } from '../models/flow';
+import { AmountChange, BudgetFlow, BudgetPeriod, Flow, FlowDirection, RecurringFlow } from '../models/flow';
 import { Transaction } from '../models/transaction';
 import { Transfer } from '../models/transfer';
 import { amountAtDate } from '../projection/amount-timeline';
@@ -38,25 +38,6 @@ function periodStart(period: BudgetPeriod, date: Date): Date {
     : new Date(date.getFullYear(), 0, 1);
 }
 
-function nextPeriodStart(period: BudgetPeriod, start: Date): Date {
-  return period === 'month'
-    ? new Date(start.getFullYear(), start.getMonth() + 1, 1)
-    : new Date(start.getFullYear() + 1, 0, 1);
-}
-
-/** A budget-kind Flow has no Cadence, so its "occurrences" are synthesized at each renewal period's start. */
-function budgetPeriodStarts(period: BudgetPeriod, startExclusive: Date, endInclusive: Date): Date[] {
-  const results: Date[] = [];
-  let cursor = periodStart(period, startExclusive);
-  while (cursor.getTime() <= endInclusive.getTime()) {
-    if (cursor.getTime() > startExclusive.getTime()) {
-      results.push(cursor);
-    }
-    cursor = nextPeriodStart(period, cursor);
-  }
-  return results;
-}
-
 /** One Tributary per `date`, sharing everything but the amount at that date and its x-position. */
 function makeTributaries(
   idPrefix: string,
@@ -84,17 +65,14 @@ function makeTributaries(
   }));
 }
 
+/** A budget-kind Flow has no occurrence timeline — see `budgetDrillInTributary` for how it's reached instead (#72). */
 function flowTributaries(
-  flow: Flow,
+  flow: RecurringFlow,
   startExclusive: Date,
   endInclusive: Date,
   selectedDate: Date,
 ): Tributary[] {
-  const dates =
-    flow.kind === 'recurring'
-      ? occurrencesInRange(flow.cadence, startExclusive, endInclusive)
-      : budgetPeriodStarts(flow.period, startExclusive, endInclusive);
-  const initialAmount = flow.kind === 'recurring' ? flow.amount : flow.limit;
+  const dates = occurrencesInRange(flow.cadence, startExclusive, endInclusive);
 
   return makeTributaries(
     `flow-${flow.id}`,
@@ -102,11 +80,29 @@ function flowTributaries(
     flow.direction,
     flow.name,
     dates,
-    initialAmount,
+    flow.amount,
     flow.amountChanges ?? [],
     selectedDate,
     flow.id,
   );
+}
+
+/**
+ * A synthetic, single Tributary standing in for a budget-kind Flow's list row, so the Budgets
+ * list (see #72) can open the same drill-in panel a real Tributary click does without giving
+ * the budget an actual stream position — the panel only reads `kind`/`flowId` off its input.
+ */
+export function budgetDrillInTributary(flow: BudgetFlow, selectedDate: Date): Tributary {
+  return {
+    id: `flow-${flow.id}-budget-row`,
+    kind: 'flow',
+    direction: flow.direction,
+    date: selectedDate,
+    x: 0,
+    amount: flow.limit,
+    label: flow.name,
+    flowId: flow.id,
+  };
 }
 
 /** `→ Other Account` when money leaves toward it, `← Other Account` when it arrives from it. */
@@ -148,10 +144,12 @@ function transferTributaries(
 }
 
 /**
- * One Tributary per real Flow/Transfer occurrence visible in the `selectedDate`-centered
- * window (see `buildWindowDates`) — not one aggregate per Flow. `accountId` disambiguates a
- * Transfer's direction and other-account label, since the same Transfer renders on both of
- * its Accounts' screens.
+ * One Tributary per real recurring-kind Flow occurrence, plus one per Transfer occurrence,
+ * visible in the `selectedDate`-centered window (see `buildWindowDates`) — not one aggregate
+ * per Flow. A budget-kind Flow renders none: its limit applies across a whole Budget Period
+ * rather than at one point in time, so it's reached via the Budgets list instead (see #72,
+ * `budgetDrillInTributary`). `accountId` disambiguates a Transfer's direction and other-account
+ * label, since the same Transfer renders on both of its Accounts' screens.
  */
 export function buildTributaries(
   flows: Flow[],
@@ -162,7 +160,9 @@ export function buildTributaries(
 ): Tributary[] {
   const { startExclusive, endInclusive } = windowBounds(selectedDate);
 
-  const flowTribs = flows.flatMap((flow) => flowTributaries(flow, startExclusive, endInclusive, selectedDate));
+  const flowTribs = flows
+    .filter((flow): flow is RecurringFlow => flow.kind === 'recurring')
+    .flatMap((flow) => flowTributaries(flow, startExclusive, endInclusive, selectedDate));
   const transferTribs = transfers.flatMap((transfer) =>
     transferTributaries(transfer, accountId, accounts, startExclusive, endInclusive, selectedDate),
   );

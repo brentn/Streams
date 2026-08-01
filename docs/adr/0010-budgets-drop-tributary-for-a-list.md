@@ -1,0 +1,13 @@
+# Budget-kind Flows drop their tributary in favor of a Budgets list
+
+Ticket #72 flagged that a budget-kind Flow's synthesized tributary — one occurrence per Budget Period, dated at each period's start (`tributaries.ts`'s `budgetPeriodStarts`) — misrepresents the Flow: a Budget's limit applies across the whole period, not at that one point in time. A single dot on the stream implied a moment when money moved, when in fact the limit governs the period as a whole.
+
+We removed budget-kind synthesis from `buildTributaries` entirely — a budget-kind Flow now renders no tributary at all — and added a Budgets list beneath the uncategorized-transactions list instead: one row per budget-kind Flow, showing its name and a progress bar for how much of the current Budget Period's limit (`budgetProgress()` in `projection-engine.ts`) has been used. Clicking a row opens the same drill-in panel a tributary click does, via a synthetic Tributary (`budgetDrillInTributary()`) that carries just enough (`kind`, `flowId`, `direction`, `label`, `amount`) for the panel to resolve the underlying Flow — the panel was already agnostic to a Tributary's stream position, so no changes were needed there. Both the uncategorized-transactions list and the new Budgets list also gained a max-height + scroll cap, since an unbounded list was already pushing the Add Flow/Add Transfer buttons down the page before this ticket.
+
+This supersedes the assumption baked into ADR-0007 ("not every period the way a real Budget-kind Flow always renders one [tributary]") — that's no longer true; no Flow renders a tributary every period now, and a budget-kind Flow renders none.
+
+## Consequences
+
+- A budget-kind Flow is reachable only from the Budgets list, never from the stream itself. An account with budgets but a very long uncategorized-transactions list could scroll the Budgets list out of initial view — acceptable, since the list is capped and scrollable rather than unbounded.
+- `flowTributaries` (and `buildTributaries`'s Flow-mapping) is now recurring-kind-only, simplifying both to drop the `flow.kind` branch they previously carried.
+- The Budgets list's progress bars are computed against real wall-clock "now", not the stream's scrubbable `selectedDate` — scrubbing the date chip moves every tributary and the balance line, but leaves the Budgets list (and the uncategorized-transactions list above it, which was already unwindowed per ADR-0007) showing current state. A Budget Period is a real-calendar concept, not a projection the user is scrubbing through, the same reasoning `dryAlert`/`runningDryAlert` already apply.

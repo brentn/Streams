@@ -5,6 +5,7 @@ import { Transfer } from '../models/transfer';
 import {
   balanceAtDate,
   balanceSeries,
+  budgetProgress,
   PROJECTION_HORIZON_DAYS,
   runningDryAlert,
   varianceAlert,
@@ -484,5 +485,50 @@ describe('varianceAlert', () => {
       const surplus = [matchedTxn('t2', '2026-06-15T09:00:00Z', 2500, flow.id)];
       expect(varianceAlert(flow, surplus, today)).toBeNull();
     });
+  });
+});
+
+describe('budgetProgress', () => {
+  const today = new Date('2026-07-15T12:00:00Z');
+
+  it('reports zero used against the full limit when nothing has been spent this period', () => {
+    const flow = budgetFlow({ limit: 400, direction: 'out' });
+    expect(budgetProgress(flow, [], today)).toEqual({ used: 0, limit: 400 });
+  });
+
+  it('sums matched Transactions within the in-progress period as a positive magnitude', () => {
+    const flow = budgetFlow({ limit: 400, direction: 'out' });
+    const transactions = [
+      matchedTxn('t1', '2026-07-03T09:00:00Z', -30, flow.id),
+      matchedTxn('t2', '2026-07-10T09:00:00Z', -70, flow.id),
+    ];
+    expect(budgetProgress(flow, transactions, today)).toEqual({ used: 100, limit: 400 });
+  });
+
+  it('excludes Transactions from before the current period started', () => {
+    const flow = budgetFlow({ limit: 400, direction: 'out' });
+    const transactions = [matchedTxn('t1', '2026-06-25T09:00:00Z', -300, flow.id)];
+    expect(budgetProgress(flow, transactions, today)).toEqual({ used: 0, limit: 400 });
+  });
+
+  it('excludes Transactions matched to a different Flow', () => {
+    const flow = budgetFlow({ limit: 400, direction: 'out' });
+    const transactions = [matchedTxn('t1', '2026-07-03T09:00:00Z', -300, 'other-flow')];
+    expect(budgetProgress(flow, transactions, today)).toEqual({ used: 0, limit: 400 });
+  });
+
+  it('clamps used to zero rather than going negative when actuals land opposite the expense direction', () => {
+    const flow = budgetFlow({ limit: 400, direction: 'out' });
+    const transactions = [matchedTxn('t1', '2026-07-03T09:00:00Z', 50, flow.id)]; // a refund
+    expect(budgetProgress(flow, transactions, today)).toEqual({ used: 0, limit: 400 });
+  });
+
+  it('reflects a Step Change in effect as of today\'s limit', () => {
+    const flow = budgetFlow({
+      limit: 400,
+      direction: 'out',
+      amountChanges: [{ type: 'step', effectiveDate: new Date(2026, 6, 10), amount: 500 }],
+    });
+    expect(budgetProgress(flow, [], today)).toEqual({ used: 0, limit: 500 });
   });
 });

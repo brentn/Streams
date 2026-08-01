@@ -3,7 +3,7 @@ import { Account } from '../models/account';
 import { Flow } from '../models/flow';
 import { Transaction } from '../models/transaction';
 import { Transfer } from '../models/transfer';
-import { buildTributaries, buildUncategorizedTributaries } from './tributaries';
+import { budgetDrillInTributary, buildTributaries, buildUncategorizedTributaries } from './tributaries';
 
 // Local-midnight parse — see cadence.spec.ts.
 function d(iso: string): Date {
@@ -83,7 +83,7 @@ describe('buildTributaries', () => {
     expect(after.every((t) => t.amount === 1600)).toBe(true);
   });
 
-  it('synthesizes one occurrence per renewal period for a budget-kind Flow', () => {
+  it('renders no tributary at all for a budget-kind Flow — its limit applies across the whole period, not at one point in time (#72)', () => {
     const flow: Flow = {
       id: 'budget-1',
       accountId: 'acc-1',
@@ -96,11 +96,7 @@ describe('buildTributaries', () => {
 
     const result = buildTributaries([flow], [], accounts, 'acc-1', d('2026-07-15'));
 
-    expect(result.length).toBeGreaterThanOrEqual(1);
-    for (const t of result) {
-      expect(t.amount).toBe(400);
-      expect(t.label).toBe('Groceries');
-    }
+    expect(result).toEqual([]);
   });
 
   it('labels a Transfer with the other account and direction, from this account\'s perspective', () => {
@@ -150,6 +146,32 @@ describe('buildTributaries', () => {
     const result = buildTributaries([flow], [], accounts, 'acc-1', d('2026-07-10'));
 
     expect(result).toEqual([]);
+  });
+});
+
+describe('budgetDrillInTributary', () => {
+  it('synthesizes a flow-kind Tributary carrying the budget-kind Flow\'s id, direction, name and limit, for the drill-in panel', () => {
+    const flow: Flow = {
+      id: 'budget-1',
+      accountId: 'acc-1',
+      name: 'Groceries',
+      direction: 'out',
+      kind: 'budget',
+      limit: 400,
+      period: 'month',
+    };
+
+    const result = budgetDrillInTributary(flow, d('2026-07-15'));
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        kind: 'flow',
+        direction: 'out',
+        amount: 400,
+        label: 'Groceries',
+        flowId: 'budget-1',
+      }),
+    );
   });
 });
 

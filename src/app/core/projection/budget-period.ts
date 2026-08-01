@@ -89,3 +89,13 @@ export function previousCompletedPeriod(
   const { start: prevStart, end: prevEnd } = periodBounds(period, dayBeforeCurrentPeriod);
   return { startExclusive: addDays(prevStart, -1), endInclusive: addDays(prevEnd, -1) };
 }
+
+/**
+ * The `(startExclusive, endInclusive]` window of `today`'s own in-progress calendar period —
+ * from the day before it started through `today` itself — the window a Budgets list row's
+ * progress bar sums actual spend/income over (see #72).
+ */
+export function currentPeriod(period: BudgetPeriod, today: Date): { startExclusive: Date; endInclusive: Date } {
+  const { start } = periodBounds(period, today);
+  return { startExclusive: addDays(start, -1), endInclusive: today };
+}
