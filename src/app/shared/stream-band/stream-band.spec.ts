@@ -534,18 +534,6 @@ describe('StreamBand', () => {
       // never leads a segment here, so clamping is exercised via balance 5000 already at the ceiling.
     });
 
-    it('marks a segment past the actual/projected boundary as projected', async () => {
-      const { fixture } = await createComponent([], 3, {
-        points: [point(0, 100), point(1, 100), point(2, 100)],
-        boundaryX: 1,
-        expectedSign: 1,
-      });
-
-      const fills: SVGPolygonElement[] = Array.from(fixture.nativeElement.querySelectorAll('.band-fill'));
-      expect(fills.some((el) => el.classList.contains('projected'))).toBe(true);
-      expect(fills.some((el) => !el.classList.contains('projected'))).toBe(true);
-    });
-
     it('renders exactly one white backing rect sized to the constant band', async () => {
       const { fixture } = await createComponent([], 2);
 
@@ -626,6 +614,55 @@ describe('StreamBand', () => {
       const fill: SVGPolygonElement = fixture.nativeElement.querySelector('.band-fill');
       expect(fill.classList.contains('negative')).toBe(true);
       expect(Number(fill.style.fillOpacity)).toBeCloseTo(0.2);
+    });
+  });
+
+  describe('projected-region overlay (replaces the old opacity-based marker)', () => {
+    it('renders no band-fill polygon with reduced opacity for the projected phase — magnitude opacity is untouched by phase', async () => {
+      const { fixture } = await createComponent([], 3, {
+        points: [point(0, 5000), point(1, 5000), point(2, 5000)],
+        boundaryX: 1,
+        expectedSign: 1,
+      });
+
+      const fills: SVGPolygonElement[] = Array.from(fixture.nativeElement.querySelectorAll('.band-fill'));
+      // every segment ramps purely by its own balance — none carry a `.projected` class/opacity dip anymore.
+      expect(fills.every((el) => !el.classList.contains('projected'))).toBe(true);
+      for (const fill of fills) {
+        expect(Number(fill.style.fillOpacity)).toBeCloseTo(1.0); // flat $5000 balance throughout -> ceiling, unaffected by boundaryX
+      }
+    });
+
+    it('positions a single overlay rectangle spanning from boundaryX to the right edge, at the band\'s fixed top/bottom', async () => {
+      const { fixture } = await createComponent([], 10, {
+        points: [point(0, 100), point(9, 100)],
+        boundaryX: 6,
+      });
+
+      const overlay: HTMLElement = fixture.nativeElement.querySelector('.projected-overlay');
+      expect(overlay).toBeTruthy();
+      expect(parseFloat(overlay.style.left)).toBeCloseTo(60); // 6/10 -> 60%
+      expect(parseFloat(overlay.style.width)).toBeCloseTo(40); // (10-6)/10 -> 40%
+    });
+
+    it('renders no overlay when the boundary is at or past the right edge — nothing in view is projected', async () => {
+      const { fixture } = await createComponent([], 10, {
+        points: [point(0, 100), point(9, 100)],
+        boundaryX: 10,
+      });
+
+      expect(fixture.nativeElement.querySelector('.projected-overlay')).toBeNull();
+    });
+
+    it('spans the full width when the boundary is at or before the left edge — everything in view is projected', async () => {
+      const { fixture } = await createComponent([], 10, {
+        points: [point(0, 100), point(9, 100)],
+        boundaryX: 0,
+      });
+
+      const overlay: HTMLElement = fixture.nativeElement.querySelector('.projected-overlay');
+      expect(parseFloat(overlay.style.left)).toBeCloseTo(0);
+      expect(parseFloat(overlay.style.width)).toBeCloseTo(100);
     });
   });
 });

@@ -15,7 +15,6 @@
         [class.total]="colorPalette() === 'total'"
         [class.positive]="segment.hue === 'positive'"
         [class.negative]="segment.hue === 'negative'"
-        [class.projected]="segment.phase === 'projected'"
         [style.fillOpacity]="segment.opacity"
       />
     }
@@ -36,6 +35,15 @@
       />
     }
   </svg>
+  @if (projectedOverlay(); as overlay) {
+    <div
+      class="projected-overlay"
+      [style.left.%]="overlay.leftPercent"
+      [style.top.%]="overlay.topPercent"
+      [style.width.%]="overlay.widthPercent"
+      [style.height.%]="overlay.heightPercent"
+    ></div>
+  }
   @for (label of tributaryLabels(); track label.id) {
     <span
       class="tributary-label"

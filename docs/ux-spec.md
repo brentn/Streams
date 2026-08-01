@@ -50,7 +50,7 @@ The `account-stream` scrubber is a graphical timeline, not a plain `<input type=
 
 - **Interaction:** direct drag-to-scrub on the timeline itself (pointer/touch drag mapped to days) — no separate range input or prev/next buttons.
 - **Marker:** a calendar-day chip (month band + day number (plus year if not current year)) tied to the scrub position, joined to the balance figure by a vertical accent-colored line, in a fixed vertical rhythm (calendar → chart → balance) rather than following the curve's data position.
-- **Actual vs. projected:** the projected portion of the band renders at reduced opacity with a dashed outline, distinguishing it from the actual (solid) portion.
+- **Actual vs. projected:** the projected portion of the band renders at reduced opacity with a dashed outline, distinguishing it from the actual (solid) portion. **Superseded** once the band moved to the color encoding (see `docs/adr/0009-balance-ribbon-color-encoding.md`): opacity was already spoken for by the Signed-Balance magnitude ramp, so a second opacity multiplier on the projected portion made the two signals compound into one. Replaced with a diagonal-hatch overlay instead (validated in the `projected-indicator` throwaway prototype, #79 follow-up) — phase and magnitude now read as distinct signals.
 
 Confirmed live against a plain-range-input alternative restyled with the same visual language (ticket 03), so the comparison isolated the scrubber mechanism alone. See [ticket 04](../.scratch/wayfinder/streams-ux-design/tickets/04-scrubber-redesign.md) for the full resolution.
 

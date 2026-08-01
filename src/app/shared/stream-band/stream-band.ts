@@ -4,7 +4,6 @@ import { Sign } from '../../core/models/account';
 import { ACCOUNT_COLOR_CURVE, segmentsByPoint, totalColorCurve } from '../../core/charting/balance-color';
 import { BandPoint } from '../../core/charting/band-segments';
 import { magnitudeScale, ribbonPoints } from '../../core/charting/ribbon';
-import { splitAtX } from '../../core/charting/split-at-x';
 import { Tributary } from '../../core/charting/tributaries';
 import { buildTributaryBundles } from '../../core/charting/tributary-bundles';
 import { bundleId, clusterTributaries, flattenGroupMembers } from '../../core/charting/tributary-clusters';
@@ -23,10 +22,13 @@ const GROUP_LIST_CLEARANCE = '1.75rem';
 /**
  * One constant-width, Signed-Balance color-encoded band (ADR-0009): each day renders as a solid
  * flat-filled polygon, hue by `positive`/`negative` and opacity ramped by `|Signed Balance|`
- * against a curve's domain (`colorPalette`/`colorDomain`; see `balance-color.ts`). The actual
- * portion renders solid; the projected portion renders at reduced opacity. Shared by
- * `account-stream` (single, tall) and the multi-account view (many short account lanes, plus the
- * green/red Total lane) — see docs/ux-spec.md.
+ * against a curve's domain (`colorPalette`/`colorDomain`; see `balance-color.ts`). The
+ * actual/projected split is marked by a separate diagonal-hatch overlay (`projectedOverlay`)
+ * rather than a second opacity multiplier on the fill, so magnitude and phase read as distinct
+ * signals instead of compounding into one (validated in the `prototype/projected-indicator`
+ * throwaway prototype, #79 follow-up). Shared by `account-stream` (single, tall) and the
+ * multi-account view (many short account lanes, plus the green/red Total lane) — see
+ * docs/ux-spec.md.
  */
 @Component({
   selector: 'app-stream-band',
@@ -70,20 +72,17 @@ export class StreamBand {
 
   /**
    * One flat-filled polygon per consecutive point pair, colored by its own Signed Balance (see
-   * `segmentsByPoint`) — each day gets its own exact hue/opacity.
+   * `segmentsByPoint`) — each day gets its own exact hue/opacity, independent of actual/projected
+   * phase (see `projectedOverlay`).
    */
   protected readonly colorSegments = computed(() => {
     const half = this.constantHalfThickness();
     const curve = this.colorCurve();
-    const { before, after } = splitAtX(this.points(), this.boundaryX());
-    const build = (pts: BandPoint[], phase: 'actual' | 'projected') =>
-      segmentsByPoint(pts, this.expectedSign(), curve).map((segment) => ({
-        phase,
-        hue: segment.hue,
-        opacity: segment.opacity,
-        polygon: ribbonPoints(segment.points, this.centerY(), () => half),
-      }));
-    return [...build(before, 'actual'), ...build(after, 'projected')];
+    return segmentsByPoint(this.points(), this.expectedSign(), curve).map((segment) => ({
+      hue: segment.hue,
+      opacity: segment.opacity,
+      polygon: ribbonPoints(segment.points, this.centerY(), () => half),
+    }));
   });
 
   /**
@@ -97,6 +96,31 @@ export class StreamBand {
     const half = this.constantHalfThickness();
     const centerY = this.centerY();
     return { top: centerY - half, bottom: centerY + half, height: 2 * half };
+  });
+
+  /**
+   * The projected region's box, as viewBox-relative percentages — since the band is now constant
+   * height (ADR-0009), everything from `boundaryX` onward shares the same fixed top/bottom, so
+   * the whole projected phase reduces to one rectangle rather than a per-day computation. A
+   * plain HTML overlay (`.projected-overlay` in stream-band.html), not an SVG shape, for the same
+   * non-uniform-scaling reason `toPercent` documents below — and rendered as a diagonal hatch
+   * texture rather than a second opacity multiplier, so phase and magnitude read as distinct
+   * signals instead of compounding into one (#79 follow-up; see the `projected-indicator`
+   * throwaway prototype). Null when nothing in view is projected (`boundaryX` at/past the right
+   * edge).
+   */
+  protected readonly projectedOverlay = computed(() => {
+    const viewWidth = this.viewWidth();
+    const clampedBoundary = Math.min(viewWidth, Math.max(0, this.boundaryX()));
+    if (clampedBoundary >= viewWidth) return null;
+    const edges = this.colorBandEdges();
+    const height = this.height();
+    return {
+      leftPercent: (clampedBoundary / viewWidth) * 100,
+      topPercent: (edges.top / height) * 100,
+      widthPercent: ((viewWidth - clampedBoundary) / viewWidth) * 100,
+      heightPercent: (edges.height / height) * 100,
+    };
   });
 
   private readonly maxTributaryAmount = computed(() =>

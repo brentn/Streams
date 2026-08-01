@@ -53,8 +53,21 @@
   fill: var(--color-total-negative);
 }
 
-.band-fill.projected {
-  opacity: 0.45;
+/*
+ * Marks the projected phase (see `projectedOverlay` in stream-band.ts) as a diagonal hatch
+ * texture, not a second opacity multiplier on the fill — opacity is already spoken for by the
+ * Signed-Balance magnitude ramp, so overloading it here would make "projected" and "small
+ * balance" look the same. A plain HTML div (not an SVG shape/pattern), for the same reason
+ * `.tributary-label`/`.tributary-badge` are: the SVG's `preserveAspectRatio="none"` non-uniform
+ * scaling would skew a diagonal drawn in its coordinate space. Literal black, not a `--color-*`
+ * token — like the white backing rect, it composites the same way in both themes since it sits
+ * on top of the same theme-invariant white backing (validated in the `projected-indicator`
+ * throwaway prototype, #79 follow-up).
+ */
+.projected-overlay {
+  position: absolute;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(45deg, rgb(0 0 0 / 0.22) 0 3px, transparent 3px 8px);
 }
 
 .tributary {
