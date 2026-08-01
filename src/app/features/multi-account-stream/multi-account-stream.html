@@ -1,18 +1,4 @@
 <section class="multi-account">
-  <header>
-    <h1>Accounts</h1>
-    <button
-      type="button"
-      class="resync"
-      (click)="resync()"
-      [disabled]="isSyncing()"
-      [attr.aria-label]="resyncLabel()"
-      [title]="resyncLabel()"
-    >
-      <app-resync-icon />
-    </button>
-  </header>
-
   <app-status-banner
     [errorMessage]="banner().message"
     [severity]="banner().severity"
@@ -38,24 +24,6 @@
       (scrubBy)="shiftDay($event)"
       (tap)="onLaneTap($event)"
     >
-      <div class="lane total-lane">
-        <span class="lane-name">Total</span>
-        <div class="lane-chart">
-          <app-stream-band
-            [points]="totalPoints()"
-            [expectedSign]="1"
-            [boundaryX]="totalBoundaryX()"
-            [maxAbsBalance]="totalMaxAbsBalance()"
-            [viewWidth]="windowDays"
-            [height]="totalLaneHeight()"
-            expectedColor="neutral"
-          />
-          <span class="pill tabular-nums" [class.opposite]="totalIsOpposite()">
-            {{ totalBalance() | currency }}
-          </span>
-        </div>
-      </div>
-
       @for (lane of lanes(); track lane.account.id) {
         <div class="lane" [attr.data-account-id]="lane.account.id">
           <span class="lane-heading">
@@ -67,6 +35,9 @@
             >
             @if (lane.syncIssueMessage; as message) {
               <app-sync-badge [message]="message" />
+            }
+            @if (lane.runningDryAlert; as alert) {
+              <app-dry-alert-badge [alert]="alert" />
             }
           </span>
           <div class="lane-chart">
@@ -84,6 +55,24 @@
           </div>
         </div>
       }
+
+      <div class="lane total-lane">
+        <span class="lane-name">Total</span>
+        <div class="lane-chart">
+          <app-stream-band
+            [points]="totalPoints()"
+            [expectedSign]="1"
+            [boundaryX]="totalBoundaryX()"
+            [maxAbsBalance]="totalMaxAbsBalance()"
+            [viewWidth]="windowDays"
+            [height]="totalLaneHeight()"
+            expectedColor="neutral"
+          />
+          <span class="pill tabular-nums" [class.opposite]="totalIsOpposite()">
+            {{ totalBalance() | currency }}
+          </span>
+        </div>
+      </div>
     </div>
   }
 </section>

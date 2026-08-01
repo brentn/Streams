@@ -1,13 +1,22 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { App } from './app';
 import { SyncCoordinator } from './core/sync/sync-coordinator';
 
 describe('App', () => {
-  let syncCoordinator: { triggerAutoResyncIfDue: ReturnType<typeof vi.fn> };
+  let syncCoordinator: {
+    triggerAutoResyncIfDue: ReturnType<typeof vi.fn>;
+    isSyncing: ReturnType<typeof signal<boolean>>;
+    resync: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(async () => {
-    syncCoordinator = { triggerAutoResyncIfDue: vi.fn().mockResolvedValue(undefined) };
+    syncCoordinator = {
+      triggerAutoResyncIfDue: vi.fn().mockResolvedValue(undefined),
+      isSyncing: signal(false),
+      resync: vi.fn().mockResolvedValue(undefined),
+    };
 
     await TestBed.configureTestingModule({
       imports: [App],
@@ -41,5 +50,37 @@ describe('App', () => {
     const settingsLink = compiled.querySelector('.settings-link');
     expect(settingsLink?.getAttribute('aria-label')).toBe('Settings');
     expect(settingsLink?.querySelector('app-settings-icon')).toBeTruthy();
+  });
+
+  it('renders the re-sync button next to the settings entry point', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const compiled = fixture.nativeElement as HTMLElement;
+    const actions = compiled.querySelector('.actions');
+    const resyncButton = actions?.querySelector('.resync');
+    expect(resyncButton?.querySelector('app-resync-icon')).toBeTruthy();
+    expect(actions?.querySelector('.settings-link')).toBeTruthy();
+  });
+
+  it('resyncs via the SyncCoordinator when the re-sync button is clicked', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const compiled = fixture.nativeElement as HTMLElement;
+    const resyncButton = compiled.querySelector<HTMLButtonElement>('.resync');
+
+    resyncButton?.click();
+
+    expect(syncCoordinator.resync).toHaveBeenCalledOnce();
+  });
+
+  it('disables the re-sync button and labels it "Syncing…" while a sync is in flight', async () => {
+    syncCoordinator.isSyncing.set(true);
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const compiled = fixture.nativeElement as HTMLElement;
+    const resyncButton = compiled.querySelector<HTMLButtonElement>('.resync');
+
+    expect(resyncButton?.disabled).toBe(true);
+    expect(resyncButton?.getAttribute('aria-label')).toBe('Syncing…');
   });
 });

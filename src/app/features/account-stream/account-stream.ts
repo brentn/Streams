@@ -36,7 +36,6 @@ import { openSimpleFinBridge } from '../../core/simplefin/reconnect';
 import { StorageRepository } from '../../core/storage/storage-repository';
 import { CalendarChip } from '../../shared/calendar-chip/calendar-chip';
 import { DragScrub } from '../../shared/drag-scrub/drag-scrub.directive';
-import { ResyncIcon } from '../../shared/resync-icon/resync-icon';
 import { StatusBanner } from '../../shared/status-banner/status-banner';
 import { StreamBand } from '../../shared/stream-band/stream-band';
 import { FlowFormDialog } from './flow-form-dialog/flow-form-dialog';
@@ -52,7 +51,6 @@ import { TributaryPanel } from './tributary-panel/tributary-panel';
     RouterLink,
     DragScrub,
     CalendarChip,
-    ResyncIcon,
     StatusBanner,
     StreamBand,
     TransactionReview,
@@ -78,7 +76,6 @@ export class AccountStream {
   protected readonly dayOffset = signal(0);
   protected readonly isSyncing = this.syncCoordinator.isSyncing;
   protected readonly operationError = this.syncCoordinator.operationError;
-  protected readonly resyncLabel = computed(() => (this.isSyncing() ? 'Syncing…' : 'Re-sync'));
 
   /** Merges the transient operation-error with the loaded Account's persisted syncStatus — see `sync-presentation.ts`. */
   protected readonly bannerState = computed(() =>

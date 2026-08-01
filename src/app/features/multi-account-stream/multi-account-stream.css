@@ -3,48 +3,6 @@
   margin: 0 auto;
 }
 
-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-h1 {
-  font-size: var(--text-heading);
-  font-weight: 600;
-  margin: 0;
-  color: var(--color-ink-primary);
-}
-
-.resync {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 999px;
-  color: var(--color-accent);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-}
-
-.resync app-resync-icon {
-  width: 1.125rem;
-  height: 1.125rem;
-}
-
-.resync:hover:not(:disabled) {
-  background: var(--color-surface);
-}
-
-.resync:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
 .empty {
   color: var(--color-ink-secondary);
 }
@@ -112,8 +70,8 @@ a.lane-name:hover {
 }
 
 .total-lane {
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--color-gridline);
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-gridline);
 }
 
 .total-lane .lane-name {

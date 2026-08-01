@@ -169,6 +169,19 @@ describe('MultiAccountStream', () => {
     expect(component['dayOffset']()).toBe(SCRUB_MIN_DAYS);
   });
 
+  it('renders every individual account lane before the Total lane', async () => {
+    const fixture = TestBed.createComponent(MultiAccountStream);
+    const component = fixture.componentInstance;
+    await component['load']();
+    fixture.detectChanges();
+
+    const laneEls = fixture.nativeElement.querySelectorAll('.lanes > .lane');
+    expect(laneEls.length).toBe(3);
+    expect(laneEls[0].getAttribute('data-account-id')).toBe('acc-checking');
+    expect(laneEls[1].getAttribute('data-account-id')).toBe('acc-credit');
+    expect(laneEls[2].classList.contains('total-lane')).toBe(true);
+  });
+
   it('reports isAtToday and jumps back to today from any scrub position', () => {
     const fixture = TestBed.createComponent(MultiAccountStream);
     const component = fixture.componentInstance;
@@ -339,6 +352,36 @@ describe('MultiAccountStream', () => {
 
       expect(component['banner']().severity).toBe('serious');
       expect(component['lanes']()[0].syncIssueMessage).toBeNull();
+    });
+  });
+
+  describe('Running-Dry Alert', () => {
+    it('surfaces a Running-Dry Alert per lane, without waiting for drill-in', async () => {
+      // dryFloor above the current balance means the account is already below its floor today;
+      // dryFloor well below the credit card's balance means it isn't.
+      storage.getAccounts.mockResolvedValue([
+        { ...checking, dryFloor: 2000 },
+        { ...creditCard, dryFloor: -1000 },
+      ]);
+
+      const fixture = TestBed.createComponent(MultiAccountStream);
+      const component = fixture.componentInstance;
+      await component['load']();
+
+      const lanes = component['lanes']();
+      expect(lanes[0].runningDryAlert).not.toBeNull();
+      expect(lanes[1].runningDryAlert).toBeNull();
+    });
+
+    it('renders a dry-alert badge next to the lane name when the account has an active Running-Dry Alert', async () => {
+      storage.getAccounts.mockResolvedValue([{ ...checking, dryFloor: 2000 }]);
+
+      const fixture = TestBed.createComponent(MultiAccountStream);
+      await fixture.componentInstance['load']();
+      fixture.detectChanges();
+
+      const heading = fixture.nativeElement.querySelector('.lane-heading');
+      expect(heading?.querySelector('app-dry-alert-badge')).toBeTruthy();
     });
   });
 });

@@ -14,7 +14,12 @@ import { Account } from '../../core/models/account';
 import { Flow } from '../../core/models/flow';
 import { Transaction } from '../../core/models/transaction';
 import { Transfer } from '../../core/models/transfer';
-import { balanceAtDate, balanceSeries } from '../../core/projection/projection-engine';
+import {
+  balanceAtDate,
+  balanceSeries,
+  RunningDryAlert,
+  runningDryAlert,
+} from '../../core/projection/projection-engine';
 import { BandPoint } from '../../core/charting/band-segments';
 import {
   boundaryXFor,
@@ -30,7 +35,7 @@ import { openSimpleFinBridge } from '../../core/simplefin/reconnect';
 import { StorageRepository } from '../../core/storage/storage-repository';
 import { CalendarChip } from '../../shared/calendar-chip/calendar-chip';
 import { DragScrub } from '../../shared/drag-scrub/drag-scrub.directive';
-import { ResyncIcon } from '../../shared/resync-icon/resync-icon';
+import { DryAlertBadge } from '../../shared/dry-alert-badge/dry-alert-badge';
 import { StatusBanner } from '../../shared/status-banner/status-banner';
 import { StreamBand } from '../../shared/stream-band/stream-band';
 import { SyncBadge } from '../../shared/sync-badge/sync-badge';
@@ -44,6 +49,8 @@ interface AccountLane {
   isOpposite: boolean;
   /** Only set when this account has a Sync Issue and the connection-level banner isn't already showing something higher-priority — no indicator for a suppressed lower-priority state. */
   syncIssueMessage: string | null;
+  /** Mirrors `account-stream.ts`'s `dryAlert` — same `runningDryAlert` call, just surfaced per-lane here instead of only after drilling in. */
+  runningDryAlert: RunningDryAlert | null;
 }
 
 @Component({
@@ -53,7 +60,7 @@ interface AccountLane {
     RouterLink,
     DragScrub,
     CalendarChip,
-    ResyncIcon,
+    DryAlertBadge,
     StatusBanner,
     StreamBand,
     SyncBadge,
@@ -75,7 +82,6 @@ export class MultiAccountStream {
   protected readonly dayOffset = signal(0);
   protected readonly isSyncing = this.syncCoordinator.isSyncing;
   protected readonly operationError = this.syncCoordinator.operationError;
-  protected readonly resyncLabel = computed(() => (this.isSyncing() ? 'Syncing…' : 'Re-sync'));
 
   /** Fanned (not per-lane) — see `connectionBannerState`. */
   protected readonly bannerState = computed(() =>
@@ -118,6 +124,7 @@ export class MultiAccountStream {
         isOpposite: balance * account.expectedSign < 0,
         syncIssueMessage:
           showSyncBadges && syncStatus?.kind === 'sync-issue' ? syncStatus.message : null,
+        runningDryAlert: runningDryAlert(account, transactions, flows, transfers, new Date()),
       };
     });
   });

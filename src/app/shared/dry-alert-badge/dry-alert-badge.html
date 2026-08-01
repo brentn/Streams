@@ -1,0 +1,9 @@
+@let projection = (alert().balance | currency) + ' on ' + (alert().date | date: 'mediumDate');
+<span
+  class="dry-alert-badge"
+  role="img"
+  [attr.aria-label]="'Running-Dry Alert: projected to drop to ' + projection"
+  [title]="'Projected to drop to ' + projection"
+>
+  <app-alert-icon />
+</span>

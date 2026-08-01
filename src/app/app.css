@@ -13,6 +13,12 @@
   color: var(--color-ink-primary);
 }
 
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 .settings-link {
   display: flex;
   align-items: center;
@@ -31,6 +37,34 @@
 .settings-link app-settings-icon {
   width: 1.125rem;
   height: 1.125rem;
+}
+
+.resync {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  color: var(--color-accent);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.resync app-resync-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.resync:hover:not(:disabled) {
+  background: var(--color-surface);
+}
+
+.resync:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 main {

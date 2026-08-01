@@ -1,8 +1,20 @@
 <header class="app-header">
   <h1>Streams</h1>
-  <a class="settings-link" routerLink="/settings" aria-label="Settings">
-    <app-settings-icon />
-  </a>
+  <div class="actions">
+    <button
+      type="button"
+      class="resync"
+      (click)="resync()"
+      [disabled]="isSyncing()"
+      [attr.aria-label]="resyncLabel()"
+      [title]="resyncLabel()"
+    >
+      <app-resync-icon />
+    </button>
+    <a class="settings-link" routerLink="/settings" aria-label="Settings">
+      <app-settings-icon />
+    </a>
+  </div>
 </header>
 
 <main>
