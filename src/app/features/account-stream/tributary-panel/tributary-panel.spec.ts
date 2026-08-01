@@ -9,7 +9,7 @@ import { Transaction } from '../../../core/models/transaction';
 import { Transfer } from '../../../core/models/transfer';
 import { StorageRepository } from '../../../core/storage/storage-repository';
 import { AssignFlowDialog, AssignFlowDialogResult } from '../transaction-review/assign-flow-dialog/assign-flow-dialog';
-import { FlowFormDialog } from '../flow-form-dialog/flow-form-dialog';
+import { FlowFormDialog, FlowFormDialogResult } from '../flow-form-dialog/flow-form-dialog';
 import { TransferFormDialog } from '../transfer-form-dialog/transfer-form-dialog';
 import { TributaryPanel } from './tributary-panel';
 
@@ -84,6 +84,8 @@ describe('TributaryPanel', () => {
     upsertCategorizationRule: ReturnType<typeof vi.fn>;
     getCategorizationRules: ReturnType<typeof vi.fn>;
     upsertTransactions: ReturnType<typeof vi.fn>;
+    deleteCategorizationRule: ReturnType<typeof vi.fn>;
+    deleteFlow: ReturnType<typeof vi.fn>;
   };
   let dialog: { open: ReturnType<typeof vi.fn> };
 
@@ -100,6 +102,8 @@ describe('TributaryPanel', () => {
       upsertCategorizationRule: vi.fn().mockResolvedValue(undefined),
       getCategorizationRules: vi.fn().mockResolvedValue([]),
       upsertTransactions: vi.fn().mockResolvedValue(undefined),
+      deleteCategorizationRule: vi.fn().mockResolvedValue(undefined),
+      deleteFlow: vi.fn().mockResolvedValue(undefined),
     };
     dialog = { open: vi.fn() };
     Element.prototype.scrollIntoView = vi.fn();
@@ -241,6 +245,31 @@ describe('TributaryPanel', () => {
 
     expect(storage.upsertFlow).not.toHaveBeenCalled();
     expect(changed).not.toHaveBeenCalled();
+  });
+
+  it("cascade-deletes the Flow, emits changed, and closes the panel, when the dialog closes with 'deleted'", async () => {
+    const matching = txn({ matchedTarget: { kind: 'flow', id: 'flow-rent' } });
+    const { component } = await createComponent({ tributary: flowTributary, transactions: [matching] });
+    const changed = vi.fn();
+    const closedOutput = vi.fn();
+    component.changed.subscribe(changed);
+    component.closed.subscribe(closedOutput);
+    const closed = new Subject<FlowFormDialogResult | undefined>();
+    dialog.open.mockReturnValue({ closed });
+    storage.getCategorizationRules.mockResolvedValue([
+      { matchText: 'rent payment', target: { kind: 'flow', id: 'flow-rent' } },
+    ]);
+
+    component['editItem']();
+    closed.next('deleted');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(storage.deleteCategorizationRule).toHaveBeenCalledWith('rent payment');
+    expect(storage.upsertTransactions).toHaveBeenCalledWith([{ ...matching, matchedTarget: null }]);
+    expect(storage.deleteFlow).toHaveBeenCalledWith('flow-rent');
+    expect(storage.upsertFlow).not.toHaveBeenCalled();
+    expect(changed).toHaveBeenCalled();
+    expect(closedOutput).toHaveBeenCalled();
   });
 
   it('opens AssignFlowDialog for a row and applies the result, emitting changed', async () => {

@@ -11,6 +11,7 @@ import {
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { Dialog } from '@angular/cdk/dialog';
+import { deleteFlowCascade } from '../../core/categorization/delete-flow-cascade';
 import { Account } from '../../core/models/account';
 import { BudgetFlow, Flow } from '../../core/models/flow';
 import { Transaction } from '../../core/models/transaction';
@@ -44,7 +45,7 @@ import { DragScrub } from '../../shared/drag-scrub/drag-scrub.directive';
 import { StatusBanner } from '../../shared/status-banner/status-banner';
 import { StreamBand } from '../../shared/stream-band/stream-band';
 import { BudgetList } from './budget-list/budget-list';
-import { FlowFormDialog } from './flow-form-dialog/flow-form-dialog';
+import { FlowFormDialog, FlowFormDialogResult } from './flow-form-dialog/flow-form-dialog';
 import { TransferFormDialog } from './transfer-form-dialog/transfer-form-dialog';
 import { TransactionReview } from './transaction-review/transaction-review';
 import { TributaryPanel } from './tributary-panel/tributary-panel';
@@ -292,9 +293,15 @@ export class AccountStream {
     if (!account) return;
 
     if (flow) {
-      const ref = this.dialog.open<Flow>(FlowFormDialog, { data: { accountId: account.id, flow } });
-      ref.closed.subscribe((saved) => {
-        if (saved) void this.persistFlow(saved);
+      const ref = this.dialog.open<FlowFormDialogResult>(FlowFormDialog, {
+        data: { accountId: account.id, flow },
+      });
+      ref.closed.subscribe((result) => {
+        if (result === 'deleted') {
+          void this.deleteFlowAndReload(flow.id);
+        } else if (result) {
+          void this.persistFlow(result);
+        }
       });
     } else if (transfer) {
       const ref = this.dialog.open<Transfer>(TransferFormDialog, {
@@ -304,6 +311,11 @@ export class AccountStream {
         if (saved) void this.persistTransfer(saved);
       });
     }
+  }
+
+  private async deleteFlowAndReload(flowId: string): Promise<void> {
+    await deleteFlowCascade(this.storage, this.transactions(), flowId);
+    await this.reloadAll();
   }
 
   /** Resets to `false` first so a repeat click still re-triggers the CSS pulse — `[class.highlighted]` only replays the animation on an off→on transition. */

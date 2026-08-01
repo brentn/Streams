@@ -127,3 +127,17 @@ form {
   padding: 0.5rem 1rem;
   color: var(--color-ink-secondary);
 }
+
+.form-actions .delete {
+  margin-left: auto;
+  color: var(--color-critical);
+  border-color: var(--color-critical);
+}
+
+.confirm-delete {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--text-body);
+  color: var(--color-ink-secondary);
+}

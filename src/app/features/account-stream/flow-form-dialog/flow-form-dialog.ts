@@ -9,7 +9,10 @@ export interface FlowFormDialogData {
   flow?: Flow;
 }
 
-/** Opens `FlowForm` as a modal, per the CDK Dialog pattern `AssignFlowDialog` established — closes with the saved Flow, or no result on cancel. */
+/** `'deleted'` distinguishes a confirmed delete from the saved Flow a normal submit closes with. */
+export type FlowFormDialogResult = Flow | 'deleted';
+
+/** Opens `FlowForm` as a modal, per the CDK Dialog pattern `AssignFlowDialog` established — closes with the saved Flow, `'deleted'`, or no result on cancel. */
 @Component({
   selector: 'app-flow-form-dialog',
   imports: [FlowForm],
@@ -17,7 +20,7 @@ export interface FlowFormDialogData {
   styleUrl: './flow-form-dialog.css',
 })
 export class FlowFormDialog {
-  private readonly dialogRef = inject(DialogRef<Flow>);
+  private readonly dialogRef = inject(DialogRef<FlowFormDialogResult>);
   protected readonly data = inject<FlowFormDialogData>(DIALOG_DATA);
 
   protected onSaved(flow: Flow): void {
@@ -26,5 +29,9 @@ export class FlowFormDialog {
 
   protected onCancelled(): void {
     this.dialogRef.close();
+  }
+
+  protected onDeleted(): void {
+    this.dialogRef.close('deleted');
   }
 }

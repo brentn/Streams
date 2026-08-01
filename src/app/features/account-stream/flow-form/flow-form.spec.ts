@@ -320,4 +320,62 @@ describe('FlowForm', () => {
     expect(cancelled).toHaveBeenCalled();
     expect(saved).not.toHaveBeenCalled();
   });
+
+  describe('delete', () => {
+    const existingFlow: BudgetFlow = {
+      id: 'flow-1',
+      accountId: 'acc-1',
+      name: 'Groceries',
+      direction: 'out',
+      kind: 'budget',
+      limit: 400,
+      period: 'month',
+    };
+
+    it('does not show a Delete button when creating a new Flow', async () => {
+      const { fixture } = await createComponent();
+
+      expect(fixture.nativeElement.querySelector('.delete')).toBeNull();
+    });
+
+    it('shows a Delete button when editing an existing Flow', async () => {
+      const { fixture } = await createComponent('acc-1', existingFlow);
+
+      expect(fixture.nativeElement.querySelector('.delete')).not.toBeNull();
+    });
+
+    it('does not emit deleted until the delete is confirmed', async () => {
+      const { component } = await createComponent('acc-1', existingFlow);
+      const deleted = vi.fn();
+      component.deleted.subscribe(deleted);
+
+      component['startDelete']();
+
+      expect(deleted).not.toHaveBeenCalled();
+      expect(component['isConfirmingDelete']()).toBe(true);
+    });
+
+    it('emits deleted once the delete is confirmed', async () => {
+      const { component } = await createComponent('acc-1', existingFlow);
+      const deleted = vi.fn();
+      component.deleted.subscribe(deleted);
+
+      component['startDelete']();
+      component['confirmDelete']();
+
+      expect(deleted).toHaveBeenCalled();
+    });
+
+    it('backs out of confirmation without emitting deleted on cancel', async () => {
+      const { component } = await createComponent('acc-1', existingFlow);
+      const deleted = vi.fn();
+      component.deleted.subscribe(deleted);
+
+      component['startDelete']();
+      component['cancelDelete']();
+
+      expect(deleted).not.toHaveBeenCalled();
+      expect(component['isConfirmingDelete']()).toBe(false);
+    });
+  });
 });

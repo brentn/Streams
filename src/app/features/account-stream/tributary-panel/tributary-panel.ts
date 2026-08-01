@@ -2,6 +2,7 @@ import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Dialog } from '@angular/cdk/dialog';
 import { afterNextRender, Component, computed, ElementRef, inject, input, output, viewChildren } from '@angular/core';
 import { applyAssignment } from '../../../core/categorization/apply-assignment';
+import { deleteFlowCascade } from '../../../core/categorization/delete-flow-cascade';
 import { Account } from '../../../core/models/account';
 import { Flow } from '../../../core/models/flow';
 import { Transaction } from '../../../core/models/transaction';
@@ -10,7 +11,7 @@ import { transferLabel } from '../../../core/models/transfer-label';
 import { Tributary } from '../../../core/charting/tributaries';
 import { StorageRepository } from '../../../core/storage/storage-repository';
 import { AssignFlowDialog, AssignFlowDialogResult } from '../transaction-review/assign-flow-dialog/assign-flow-dialog';
-import { FlowFormDialog } from '../flow-form-dialog/flow-form-dialog';
+import { FlowFormDialog, FlowFormDialogResult } from '../flow-form-dialog/flow-form-dialog';
 import { TransferFormDialog } from '../transfer-form-dialog/transfer-form-dialog';
 
 export interface TributaryDayGroup {
@@ -105,9 +106,15 @@ export class TributaryPanel {
   protected editItem(): void {
     const flow = this.flow();
     if (flow) {
-      const ref = this.dialog.open<Flow>(FlowFormDialog, { data: { accountId: this.accountId(), flow } });
-      ref.closed.subscribe((saved) => {
-        if (saved) void this.persistFlow(saved);
+      const ref = this.dialog.open<FlowFormDialogResult>(FlowFormDialog, {
+        data: { accountId: this.accountId(), flow },
+      });
+      ref.closed.subscribe((result) => {
+        if (result === 'deleted') {
+          void this.deleteFlowAndClose(flow.id);
+        } else if (result) {
+          void this.persistFlow(result);
+        }
       });
       return;
     }
@@ -126,6 +133,13 @@ export class TributaryPanel {
   private async persistFlow(flow: Flow): Promise<void> {
     await this.storage.upsertFlow(flow);
     this.changed.emit();
+  }
+
+  /** The panel is showing a Flow that no longer exists once this resolves, so it closes itself. */
+  private async deleteFlowAndClose(flowId: string): Promise<void> {
+    await deleteFlowCascade(this.storage, this.transactions(), flowId);
+    this.changed.emit();
+    this.close();
   }
 
   private async persistTransfer(transfer: Transfer): Promise<void> {

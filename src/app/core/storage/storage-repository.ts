@@ -239,6 +239,11 @@ export class StorageRepository {
     return db.getAll('categorizationRules');
   }
 
+  async deleteCategorizationRule(matchText: string): Promise<void> {
+    const db = await this.dbPromise;
+    await db.delete('categorizationRules', normalizeMatchText(matchText));
+  }
+
   async close(): Promise<void> {
     const db = await this.dbPromise;
     db.close();

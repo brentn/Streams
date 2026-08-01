@@ -96,8 +96,19 @@
 </div>
 
 <div class="form-actions">
-  <button type="submit" form="flow-form" [disabled]="!isValid()">
-    {{ flow() === null ? 'Create' : 'Save' }}
-  </button>
-  <button type="button" (click)="cancel()">Cancel</button>
+  @if (isConfirmingDelete()) {
+    <span class="confirm-delete">
+      <span>Delete this Flow? Its Transactions will become unassigned.</span>
+      <button type="button" class="delete" (click)="confirmDelete()">Confirm Delete</button>
+      <button type="button" (click)="cancelDelete()">Cancel</button>
+    </span>
+  } @else {
+    <button type="submit" form="flow-form" [disabled]="!isValid()">
+      {{ flow() === null ? 'Create' : 'Save' }}
+    </button>
+    <button type="button" (click)="cancel()">Cancel</button>
+    @if (flow() !== null) {
+      <button type="button" class="delete" (click)="startDelete()">Delete</button>
+    }
+  }
 </div>

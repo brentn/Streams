@@ -355,6 +355,23 @@ describe('StorageRepository', () => {
     expect(rules).toEqual([{ matchText: 'amazon prime', target: { kind: 'flow', id: 'flow-2' } }]);
   });
 
+  it('deletes a Categorization Rule by matchText', async () => {
+    const rule: CategorizationRule = { matchText: 'amazon prime', target: { kind: 'flow', id: 'flow-1' } };
+    await repo.upsertCategorizationRule(rule);
+
+    await repo.deleteCategorizationRule('amazon prime');
+
+    expect(await repo.getCategorizationRules()).toEqual([]);
+  });
+
+  it('normalizes matchText when deleting a Categorization Rule', async () => {
+    await repo.upsertCategorizationRule({ matchText: 'amazon prime', target: { kind: 'flow', id: 'flow-1' } });
+
+    await repo.deleteCategorizationRule('  AMAZON PRIME  ');
+
+    expect(await repo.getCategorizationRules()).toEqual([]);
+  });
+
   describe('exportAll / importAll', () => {
     it('exports every object store currently in the schema, keyed by store name', async () => {
       const account: Account = {

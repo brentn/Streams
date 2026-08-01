@@ -11,7 +11,7 @@ import { SCRUB_MAX_DAYS, SCRUB_MIN_DAYS } from '../../core/charting/date-window'
 import { SimpleFinAdapter } from '../../core/simplefin/simplefin-adapter';
 import { StorageRepository } from '../../core/storage/storage-repository';
 import { AccountStream } from './account-stream';
-import { FlowFormDialog } from './flow-form-dialog/flow-form-dialog';
+import { FlowFormDialog, FlowFormDialogResult } from './flow-form-dialog/flow-form-dialog';
 import { TransferFormDialog } from './transfer-form-dialog/transfer-form-dialog';
 
 // balanceDate is always "tomorrow" relative to test run time, so today's
@@ -43,6 +43,8 @@ describe('AccountStream', () => {
     saveOldestFetchedAt: ReturnType<typeof vi.fn>;
     upsertFlow: ReturnType<typeof vi.fn>;
     upsertTransfer: ReturnType<typeof vi.fn>;
+    deleteCategorizationRule: ReturnType<typeof vi.fn>;
+    deleteFlow: ReturnType<typeof vi.fn>;
   };
   let simplefin: { fetchAccounts: ReturnType<typeof vi.fn> };
   let router: { navigateByUrl: ReturnType<typeof vi.fn> };
@@ -64,6 +66,8 @@ describe('AccountStream', () => {
       saveOldestFetchedAt: vi.fn(),
       upsertFlow: vi.fn(),
       upsertTransfer: vi.fn(),
+      deleteCategorizationRule: vi.fn().mockResolvedValue(undefined),
+      deleteFlow: vi.fn().mockResolvedValue(undefined),
     };
     simplefin = { fetchAccounts: vi.fn() };
     router = { navigateByUrl: vi.fn() };
@@ -509,6 +513,52 @@ describe('AccountStream', () => {
         data: { accountId: 'acc-1', flow: oneTimeFlow },
       });
       expect(component['openTributary']()).toBeNull();
+    });
+
+    it("cascade-deletes the Flow and reloads, when the one-time Flow's edit dialog closes with 'deleted'", async () => {
+      storage.getFlowsForAccount.mockResolvedValue([oneTimeFlow]);
+      const matching: Transaction = {
+        id: 'txn-1',
+        accountId: 'acc-1',
+        date: new Date('2026-07-10'),
+        amount: -300,
+        description: 'BONUS',
+        matchedTarget: { kind: 'flow', id: 'flow-onetime' },
+      };
+      storage.getTransactionsForAccount.mockResolvedValue([matching]);
+      storage.getCategorizationRules.mockResolvedValue([
+        { matchText: 'bonus', target: { kind: 'flow', id: 'flow-onetime' } },
+      ]);
+      const closed = new Subject<FlowFormDialogResult | undefined>();
+      dialog.open.mockReturnValue({ closed });
+
+      const fixture = TestBed.createComponent(AccountStream);
+      fixture.componentRef.setInput('id', 'acc-1');
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+
+      component['onTributaryClick']({
+        id: 't1',
+        kind: 'flow',
+        direction: 'out',
+        date: new Date('2026-07-10'),
+        x: 0,
+        amount: 300,
+        label: 'Bonus',
+        flowId: 'flow-onetime',
+      });
+      const unassigned = { ...matching, matchedTarget: null };
+      storage.getFlowsForAccount.mockResolvedValue([]);
+      storage.getTransactionsForAccount.mockResolvedValue([unassigned]);
+      closed.next('deleted');
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(storage.deleteCategorizationRule).toHaveBeenCalledWith('bonus');
+      expect(storage.upsertTransactions).toHaveBeenCalledWith([unassigned]);
+      expect(storage.deleteFlow).toHaveBeenCalledWith('flow-onetime');
+      expect(storage.upsertFlow).not.toHaveBeenCalled();
+      expect(component['flows']()).toEqual([]);
+      expect(component['transactions']()).toEqual([unassigned]);
     });
 
     it('opens TransferFormDialog directly, pre-filled, for a one-time Transfer tributary — no panel', async () => {

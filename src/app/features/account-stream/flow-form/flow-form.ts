@@ -39,6 +39,7 @@ export class FlowForm {
   readonly flow = input<Flow | null>(null);
   readonly saved = output<Flow>();
   readonly cancelled = output<void>();
+  readonly deleted = output<void>();
 
   protected readonly name = signal('');
   protected readonly direction = signal<FlowDirection>('out');
@@ -54,6 +55,7 @@ export class FlowForm {
   protected readonly toleranceKind = signal<'percent' | 'fixed'>('percent');
   protected readonly toleranceValue = signal(10);
   protected readonly isEditingTolerance = signal(false);
+  protected readonly isConfirmingDelete = signal(false);
   protected readonly toleranceDisplay = computed(() =>
     this.toleranceKind() === 'percent' ? `${this.toleranceValue()}%` : `$${this.toleranceValue()}`,
   );
@@ -134,5 +136,17 @@ export class FlowForm {
 
   protected cancel(): void {
     this.cancelled.emit();
+  }
+
+  protected startDelete(): void {
+    this.isConfirmingDelete.set(true);
+  }
+
+  protected cancelDelete(): void {
+    this.isConfirmingDelete.set(false);
+  }
+
+  protected confirmDelete(): void {
+    this.deleted.emit();
   }
 }
