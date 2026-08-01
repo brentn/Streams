@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Account } from '../../core/models/account';
 import { FileDownloadService } from '../../core/download/file-download';
@@ -42,6 +42,7 @@ describe('Settings', () => {
         { provide: StorageRepository, useValue: storage },
         { provide: FileDownloadService, useValue: fileDownload },
         { provide: Router, useValue: router },
+        { provide: ActivatedRoute, useValue: {} },
       ],
     }).compileComponents();
   });
@@ -74,6 +75,18 @@ describe('Settings', () => {
 
       expect(component['errorMessage']()).toBe('db unavailable');
       expect(fileDownload.download).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('navigation', () => {
+    it('renders a labeled link back to the accounts screen', () => {
+      const fixture = TestBed.createComponent(Settings);
+      fixture.detectChanges();
+
+      const back = fixture.nativeElement.querySelector('.back') as HTMLAnchorElement | null;
+
+      expect(back?.getAttribute('aria-label')).toBe('All accounts');
+      expect(back?.textContent?.trim()).toBe('‹');
     });
   });
 

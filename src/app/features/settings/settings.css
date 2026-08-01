@@ -6,6 +6,31 @@
   gap: 1rem;
 }
 
+.title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: var(--color-ink-secondary);
+  text-decoration: none;
+}
+
+.back:hover {
+  color: var(--color-accent);
+  background: var(--color-surface);
+}
+
 h1 {
   font-size: var(--text-heading);
   font-weight: 600;

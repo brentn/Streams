@@ -1,5 +1,10 @@
 <section class="settings">
-  <h1>Settings</h1>
+  <header>
+    <div class="title">
+      <a routerLink="/accounts" class="back" aria-label="All accounts">‹</a>
+      <h1>Settings</h1>
+    </div>
+  </header>
 
   <app-status-banner [errorMessage]="errorMessage()" [isSyncing]="isExporting()" (retry)="retry()" />
 

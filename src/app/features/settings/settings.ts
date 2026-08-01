@@ -1,5 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { Account } from '../../core/models/account';
 import { FileDownloadService } from '../../core/download/file-download';
 import { serializeBackup } from '../../core/storage/backup-codec';
@@ -10,7 +10,7 @@ import { AccountsList } from './accounts-list/accounts-list';
 
 @Component({
   selector: 'app-settings',
-  imports: [StatusBanner, BackupImport, AccountsList],
+  imports: [RouterLink, StatusBanner, BackupImport, AccountsList],
   templateUrl: './settings.html',
   styleUrl: './settings.css',
 })
