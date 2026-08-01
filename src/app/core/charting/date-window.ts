@@ -32,6 +32,19 @@ export function clampDayOffset(offset: number): number {
   return Math.min(SCRUB_MAX_DAYS, Math.max(SCRUB_MIN_DAYS, offset));
 }
 
+/**
+ * Every date in the full scrubbable range (`SCRUB_MIN_DAYS..SCRUB_MAX_DAYS` from `today`),
+ * independent of the current scroll position — used to compute the Total lane's own color
+ * domain (#79) once over the whole range rather than just the visible 60-day window.
+ */
+export function fullScrubRangeDates(today: Date): Date[] {
+  const normalizedToday = normalizeDay(today);
+  return Array.from(
+    { length: SCRUB_MAX_DAYS - SCRUB_MIN_DAYS + 1 },
+    (_, i) => addDays(normalizedToday, SCRUB_MIN_DAYS + i),
+  );
+}
+
 /** The scrub position (today + `dayOffset` days, normalized to midnight). */
 export function selectedDateFor(dayOffset: number): Date {
   return addDays(normalizeDay(new Date()), dayOffset);

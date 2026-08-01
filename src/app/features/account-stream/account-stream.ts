@@ -153,10 +153,6 @@ export class AccountStream {
     ).map((p, i) => ({ x: i, balance: p.balance }));
   });
 
-  protected readonly maxAbsBalance = computed(() =>
-    this.points().reduce((max, p) => Math.max(max, Math.abs(p.balance)), 0),
-  );
-
   /** Real Flow/Transfer tributaries plus the aggregate "uncategorized" one sourced from unmatched Transactions — see ticket #63. */
   protected readonly tributaries = computed(() => {
     const account = this.account();

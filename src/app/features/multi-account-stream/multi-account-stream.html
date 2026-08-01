@@ -45,10 +45,8 @@
               [points]="lane.points"
               [expectedSign]="lane.account.expectedSign"
               [boundaryX]="lane.boundaryX"
-              [maxAbsBalance]="lane.maxAbsBalance"
               [viewWidth]="windowDays"
               [height]="accountLaneHeight()"
-              [encoding]="'color'"
             />
             <span class="pill tabular-nums" [class.opposite]="lane.isOpposite">
               {{ lane.balance | currency }}
@@ -64,10 +62,10 @@
             [points]="totalPoints()"
             [expectedSign]="1"
             [boundaryX]="totalBoundaryX()"
-            [maxAbsBalance]="totalMaxAbsBalance()"
             [viewWidth]="windowDays"
             [height]="totalLaneHeight()"
-            expectedColor="neutral"
+            [colorPalette]="'total'"
+            [colorDomain]="totalColorDomain()"
           />
           <span class="pill tabular-nums" [class.opposite]="totalIsOpposite()">
             {{ totalBalance() | currency }}

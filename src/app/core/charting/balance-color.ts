@@ -17,6 +17,43 @@ const OPACITY_FLOOR_POSITIVE = 0.05;
 const OPACITY_FLOOR_NEGATIVE = 0.2;
 const OPACITY_CEILING = 1.0;
 
+/** Fraction of the Total lane's own domain at which opacity reaches the ceiling — the top 20% of its range all reads as the same fully-saturated color, so the domain doesn't need its own headroom above the largest total the app is likely to show. See ADR-0009. */
+export const TOTAL_OPACITY_CEILING_RATIO = 0.8;
+
+/** Parameters of the opacity ramp described in `balanceColorSegment` — everything that differs between the individual-account treatment and the Total lane's (#79). */
+export interface ColorCurve {
+  domain: number;
+  /** Opacity reaches `1.0` at `domain * ceilingRatio`, not necessarily at `domain` itself. */
+  ceilingRatio: number;
+  positiveFloor: number;
+  negativeFloor: number;
+}
+
+/** The individual-account curve (#77/#78): flat `$5000` domain, ceiling at the domain itself, brown's floor raised above blue's — see ADR-0009. */
+export const ACCOUNT_COLOR_CURVE: ColorCurve = {
+  domain: BALANCE_COLOR_DOMAIN,
+  ceilingRatio: 1,
+  positiveFloor: OPACITY_FLOOR_POSITIVE,
+  negativeFloor: OPACITY_FLOOR_NEGATIVE,
+};
+
+/**
+ * The Total lane's curve (#79): `domain` is computed by the caller once over the full
+ * scrubbable range (not the flat $5000), and the ceiling sits at 80% of that domain. Carries
+ * over the account curve's raised negative floor rather than sharing the low positive one —
+ * red read as washed-out at the same floor blue/green use, same problem brown's raised floor
+ * already solves, confirmed against a rendered swatch before shipping this asymmetric-in-either-
+ * curve floor split.
+ */
+export function totalColorCurve(domain: number): ColorCurve {
+  return {
+    domain,
+    ceilingRatio: TOTAL_OPACITY_CEILING_RATIO,
+    positiveFloor: OPACITY_FLOOR_POSITIVE,
+    negativeFloor: OPACITY_FLOOR_NEGATIVE,
+  };
+}
+
 export type BalanceHue = 'positive' | 'negative';
 
 export interface BalanceColorSegment {
@@ -30,16 +67,22 @@ export function signedBalance(balance: number, expectedSign: Sign): number {
 }
 
 /**
- * Solid-hue opacity for a balance against the flat `$5000` domain: linear from the hue's own
- * floor to `1.0` as `|Signed Balance| / domain` goes `0` to `1`, clamped past `1`. Hue flips
- * abruptly at the zero crossing (a zero Signed Balance counts as `'positive'`) rather than
- * blending through the floor.
+ * Solid-hue opacity for a balance against `curve`'s domain: linear from the hue's own floor to
+ * `1.0` as `|Signed Balance| / (domain * ceilingRatio)` goes `0` to `1`, clamped past `1`. Hue
+ * flips abruptly at the zero crossing (a zero Signed Balance counts as `'positive'`) rather than
+ * blending through the floor. Defaults to the individual-account curve so #77/#78 callers are
+ * unaffected; the Total lane (#79) passes `totalColorCurve(...)` instead.
  */
-export function balanceColorSegment(balance: number, expectedSign: Sign): BalanceColorSegment {
+export function balanceColorSegment(
+  balance: number,
+  expectedSign: Sign,
+  curve: ColorCurve = ACCOUNT_COLOR_CURVE,
+): BalanceColorSegment {
   const signed = signedBalance(balance, expectedSign);
   const hue: BalanceHue = signed >= 0 ? 'positive' : 'negative';
-  const floor = hue === 'positive' ? OPACITY_FLOOR_POSITIVE : OPACITY_FLOOR_NEGATIVE;
-  const ratio = Math.min(1, Math.abs(signed) / BALANCE_COLOR_DOMAIN);
+  const floor = hue === 'positive' ? curve.positiveFloor : curve.negativeFloor;
+  const ceiling = curve.domain * curve.ceilingRatio;
+  const ratio = ceiling <= 0 ? (Math.abs(signed) > 0 ? 1 : 0) : Math.min(1, Math.abs(signed) / ceiling);
   const opacity = floor + ratio * (OPACITY_CEILING - floor);
   return { hue, opacity };
 }
@@ -56,10 +99,14 @@ export interface BalancePointSegment {
  * buckets, but as a flat fill (not an SVG `<linearGradient>`'s interpolation between stops); see
  * `StreamBand`'s `colorSegments` and ADR-0009.
  */
-export function segmentsByPoint(points: BandPoint[], expectedSign: Sign): BalancePointSegment[] {
+export function segmentsByPoint(
+  points: BandPoint[],
+  expectedSign: Sign,
+  curve: ColorCurve = ACCOUNT_COLOR_CURVE,
+): BalancePointSegment[] {
   const segments: BalancePointSegment[] = [];
   for (let i = 0; i < points.length - 1; i++) {
-    const { hue, opacity } = balanceColorSegment(points[i].balance, expectedSign);
+    const { hue, opacity } = balanceColorSegment(points[i].balance, expectedSign, curve);
     segments.push({ points: [points[i], points[i + 1]], hue, opacity });
   }
   return segments;

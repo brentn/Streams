@@ -14,9 +14,9 @@ const points: BandPoint[] = [point(0, 100), point(1, 100), point(2, 100)];
 interface CreateComponentOverrides {
   points?: BandPoint[];
   boundaryX?: number;
-  maxAbsBalance?: number;
-  encoding?: 'width' | 'color';
   expectedSign?: Sign;
+  colorPalette?: 'account' | 'total';
+  colorDomain?: number;
 }
 
 describe('StreamBand', () => {
@@ -30,11 +30,11 @@ describe('StreamBand', () => {
     const fixture = TestBed.createComponent(StreamBand);
     fixture.componentRef.setInput('points', overrides.points ?? points);
     fixture.componentRef.setInput('boundaryX', overrides.boundaryX ?? 1);
-    fixture.componentRef.setInput('maxAbsBalance', overrides.maxAbsBalance ?? 100);
     fixture.componentRef.setInput('viewWidth', viewWidth);
     fixture.componentRef.setInput('tributaries', tributaries);
-    if (overrides.encoding !== undefined) fixture.componentRef.setInput('encoding', overrides.encoding);
     if (overrides.expectedSign !== undefined) fixture.componentRef.setInput('expectedSign', overrides.expectedSign);
+    if (overrides.colorPalette !== undefined) fixture.componentRef.setInput('colorPalette', overrides.colorPalette);
+    if (overrides.colorDomain !== undefined) fixture.componentRef.setInput('colorDomain', overrides.colorDomain);
     fixture.detectChanges();
     return { component: fixture.componentInstance, fixture };
   }
@@ -463,20 +463,9 @@ describe('StreamBand', () => {
   });
 
   describe('color encoding (#77 — Signed Balance color ribbon)', () => {
-    it('defaults to the width encoding — no band-fill polygons rendered', async () => {
-      const { fixture } = await createComponent();
-
-      expect(fixture.nativeElement.querySelectorAll('.band-fill').length).toBe(0);
-      expect(fixture.nativeElement.querySelectorAll('.segment').length).toBeGreaterThan(0);
-    });
-
-    it('renders one flat-filled band polygon per consecutive day, not the width-based segments, when encoding is color', async () => {
+    it('renders one flat-filled band polygon per consecutive day, never the old width-based segments', async () => {
       const flatPoints: BandPoint[] = [point(0, 100), point(1, 100), point(2, 100)];
-      const { fixture } = await createComponent([], 2, {
-        points: flatPoints,
-        boundaryX: 10,
-        encoding: 'color',
-      });
+      const { fixture } = await createComponent([], 2, { points: flatPoints, boundaryX: 10 });
 
       expect(fixture.nativeElement.querySelectorAll('.segment').length).toBe(0);
       expect(fixture.nativeElement.querySelectorAll('.band-fill').length).toBe(flatPoints.length - 1);
@@ -486,7 +475,6 @@ describe('StreamBand', () => {
       const { fixture } = await createComponent([], 2, {
         points: [point(0, 1000), point(1, 1000)],
         boundaryX: 10,
-        encoding: 'color',
         expectedSign: 1,
       });
 
@@ -499,7 +487,6 @@ describe('StreamBand', () => {
       const { fixture } = await createComponent([], 2, {
         points: [point(0, -1000), point(1, -1000)],
         boundaryX: 10,
-        encoding: 'color',
         expectedSign: 1,
       });
 
@@ -512,7 +499,6 @@ describe('StreamBand', () => {
       const { fixture } = await createComponent([], 2, {
         points: [point(0, -1000), point(1, -1000)],
         boundaryX: 10,
-        encoding: 'color',
         expectedSign: -1,
       });
 
@@ -524,7 +510,6 @@ describe('StreamBand', () => {
       const { fixture } = await createComponent([], 2, {
         points: [point(0, 1000), point(1, 1000)],
         boundaryX: 10,
-        encoding: 'color',
         expectedSign: -1,
       });
 
@@ -536,7 +521,6 @@ describe('StreamBand', () => {
       const { fixture } = await createComponent([], 4, {
         points: [point(0, 0), point(1, 2500), point(2, 5000), point(3, 50000)],
         boundaryX: 10,
-        encoding: 'color',
         expectedSign: 1,
       });
 
@@ -554,7 +538,6 @@ describe('StreamBand', () => {
       const { fixture } = await createComponent([], 3, {
         points: [point(0, 100), point(1, 100), point(2, 100)],
         boundaryX: 1,
-        encoding: 'color',
         expectedSign: 1,
       });
 
@@ -563,48 +546,86 @@ describe('StreamBand', () => {
       expect(fills.some((el) => !el.classList.contains('projected'))).toBe(true);
     });
 
-    it('renders exactly one white backing rect sized to the constant band, only for color encoding', async () => {
-      const widthResult = await createComponent([], 2, { encoding: 'width' });
-      const colorResult = await createComponent([], 2, { encoding: 'color' });
+    it('renders exactly one white backing rect sized to the constant band', async () => {
+      const { fixture } = await createComponent([], 2);
 
-      expect(widthResult.fixture.nativeElement.querySelectorAll('.band-backing').length).toBe(0);
-      const backingRects = colorResult.fixture.nativeElement.querySelectorAll('.band-backing');
+      const backingRects = fixture.nativeElement.querySelectorAll('.band-backing');
       expect(backingRects.length).toBe(1);
       expect(Number(backingRects[0].getAttribute('width'))).toBe(2);
       expect(Number(backingRects[0].getAttribute('height'))).toBeGreaterThan(0);
     });
 
-    it(
-      "anchors tributaries to a fixed edge regardless of balance magnitude in color encoding — " +
-        'unlike width encoding, whose join point tapers with each point\'s own magnitude',
-      async () => {
-        const varyingPoints: BandPoint[] = [point(0, 100), point(5, 100000)];
-        const lowBalanceTrib = tributaryAt({ id: 'low', x: 0, direction: 'in' });
-        const highBalanceTrib = tributaryAt({ id: 'high', x: 5, direction: 'in' });
+    it("anchors tributaries to a fixed edge regardless of each point's own balance magnitude", async () => {
+      const varyingPoints: BandPoint[] = [point(0, 100), point(5, 100000)];
+      const lowBalanceTrib = tributaryAt({ id: 'low', x: 0, direction: 'in' });
+      const highBalanceTrib = tributaryAt({ id: 'high', x: 5, direction: 'in' });
 
-        const widthResult = await createComponent([lowBalanceTrib, highBalanceTrib], 10, {
-          points: varyingPoints,
-          boundaryX: 10,
-          maxAbsBalance: 100000,
-          encoding: 'width',
-        });
-        const colorResult = await createComponent([lowBalanceTrib, highBalanceTrib], 10, {
-          points: varyingPoints,
-          boundaryX: 10,
-          maxAbsBalance: 100000,
-          encoding: 'color',
-        });
+      const { component } = await createComponent([lowBalanceTrib, highBalanceTrib], 10, {
+        points: varyingPoints,
+        boundaryX: 10,
+      });
 
-        const widthLines = widthResult.component['tributaryLines']();
-        const colorLines = colorResult.component['tributaryLines']();
-        const widthLow = widthLines.find((l: { id: string }) => l.id === 'low')!;
-        const widthHigh = widthLines.find((l: { id: string }) => l.id === 'high')!;
-        const colorLow = colorLines.find((l: { id: string }) => l.id === 'low')!;
-        const colorHigh = colorLines.find((l: { id: string }) => l.id === 'high')!;
+      const lines = component['tributaryLines']();
+      const low = lines.find((l: { id: string }) => l.id === 'low')!;
+      const high = lines.find((l: { id: string }) => l.id === 'high')!;
 
-        expect(widthLow.y2).not.toBeCloseTo(widthHigh.y2);
-        expect(colorLow.y2).toBeCloseTo(colorHigh.y2);
-      },
-    );
+      expect(low.y2).toBeCloseTo(high.y2);
+    });
+  });
+
+  describe("Total lane's own color palette/domain (#79)", () => {
+    it("defaults to the 'account' palette — no .total class on a plain color-encoded band", async () => {
+      const { fixture } = await createComponent([], 2, {
+        points: [point(0, 1000), point(1, 1000)],
+        boundaryX: 10,
+      });
+
+      const fill: SVGPolygonElement = fixture.nativeElement.querySelector('.band-fill');
+      expect(fill.classList.contains('total')).toBe(false);
+    });
+
+    it("marks every band-fill polygon with .total when colorPalette is 'total'", async () => {
+      const { fixture } = await createComponent([], 4, {
+        points: [point(0, 1000), point(1, -1000), point(2, 500), point(3, -500)],
+        boundaryX: 10,
+        colorPalette: 'total',
+        colorDomain: 1000,
+      });
+
+      const fills: SVGPolygonElement[] = Array.from(fixture.nativeElement.querySelectorAll('.band-fill'));
+      expect(fills.length).toBeGreaterThan(0);
+      expect(fills.every((el) => el.classList.contains('total'))).toBe(true);
+    });
+
+    it('reaches full opacity at 80% of colorDomain for the total palette, not 100%', async () => {
+      const { fixture } = await createComponent([], 3, {
+        points: [point(0, 800), point(1, 1000), point(2, 400)],
+        boundaryX: 10,
+        colorPalette: 'total',
+        colorDomain: 1000,
+        expectedSign: 1,
+      });
+
+      const fills: SVGPolygonElement[] = Array.from(fixture.nativeElement.querySelectorAll('.band-fill'));
+      const opacities = fills.map((el) => Number(el.style.fillOpacity));
+      expect(opacities[0]).toBeCloseTo(1.0); // 800 is already at 80% of the 1000 domain
+      expect(opacities[1]).toBeCloseTo(1.0); // past it, clamped
+      // note: segment i is colored by point i (the leading point); point 2 (400) never leads a
+      // segment in a 3-point series, so the sub-ceiling ramp is covered by balance-color.spec.ts.
+    });
+
+    it("carries over the account palette's raised 0.2 negative floor, unlike its shared positive one", async () => {
+      const { fixture } = await createComponent([], 2, {
+        points: [point(0, -1), point(1, -1)],
+        boundaryX: 10,
+        colorPalette: 'total',
+        colorDomain: 1000,
+        expectedSign: 1,
+      });
+
+      const fill: SVGPolygonElement = fixture.nativeElement.querySelector('.band-fill');
+      expect(fill.classList.contains('negative')).toBe(true);
+      expect(Number(fill.style.fillOpacity)).toBeCloseTo(0.2);
+    });
   });
 });

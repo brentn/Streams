@@ -12,38 +12,21 @@
   width: 100%;
 }
 
-.segment {
-  fill: var(--color-accent);
-  opacity: 1;
-}
-
-.segment.neutral {
-  fill: var(--color-ink-secondary);
-}
-
-.segment.opposite {
-  fill: var(--color-opposite-sign);
-}
-
-.segment.projected {
-  opacity: 0.45;
-}
-
 /*
- * `'color'` encoding's white backing rect (see `colorBandEdges` in stream-band.ts) — literal
- * white, not a `--color-*` token: the whole point is a fixed compositing basis that reproduces
- * white-mixing identically in light and dark mode, rather than following the theme.
+ * The white backing rect behind every band-fill polygon (see `colorBandEdges` in stream-band.ts)
+ * — literal white, not a `--color-*` token: the whole point is a fixed compositing basis that
+ * reproduces white-mixing identically in light and dark mode, rather than following the theme.
  */
 .band-backing {
   fill: #fff;
 }
 
 /*
- * `'color'` encoding: one flat-filled polygon per day (see `segmentsByPoint`/`colorSegments`).
- * Left at default anti-aliasing, each polygon's independently-blended edge shows a hairline seam
- * against its neighbor — `crispEdges` turns off anti-aliasing entirely, so exactly-abutting
- * polygons meet with no blended edge pixel to show a seam. Hue is a solid fill (no white-RGB
- * mixing); `fill-opacity` (set inline, per segment) carries the Signed-Balance-driven ramp.
+ * One flat-filled polygon per day (see `segmentsByPoint`/`colorSegments`). Left at default
+ * anti-aliasing, each polygon's independently-blended edge shows a hairline seam against its
+ * neighbor — `crispEdges` turns off anti-aliasing entirely, so exactly-abutting polygons meet
+ * with no blended edge pixel to show a seam. Hue is a solid fill (no white-RGB mixing);
+ * `fill-opacity` (set inline, per segment) carries the Signed-Balance-driven ramp.
  */
 .band-fill {
   shape-rendering: crispEdges;
@@ -55,6 +38,19 @@
 
 .band-fill.negative {
   fill: var(--color-opposite-sign);
+}
+
+/*
+ * `colorPalette: 'total'` — the multi-account view's derived Total lane, green/red rather than
+ * the individual-account blue/brown (higher specificity than `.band-fill.positive`/`.negative`
+ * above, no `!important` needed) — see ADR-0009/#79.
+ */
+.band-fill.total.positive {
+  fill: var(--color-accent);
+}
+
+.band-fill.total.negative {
+  fill: var(--color-total-negative);
 }
 
 .band-fill.projected {

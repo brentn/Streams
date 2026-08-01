@@ -5,31 +5,19 @@
     preserveAspectRatio="none"
     [style.height.px]="height()"
   >
-    @if (encoding() === 'width') {
-      @for (segment of segments(); track $index) {
-        <polygon
-          [attr.points]="segment.polygon"
-          class="segment"
-          [class.opposite]="segment.sign === 'opposite'"
-          [class.neutral]="segment.sign === 'expected' && expectedColor() === 'neutral'"
-          [class.projected]="segment.phase === 'projected'"
-        />
-      }
+    @if (colorBandEdges(); as edges) {
+      <rect x="0" [attr.y]="edges.top" [attr.width]="viewWidth()" [attr.height]="edges.height" class="band-backing" />
     }
-    @if (encoding() === 'color') {
-      @if (colorBandEdges(); as edges) {
-        <rect x="0" [attr.y]="edges.top" [attr.width]="viewWidth()" [attr.height]="edges.height" class="band-backing" />
-      }
-      @for (segment of colorSegments(); track $index) {
-        <polygon
-          [attr.points]="segment.polygon"
-          class="band-fill"
-          [class.positive]="segment.hue === 'positive'"
-          [class.negative]="segment.hue === 'negative'"
-          [class.projected]="segment.phase === 'projected'"
-          [style.fillOpacity]="segment.opacity"
-        />
-      }
+    @for (segment of colorSegments(); track $index) {
+      <polygon
+        [attr.points]="segment.polygon"
+        class="band-fill"
+        [class.total]="colorPalette() === 'total'"
+        [class.positive]="segment.hue === 'positive'"
+        [class.negative]="segment.hue === 'negative'"
+        [class.projected]="segment.phase === 'projected'"
+        [style.fillOpacity]="segment.opacity"
+      />
     }
     @for (group of groups(); track group.id) {
       <path

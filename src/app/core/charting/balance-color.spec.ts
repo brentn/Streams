@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { BALANCE_COLOR_DOMAIN, balanceColorSegment, segmentsByPoint, signedBalance } from './balance-color';
+import {
+  BALANCE_COLOR_DOMAIN,
+  balanceColorSegment,
+  segmentsByPoint,
+  signedBalance,
+  TOTAL_OPACITY_CEILING_RATIO,
+  totalColorCurve,
+} from './balance-color';
 
 describe('signedBalance', () => {
   it('leaves an Asset balance (expectedSign 1) unchanged', () => {
@@ -60,6 +67,44 @@ describe('balanceColorSegment', () => {
     const small = balanceColorSegment(100, 1);
     const large = balanceColorSegment(100, 1);
     expect(small).toEqual(large);
+  });
+});
+
+describe('totalColorCurve (#79 — Total lane\'s own domain/ceiling)', () => {
+  it('reaches full opacity at 80% of its own domain, unlike the account curve\'s 100%', () => {
+    const curve = totalColorCurve(1000);
+    expect(TOTAL_OPACITY_CEILING_RATIO).toBe(0.8);
+    expect(balanceColorSegment(800, 1, curve).opacity).toBeCloseTo(1.0);
+    expect(balanceColorSegment(400, 1, curve).opacity).toBeCloseTo(0.525); // halfway to the 800 ceiling
+  });
+
+  it('clamps opacity at 1.0 past 80% of the domain, for either hue', () => {
+    const curve = totalColorCurve(1000);
+    expect(balanceColorSegment(2000, 1, curve).opacity).toBeCloseTo(1.0);
+    expect(balanceColorSegment(-2000, 1, curve).opacity).toBeCloseTo(1.0);
+  });
+
+  it(
+    'carries over the account curve\'s raised 0.2 negative floor — red read as washed-out at the ' +
+      'same low floor blue/green use, same as brown did, once checked against a rendered swatch',
+    () => {
+      const curve = totalColorCurve(1000);
+      expect(balanceColorSegment(0, 1, curve).opacity).toBeCloseTo(0.05); // zero counts as positive
+      expect(balanceColorSegment(-0.0001, 1, curve).opacity).toBeCloseTo(0.2);
+    },
+  );
+
+  it("is independent of the account curve's flat $5000 domain", () => {
+    const curve = totalColorCurve(100);
+    // 100 is already past the account curve's domain but should ramp against this smaller one.
+    expect(balanceColorSegment(100, 1, curve).opacity).toBeCloseTo(1.0);
+    expect(balanceColorSegment(100, 1).opacity).not.toBeCloseTo(1.0);
+  });
+
+  it('does not divide by zero when the domain is zero — a zero balance stays at the floor', () => {
+    const curve = totalColorCurve(0);
+    expect(balanceColorSegment(0, 1, curve).opacity).toBeCloseTo(0.05);
+    expect(balanceColorSegment(100, 1, curve).opacity).toBeCloseTo(1.0);
   });
 });
 

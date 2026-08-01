@@ -8,6 +8,7 @@ import {
   budgetProgress,
   PROJECTION_HORIZON_DAYS,
   runningDryAlert,
+  totalBalanceSeries,
   varianceAlert,
 } from './projection-engine';
 
@@ -299,6 +300,36 @@ describe('balanceSeries', () => {
       { date: dates[0], balance: 1000 },
       { date: dates[1], balance: 900 },
     ]);
+  });
+});
+
+describe('totalBalanceSeries (#79 — the Total lane\'s own domain, summed across accounts per date)', () => {
+  it('sums every account\'s balance at each date', () => {
+    const dates = [new Date('2026-07-19T00:00:00Z'), account.balanceDate];
+    const transactionsByAccount = new Map([[account.id, []], [otherAccount.id, []]]);
+    const flowsByAccount = new Map([[account.id, []], [otherAccount.id, []]]);
+
+    const totals = totalBalanceSeries(
+      [account, otherAccount],
+      transactionsByAccount,
+      dates,
+      flowsByAccount,
+    );
+
+    expect(totals).toEqual([1500, 1500]);
+  });
+
+  it('returns an empty series for no dates, and zeroes for no accounts', () => {
+    expect(totalBalanceSeries([account], new Map(), [], new Map())).toEqual([]);
+    expect(totalBalanceSeries([], new Map(), [new Date()], new Map())).toEqual([0]);
+  });
+
+  it('falls back to an empty list for an account missing from a by-account map', () => {
+    const dates = [account.balanceDate];
+
+    const totals = totalBalanceSeries([account, otherAccount], new Map(), dates, new Map());
+
+    expect(totals).toEqual([1500]);
   });
 });
 

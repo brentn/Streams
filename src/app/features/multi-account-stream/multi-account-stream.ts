@@ -19,12 +19,14 @@ import {
   balanceSeries,
   RunningDryAlert,
   runningDryAlert,
+  totalBalanceSeries,
 } from '../../core/projection/projection-engine';
 import { BandPoint } from '../../core/charting/band-segments';
 import {
   boundaryXFor,
   buildWindowDates,
   clampDayOffset,
+  fullScrubRangeDates,
   selectedDateFor,
   WINDOW_DAYS,
 } from '../../core/charting/date-window';
@@ -43,7 +45,6 @@ import { SyncBadge } from '../../shared/sync-badge/sync-badge';
 interface AccountLane {
   account: Account;
   points: BandPoint[];
-  maxAbsBalance: number;
   boundaryX: number;
   balance: number;
   isOpposite: boolean;
@@ -118,7 +119,6 @@ export class MultiAccountStream {
       return {
         account,
         points,
-        maxAbsBalance: points.reduce((max, p) => Math.max(max, Math.abs(p.balance)), 0),
         boundaryX: boundaryXFor(account.balanceDate, selectedDate),
         balance,
         isOpposite: balance * account.expectedSign < 0,
@@ -138,9 +138,23 @@ export class MultiAccountStream {
     }));
   });
 
-  protected readonly totalMaxAbsBalance = computed(() =>
-    this.totalPoints().reduce((max, p) => Math.max(max, Math.abs(p.balance)), 0),
-  );
+  /**
+   * The Total lane's own color domain (#79, ADR-0009): `max(|total balance|)` over the full
+   * scrubbable range, not the flat $5000 individual accounts use and not just the visible
+   * 60-day window — computed from `accounts`/transactions/flows/transfers only, so it stays
+   * fixed as the user scrubs (`dayOffset`/`selectedDate` aren't dependencies here).
+   */
+  protected readonly totalColorDomain = computed(() => {
+    const dates = fullScrubRangeDates(new Date());
+    const totals = totalBalanceSeries(
+      this.accounts(),
+      this.transactionsByAccount(),
+      dates,
+      this.flowsByAccount(),
+      this.transfersByAccount(),
+    );
+    return totals.reduce((max, total) => Math.max(max, Math.abs(total)), 0);
+  });
 
   /** Actual only where every constituent account is still actual — the earliest balanceDate. */
   protected readonly totalBoundaryX = computed(() => {

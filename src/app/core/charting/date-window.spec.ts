@@ -4,6 +4,7 @@ import {
   buildWindowDates,
   clampDayOffset,
   diffDays,
+  fullScrubRangeDates,
   HALF_WINDOW_DAYS,
   SCRUB_MAX_DAYS,
   SCRUB_MIN_DAYS,
@@ -63,6 +64,30 @@ describe('selectedDateFor', () => {
   it('adds the offset in whole days', () => {
     expect(diffDays(selectedDateFor(10), selectedDateFor(0))).toBe(10);
     expect(diffDays(selectedDateFor(-5), selectedDateFor(0))).toBe(-5);
+  });
+});
+
+describe('fullScrubRangeDates (#79 — the Total lane\'s own color domain)', () => {
+  it('spans every date from SCRUB_MIN_DAYS to SCRUB_MAX_DAYS from today, inclusive', () => {
+    const today = new Date('2026-07-25');
+
+    const dates = fullScrubRangeDates(today);
+
+    expect(dates).toHaveLength(SCRUB_MAX_DAYS - SCRUB_MIN_DAYS + 1);
+    expect(diffDays(dates[0], today)).toBe(SCRUB_MIN_DAYS);
+    expect(diffDays(dates.at(-1)!, today)).toBe(SCRUB_MAX_DAYS);
+  });
+
+  it('spans one day per index, normalized to midnight regardless of the given time-of-day', () => {
+    const dates = fullScrubRangeDates(new Date('2026-07-25T15:30:00'));
+    expect(diffDays(dates[1], dates[0])).toBe(1);
+    expect(dates[0].getHours()).toBe(0);
+  });
+
+  it('is independent of the scrub position — always anchored on the given today, not a scrubbed date', () => {
+    const a = fullScrubRangeDates(new Date('2026-07-25'));
+    const b = fullScrubRangeDates(new Date('2026-07-25'));
+    expect(a.map((d) => d.getTime())).toEqual(b.map((d) => d.getTime()));
   });
 });
 

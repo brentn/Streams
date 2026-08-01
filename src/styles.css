@@ -26,6 +26,9 @@
   /* Chart: Signed Balance >= 0 (account-stream's color-encoded ribbon — see ADR-0009) */
   --color-positive-balance: #2a78d6;
 
+  /* Chart: multi-account-stream's Total lane, net worth < 0 (green/red — distinct from the blue/brown individual-account palette, since Total is a derived sum, see ADR-0009/#79) */
+  --color-total-negative: #d6336c;
+
   /* Type scale */
   --font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
   --text-eyebrow: 0.75rem;
@@ -56,6 +59,7 @@
 
     --color-opposite-sign: #d19255;
     --color-positive-balance: #3987e5;
+    --color-total-negative: #e8598c;
   }
 }
 
@@ -76,6 +80,7 @@
 
   --color-opposite-sign: #d19255;
   --color-positive-balance: #3987e5;
+  --color-total-negative: #e8598c;
 }
 
 * {

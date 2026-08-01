@@ -141,6 +141,34 @@ export function balanceSeries(
   }));
 }
 
+/**
+ * The net total across every account at each of `dates` — the multi-account view's Total lane,
+ * summed fresh over whatever `dates` the caller needs (the visible window, or the Total lane's
+ * own wider color domain range — see #79) rather than derived from any one account's own series.
+ */
+export function totalBalanceSeries(
+  accounts: Pick<Account, 'id' | 'balance' | 'balanceDate'>[],
+  transactionsByAccount: Map<string, Transaction[]>,
+  dates: Date[],
+  flowsByAccount: Map<string, Flow[]>,
+  transfersByAccount: Map<string, Transfer[]> = new Map(),
+): number[] {
+  return dates.map((date) =>
+    accounts.reduce(
+      (sum, account) =>
+        sum +
+        balanceAtDate(
+          account,
+          transactionsByAccount.get(account.id) ?? [],
+          date,
+          flowsByAccount.get(account.id) ?? [],
+          transfersByAccount.get(account.id) ?? [],
+        ),
+      0,
+    ),
+  );
+}
+
 /** Per CONTEXT.md's Projection Horizon: the rolling forward-looking window Running-Dry Alerts are evaluated within. */
 export const PROJECTION_HORIZON_DAYS = 90;
 

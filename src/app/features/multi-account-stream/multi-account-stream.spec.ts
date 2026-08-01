@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Account } from '../../core/models/account';
+import { Flow } from '../../core/models/flow';
 import { Transfer } from '../../core/models/transfer';
 import { HALF_WINDOW_DAYS, SCRUB_MAX_DAYS, SCRUB_MIN_DAYS } from '../../core/charting/date-window';
 import { SimpleFinAdapter } from '../../core/simplefin/simplefin-adapter';
@@ -397,15 +398,76 @@ describe('MultiAccountStream', () => {
       expect(Array.from(fills as NodeListOf<Element>).every((el) => el.classList.contains('negative'))).toBe(true);
     });
 
-    it('leaves the Total lane on the old width-based segment rendering', async () => {
+  });
+
+  describe('Total lane color treatment (#79)', () => {
+    it('renders the Total lane through the color encoding with the green/red total palette, not blue/brown', async () => {
       const fixture = TestBed.createComponent(MultiAccountStream);
       const component = fixture.componentInstance;
       await component['load']();
       fixture.detectChanges();
 
       const totalLaneEl = fixture.nativeElement.querySelector('.lanes > .lane.total-lane')!;
-      expect(totalLaneEl.querySelectorAll('.band-fill').length).toBe(0);
-      expect(totalLaneEl.querySelectorAll('.segment').length).toBeGreaterThan(0);
+      const fills = totalLaneEl.querySelectorAll('.band-fill');
+      expect(fills.length).toBeGreaterThan(0);
+      expect(Array.from(fills as NodeListOf<Element>).every((el) => el.classList.contains('total'))).toBe(true);
+    });
+
+    it('renders green (positive) for a net-positive Total and red (negative) for a net-negative one', async () => {
+      const positiveFixture = TestBed.createComponent(MultiAccountStream);
+      await positiveFixture.componentInstance['load']();
+      positiveFixture.detectChanges();
+      const positiveFills = positiveFixture.nativeElement.querySelectorAll('.lane.total-lane .band-fill');
+      expect(Array.from(positiveFills as NodeListOf<Element>).every((el) => el.classList.contains('positive'))).toBe(
+        true,
+      );
+
+      storage.getAccounts.mockResolvedValue([
+        { ...checking, balance: 100 },
+        { ...creditCard, balance: -300 },
+      ]);
+      const negativeFixture = TestBed.createComponent(MultiAccountStream);
+      await negativeFixture.componentInstance['load']();
+      negativeFixture.detectChanges();
+      const negativeFills = negativeFixture.nativeElement.querySelectorAll('.lane.total-lane .band-fill');
+      expect(Array.from(negativeFills as NodeListOf<Element>).every((el) => el.classList.contains('negative'))).toBe(
+        true,
+      );
+    });
+
+    it("computes totalColorDomain across the full -365..+180 scrubbable range, not just the visible 60-day window", async () => {
+      const allDays = [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({ dayOfWeek: dayOfWeek as 0 }));
+      const income: Flow = {
+        id: 'flow-income',
+        accountId: 'acc-checking',
+        name: 'Big weekly income',
+        kind: 'recurring',
+        direction: 'in',
+        amount: 1000,
+        cadence: { period: 'week', interval: 1, anchors: allDays, anchorDate: new Date() },
+      };
+      storage.getFlowsForAccount.mockImplementation((accountId: string) =>
+        Promise.resolve(accountId === 'acc-checking' ? [income] : []),
+      );
+
+      const fixture = TestBed.createComponent(MultiAccountStream);
+      const component = fixture.componentInstance;
+      await component['load']();
+
+      // $1000/week compounding out toward +180 days grows net worth far past the flat $700
+      // starting total — only reachable by looking past the visible window's own dates.
+      expect(component['totalColorDomain']()).toBeGreaterThan(50000);
+    });
+
+    it('stays fixed as the scrub position changes, unlike the per-lane window-based values', async () => {
+      const fixture = TestBed.createComponent(MultiAccountStream);
+      const component = fixture.componentInstance;
+      await component['load']();
+
+      const domainAtToday = component['totalColorDomain']();
+      component['dayOffset'].set(100);
+
+      expect(component['totalColorDomain']()).toBe(domainAtToday);
     });
   });
 
