@@ -152,14 +152,12 @@
 }
 
 /*
- * A padded, invisible hit area larger than the visible shaft/tick — rotates/flips along with its
- * host since a pseudo-element renders inside the host's already-transformed box — so a
- * thin/low-amount shaft or tick near the stroke-width floor stays reliably tappable. Same
- * motivation as `.tributary-badge` being a real `<button>` rather than relying on a thin line's
- * own hit-testing.
+ * A padded, invisible hit area larger than the visible shaft — rotates along with it since a
+ * pseudo-element renders inside its host's already-transformed box — so a thin/low-amount shaft
+ * near the stroke-width floor stays reliably tappable. Same motivation as `.tributary-badge`
+ * being a real `<button>` rather than relying on a thin line's own hit-testing.
  */
-.arrow-shaft::before,
-.arrow-tick::before {
+.arrow-shaft::before {
   content: '';
   position: absolute;
   inset: -0.5rem;
@@ -168,29 +166,32 @@
 /*
  * Plain HTML overlay, not SVG text — SVG glyphs would smear illegibly under the chart's
  * non-uniform `preserveAspectRatio="none"` scaling. Nested *inside* `.arrow-shaft` (not given its
- * own SVG-space anchor) so it inherits the shaft's own real screen-space position/rotation:
- * `left: 100%` sits it exactly at the shaft's free end (its actual rendered tip, fixed-length and
- * CSS-rotated), and `translate(-50%, -50%)` centers it there the same way `.tributary-badge`
- * centers on its own anchor. An earlier version computed a separate approximate SVG-space lead
- * point for the label instead, which drifted away from the shaft's actual tip as the window got
- * wider and the non-uniform scaling grew more extreme — see #80.
+ * own SVG-space anchor) so it inherits the shaft's own real screen-space position/rotation — an
+ * earlier version computed a separate approximate SVG-space lead point for the label instead,
+ * which drifted away from the shaft's actual tip as the window got wider and the non-uniform
+ * scaling grew more extreme — see #80.
  *
- * Because it's nested, it inherits the shaft's own rotation (45° for outgoing, already the
- * desired reading angle; 225° for incoming) — the `:not(.out)` rule below adds a further 180° to
- * cancel incoming's extra half-turn, landing both at the same readable 45°, matching the "\" lean
- * every arrow shares.
+ * Anchored flush to the shaft's tip on the side the text should grow away from the ribbon, then
+ * justified toward that same edge (so the padding below actually has something to push off of,
+ * rather than sitting on a shrink-wrapped box's naturally-flush edge): outgoing's tip is its
+ * *left* edge (`.out`, below) since it leans down-right and needs to read further down-right;
+ * incoming's tip is its *right* edge since it leans up-left and needs to read further up-left.
+ * Because the label is nested, it also inherits the shaft's own rotation (45° for outgoing,
+ * already the desired reading angle; 225° for incoming) — incoming's extra `rotate(180deg)` below
+ * cancels that half-turn so both read at the same "\"-matching 45°. That extra self-rotation is
+ * also *why* incoming anchors via `right: 0` rather than `left: 100%`: the self-flip swaps which
+ * screen-side its box's own edges end up on, so anchoring the "wrong" local edge first is what
+ * lands it on the correct screen side after the flip (verified in the scratchpad arrow-harness).
  */
 .tributary-label {
   position: absolute;
-  left: 100%;
   top: calc(50% + .5rem);
-  transform: translate(-50%, -50%);
   white-space: nowrap;
   pointer-events: none;
   font-size: 0.65rem;
   font-weight: 600;
   color: var(--color-ink-primary);
-  background-color:transparent;
+  background-color: transparent;
   text-shadow:
     0 0 3px var(--color-page),
     0 0 3px var(--color-page),
@@ -198,8 +199,18 @@
     0 0 3px var(--color-page);
 }
 
+.tributary-arrow.out .tributary-label {
+  left: 100%;
+  padding-left: 0.35rem;
+  text-align: left;
+  transform: translateY(-50%);
+}
+
 .tributary-arrow:not(.out) .tributary-label {
-  transform: translate(-50%, -50%) rotate(180deg);
+  right: 0;
+  padding-right: 0.35rem;
+  text-align: right;
+  transform: translateY(-50%) rotate(180deg);
 }
 
 /*
