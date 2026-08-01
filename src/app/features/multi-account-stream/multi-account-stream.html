@@ -48,6 +48,7 @@
               [maxAbsBalance]="lane.maxAbsBalance"
               [viewWidth]="windowDays"
               [height]="accountLaneHeight()"
+              [encoding]="'color'"
             />
             <span class="pill tabular-nums" [class.opposite]="lane.isOpposite">
               {{ lane.balance | currency }}

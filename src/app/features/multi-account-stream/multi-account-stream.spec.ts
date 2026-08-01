@@ -355,6 +355,60 @@ describe('MultiAccountStream', () => {
     });
   });
 
+  describe('Signed-Balance color ribbon (#78)', () => {
+    it('renders each account lane with the constant-width color-encoded ribbon, not the width-based one', async () => {
+      const fixture = TestBed.createComponent(MultiAccountStream);
+      const component = fixture.componentInstance;
+      await component['load']();
+      fixture.detectChanges();
+
+      const laneEls = fixture.nativeElement.querySelectorAll('.lanes > .lane:not(.total-lane)');
+      expect(laneEls.length).toBe(2);
+      for (const laneEl of laneEls as NodeListOf<Element>) {
+        expect(laneEl.querySelectorAll('.segment').length).toBe(0);
+        expect(laneEl.querySelectorAll('.band-fill').length).toBeGreaterThan(0);
+      }
+    });
+
+    it('renders the positive (blue) hue for both an Asset and a Liability lane in their normal state, via Signed Balance', async () => {
+      const fixture = TestBed.createComponent(MultiAccountStream);
+      const component = fixture.componentInstance;
+      await component['load']();
+      fixture.detectChanges();
+
+      const laneEls = fixture.nativeElement.querySelectorAll('.lanes > .lane:not(.total-lane)');
+      for (const laneEl of laneEls as NodeListOf<Element>) {
+        const fills = laneEl.querySelectorAll('.band-fill');
+        expect(fills.length).toBeGreaterThan(0);
+        expect(Array.from(fills).every((el) => el.classList.contains('positive'))).toBe(true);
+      }
+    });
+
+    it('renders the negative (brown) hue for a Liability lane whose raw balance is positive (opposite of expected)', async () => {
+      storage.getAccounts.mockResolvedValue([{ ...creditCard, balance: 300 }]);
+      const fixture = TestBed.createComponent(MultiAccountStream);
+      const component = fixture.componentInstance;
+      await component['load']();
+      fixture.detectChanges();
+
+      const laneEl = fixture.nativeElement.querySelector('.lanes > .lane:not(.total-lane)')!;
+      const fills = laneEl.querySelectorAll('.band-fill');
+      expect(fills.length).toBeGreaterThan(0);
+      expect(Array.from(fills as NodeListOf<Element>).every((el) => el.classList.contains('negative'))).toBe(true);
+    });
+
+    it('leaves the Total lane on the old width-based segment rendering', async () => {
+      const fixture = TestBed.createComponent(MultiAccountStream);
+      const component = fixture.componentInstance;
+      await component['load']();
+      fixture.detectChanges();
+
+      const totalLaneEl = fixture.nativeElement.querySelector('.lanes > .lane.total-lane')!;
+      expect(totalLaneEl.querySelectorAll('.band-fill').length).toBe(0);
+      expect(totalLaneEl.querySelectorAll('.segment').length).toBeGreaterThan(0);
+    });
+  });
+
   describe('Running-Dry Alert', () => {
     it('surfaces a Running-Dry Alert per lane, without waiting for drill-in', async () => {
       // dryFloor above the current balance means the account is already below its floor today;
