@@ -70,6 +70,11 @@
   background-image: repeating-linear-gradient(45deg, rgb(0 0 0 / 0.22) 0 1px, transparent 1px 8px);
 }
 
+/*
+ * A group's stand-in line — grouped/rolled-up tributaries are out of scope for #80 and keep their
+ * original SVG-path rendering (see `buildTributaryBundles`/`buildTributaryLines`), direction-coded
+ * green/brown and all. Individual tributaries no longer use this class — see `.tributary-arrow`.
+ */
 .tributary {
   fill: var(--color-accent);
   stroke: none;
@@ -81,24 +86,120 @@
 }
 
 /*
- * Plain HTML overlay, not SVG text — see tributary-lines.ts's TributaryLine doc comment for why.
- * Anchored (via translate) to the tip at the tributary's free end, then tilted a fixed amount to
- * echo the lines' own uniform "\" lean — a fixed angle rather than each line's exact rendered
- * slope, which would need accounting for the SVG's non-uniform x/y scaling to compute.
+ * An individual tributary's blue 45° shaft+tick mark (#80) — plain HTML/CSS overlay elements, not
+ * SVG, for the same non-uniform-scaling reason `.tributary-label`/`.tributary-badge`/
+ * `.projected-overlay` already are: the chart's `preserveAspectRatio="none"` non-uniform x/y
+ * scaling can't render a guaranteed-true 45° as SVG path geometry. `.tributary-arrow` itself is a
+ * zero-size anchor at the tributary's join point on the ribbon's edge (`toPercent`, same as a
+ * label/badge anchor); `.arrow-shaft`/`.arrow-tick` are its only visible children, positioned
+ * purely from plain CSS `top`/`transform` off that one anchor — no SVG coordinates involved, so
+ * the 45° lean holds exactly regardless of window width.
+ *
+ * Both directions share the same "\" 45° lean (matching `.tributary-label`'s own fixed rotation
+ * below): an outgoing shaft starts at the anchor and swings down-right; an incoming shaft starts
+ * at the anchor and swings up-left along that same line. Only the tick's side of the anchor
+ * differs — its far edge (away from the shaft) always sits exactly on the anchor, which *is* the
+ * ribbon boundary line.
+ */
+.tributary-arrow {
+  position: absolute;
+  width: 0;
+  height: 0;
+  cursor: pointer;
+}
+
+/* Both directions render in the same blue, replacing the old green(in)/brown(out) split — safe here since tributaries never render on the green/red Total lane (see stream-band.ts's `colorPalette` doc comment). */
+.arrow-tick,
+.arrow-shaft {
+  background: var(--color-positive-balance);
+}
+
+.arrow-tick {
+  position: absolute;
+  left: calc(var(--shaft-width) / -2);
+  top: 0;
+  width: var(--shaft-width);
+  height: var(--tick-length);
+}
+
+/* Incoming (not `.out`): far edge (bottom, unrotated) at the anchor; flip up so the near edge lines up with the shaft's pivot above. */
+.tributary-arrow:not(.out) .arrow-tick {
+  transform: translateY(-100%);
+}
+
+/*
+ * The shaft's rotation pivot (`transform-origin: 0 50%`) sits `--tick-length` away from the
+ * anchor along the vertical axis only — i.e. exactly where the tick's near edge is — so the tick
+ * visually caps the shaft rather than the shaft passing through it. `width` is a fixed screen
+ * length, not day-scale-proportional: there's no zoom and `WINDOW_DAYS` is a constant, so a fixed
+ * length is simplest (matches how `.tributary-label`/`.tributary-badge` are already sized). This
+ * (incoming/default) rule swings the shaft up-left from its pivot.
+ */
+.arrow-shaft {
+  position: absolute;
+  left: 0;
+  top: calc(-1 * var(--tick-length) - var(--shaft-width) / 2);
+  width: 1.4rem;
+  height: var(--shaft-width);
+  min-height: 1px;
+  transform-origin: 0 50%;
+  transform: rotate(225deg);
+}
+
+.tributary-arrow.out .arrow-shaft {
+  top: calc(var(--tick-length) - var(--shaft-width) / 2);
+  transform: rotate(45deg);
+}
+
+/*
+ * A padded, invisible hit area larger than the visible shaft/tick — rotates/flips along with its
+ * host since a pseudo-element renders inside the host's already-transformed box — so a
+ * thin/low-amount shaft or tick near the stroke-width floor stays reliably tappable. Same
+ * motivation as `.tributary-badge` being a real `<button>` rather than relying on a thin line's
+ * own hit-testing.
+ */
+.arrow-shaft::before,
+.arrow-tick::before {
+  content: '';
+  position: absolute;
+  inset: -0.5rem;
+}
+
+/*
+ * Plain HTML overlay, not SVG text — SVG glyphs would smear illegibly under the chart's
+ * non-uniform `preserveAspectRatio="none"` scaling. Nested *inside* `.arrow-shaft` (not given its
+ * own SVG-space anchor) so it inherits the shaft's own real screen-space position/rotation:
+ * `left: 100%` sits it exactly at the shaft's free end (its actual rendered tip, fixed-length and
+ * CSS-rotated), and `translate(-50%, -50%)` centers it there the same way `.tributary-badge`
+ * centers on its own anchor. An earlier version computed a separate approximate SVG-space lead
+ * point for the label instead, which drifted away from the shaft's actual tip as the window got
+ * wider and the non-uniform scaling grew more extreme — see #80.
+ *
+ * Because it's nested, it inherits the shaft's own rotation (45° for outgoing, already the
+ * desired reading angle; 225° for incoming) — the `:not(.out)` rule below adds a further 180° to
+ * cancel incoming's extra half-turn, landing both at the same readable 45°, matching the "\" lean
+ * every arrow shares.
  */
 .tributary-label {
   position: absolute;
-  transform: translate(-50%, -50%) rotate(45deg);
+  left: 100%;
+  top: calc(50% + .5rem);
+  transform: translate(-50%, -50%);
   white-space: nowrap;
   pointer-events: none;
   font-size: 0.65rem;
   font-weight: 600;
   color: var(--color-ink-primary);
+  background-color:transparent;
   text-shadow:
     0 0 3px var(--color-page),
     0 0 3px var(--color-page),
     0 0 3px var(--color-page),
     0 0 3px var(--color-page);
+}
+
+.tributary-arrow:not(.out) .tributary-label {
+  transform: translate(-50%, -50%) rotate(180deg);
 }
 
 /*

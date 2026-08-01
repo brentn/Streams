@@ -26,15 +26,23 @@
         [attr.data-group-id]="group.id"
       />
     }
-    @for (line of tributaryLines(); track line.id) {
-      <path
-        [attr.d]="line.d"
-        class="tributary"
-        [class.out]="line.direction === 'out'"
-        [attr.data-tributary-id]="line.id"
-      />
-    }
   </svg>
+  @for (arrow of tributaryArrows(); track arrow.id) {
+    <div
+      class="tributary-arrow"
+      [class.out]="arrow.direction === 'out'"
+      [style.left.%]="arrow.leftPercent"
+      [style.top.%]="arrow.topPercent"
+      [style.--shaft-width]="arrow.strokeWidth + 'px'"
+      [style.--tick-length]="arrow.tickLength + 'px'"
+      [attr.data-tributary-id]="arrow.id"
+    >
+      <span class="arrow-tick"></span>
+      <span class="arrow-shaft">
+        <span class="tributary-label">{{ arrow.label }}</span>
+      </span>
+    </div>
+  }
   @if (projectedOverlay(); as overlay) {
     <div
       class="projected-overlay"
@@ -43,13 +51,6 @@
       [style.width.%]="overlay.widthPercent"
       [style.height.%]="overlay.heightPercent"
     ></div>
-  }
-  @for (label of tributaryLabels(); track label.id) {
-    <span
-      class="tributary-label"
-      [style.left.%]="label.leftPercent"
-      [style.top.%]="label.topPercent"
-    >{{ label.text }}</span>
   }
   @for (badge of groupBadges(); track badge.id) {
     <button

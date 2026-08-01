@@ -4,10 +4,10 @@ import { Sign } from '../../core/models/account';
 import { ACCOUNT_COLOR_CURVE, segmentsByPoint, totalColorCurve } from '../../core/charting/balance-color';
 import { BandPoint } from '../../core/charting/band-segments';
 import { magnitudeScale, ribbonPoints } from '../../core/charting/ribbon';
+import { buildTributaryArrows } from '../../core/charting/tributary-arrows';
 import { Tributary } from '../../core/charting/tributaries';
 import { buildTributaryBundles } from '../../core/charting/tributary-bundles';
 import { bundleId, clusterTributaries } from '../../core/charting/tributary-clusters';
-import { buildTributaryLines } from '../../core/charting/tributary-lines';
 
 /** Cap on a tributary line's stroke width, independent of the balance ribbon's own thickness scale. */
 const MAX_TRIBUTARY_STROKE_WIDTH = 6;
@@ -163,16 +163,43 @@ export class StreamBand {
     buildTributaryBundles(this.groupClusters(), this.centerY(), this.halfThicknessAt(), this.strokeScale()),
   );
 
-  /** Every tributary rendered as its own labeled line: singletons, not part of a proximity cluster. */
+  /** Every tributary rendered as its own labeled arrow: singletons, not part of a proximity cluster. */
   private readonly individualTributaries = computed<Tributary[]>(() =>
     this.clusters()
       .filter((cluster) => cluster.length === 1)
       .flat(),
   );
 
-  protected readonly tributaryLines = computed(() =>
-    buildTributaryLines(this.individualTributaries(), this.centerY(), this.halfThicknessAt(), this.strokeScale()),
+  /**
+   * Each individual tributary's join anchor, in SVG/day-space (see `buildTributaryArrows`'s doc
+   * comment) — the raw geometry `tributaryArrows` converts to overlay percentages from.
+   */
+  private readonly tributaryArrowGeometry = computed(() =>
+    buildTributaryArrows(this.individualTributaries(), this.centerY(), this.halfThicknessAt(), this.strokeScale()),
   );
+
+  /**
+   * An individual tributary's blue 45° shaft+tick mark (#80) — a plain HTML/CSS overlay
+   * (`.tributary-arrow` in stream-band.html/css), not SVG, for the same non-uniform-scaling
+   * reason `.tributary-badge`/`.projected-overlay` already are: a true 45° can't be drawn reliably
+   * as SVG path geometry under `preserveAspectRatio="none"`. Only the anchor point (where the tick
+   * meets the ribbon's edge) is positioned from chart coordinates; the shaft's fixed length/
+   * rotation, the tick's length, and the name label's own position are all expressed as CSS from
+   * that one anchor (the label is nested inside `.arrow-shaft` in the template — see
+   * `buildTributaryArrows`'s doc comment for why it's *not* given a separately-computed SVG-space
+   * position of its own).
+   */
+  protected readonly tributaryArrows = computed(() => {
+    const toPercent = this.toPercent();
+    return this.tributaryArrowGeometry().map((arrow) => ({
+      id: arrow.id,
+      direction: arrow.direction,
+      label: arrow.label,
+      strokeWidth: arrow.strokeWidth,
+      tickLength: arrow.tickLength,
+      ...toPercent(arrow.anchorX, arrow.anchorY),
+    }));
+  });
 
   private readonly tributariesById = computed(() => new Map(this.tributaries().map((t) => [t.id, t])));
 
@@ -264,7 +291,7 @@ export class StreamBand {
 
   /**
    * Converts an SVG-space (x, y) into the overlay's percentage coordinates. Shared by tributary
-   * name labels and group count badges — both plain HTML overlays rather than SVG text/shapes,
+   * arrow anchors and group count badges — both plain HTML overlays rather than SVG text/shapes,
    * since the chart's non-uniform x/y scaling (`preserveAspectRatio="none"`) stretches SVG
    * glyphs into an illegible horizontal smear and would distort a circular badge into an ellipse.
    */
@@ -275,15 +302,6 @@ export class StreamBand {
       leftPercent: (x / width) * 100,
       topPercent: (y / height) * 100,
     });
-  });
-
-  protected readonly tributaryLabels = computed(() => {
-    const toPercent = this.toPercent();
-    return this.tributaryLines().map((line) => ({
-      id: line.id,
-      text: line.label,
-      ...toPercent(line.labelX, line.labelY),
-    }));
   });
 
   protected readonly groupBadges = computed(() => {

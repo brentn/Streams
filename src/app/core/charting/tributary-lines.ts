@@ -1,4 +1,5 @@
 import { FlowDirection } from '../models/flow';
+import { ribbonEdgeY } from './ribbon';
 import { Tributary } from './tributaries';
 
 /** How far a tributary's free end leans from its river-joining x, in day-units. */
@@ -75,7 +76,7 @@ export function buildTributaryLines(
 
   return tributaries.map((tributary) => {
     const half = halfThicknessAt(tributary.x);
-    const joinY = tributary.direction === 'in' ? centerY - half : centerY + half;
+    const joinY = ribbonEdgeY(tributary.direction, centerY, half);
 
     const [x1, y1, x2, y2] =
       tributary.direction === 'in'

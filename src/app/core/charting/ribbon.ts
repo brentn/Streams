@@ -1,4 +1,10 @@
+import { FlowDirection } from '../models/flow';
 import { BandPoint } from './band-segments';
+
+/** Which edge of the ribbon a tributary joins: the top edge for 'in', the bottom edge for 'out' — the ribbon's own edge at that x, not its flat centerline. Shared by `tributary-lines.ts` and `tributary-arrows.ts` so the two renderers can't drift on this rule. */
+export function ribbonEdgeY(direction: FlowDirection, centerY: number, half: number): number {
+  return direction === 'in' ? centerY - half : centerY + half;
+}
 
 /** Linear scale of a magnitude against a stable domain, clamped to `[minPx, maxPx]` — used for a tributary line's stroke width (see issue #74: the domain must stay fixed across scrub frames, never derived from whatever's currently visible). */
 export function magnitudeScale(

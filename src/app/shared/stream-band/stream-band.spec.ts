@@ -96,13 +96,40 @@ describe('StreamBand', () => {
     expect(emitted).not.toHaveBeenCalled();
   });
 
-  it('renders a tributary line (marked for tap dispatch) and its label', async () => {
+  it('renders a tributary arrow (marked for tap dispatch) and its label', async () => {
     const { fixture } = await createComponent([flowTributary]);
 
-    const path: SVGPathElement = fixture.nativeElement.querySelector('path.tributary');
+    const arrow: HTMLElement = fixture.nativeElement.querySelector('.tributary-arrow');
     const label: HTMLElement = fixture.nativeElement.querySelector('.tributary-label');
-    expect(path.getAttribute('data-tributary-id')).toBe(flowTributary.id);
+    expect(arrow.getAttribute('data-tributary-id')).toBe(flowTributary.id);
     expect(label.textContent).toContain('Rent');
+  });
+
+  it('renders an outgoing individual tributary with the .out modifier and an incoming one without it — both otherwise sharing the same blue shaft/tick markup, no direction-coded color classes (#80)', async () => {
+    const inTrib = tributaryAt({ id: 'in-1', direction: 'in', x: 10 });
+    const outTrib = tributaryAt({ id: 'out-1', direction: 'out', x: 50 });
+    const { fixture } = await createComponent([inTrib, outTrib], 60);
+
+    const inArrow: HTMLElement = fixture.nativeElement.querySelector('[data-tributary-id="in-1"]');
+    const outArrow: HTMLElement = fixture.nativeElement.querySelector('[data-tributary-id="out-1"]');
+
+    expect(inArrow.classList.contains('out')).toBe(false);
+    expect(outArrow.classList.contains('out')).toBe(true);
+    expect(inArrow.querySelector('.arrow-shaft')).toBeTruthy();
+    expect(inArrow.querySelector('.arrow-tick')).toBeTruthy();
+    expect(outArrow.querySelector('.arrow-shaft')).toBeTruthy();
+    expect(outArrow.querySelector('.arrow-tick')).toBeTruthy();
+  });
+
+  it("wires the amount-scaled strokeWidth/tickLength into the arrow's --shaft-width/--tick-length custom properties", async () => {
+    const trib = tributaryAt({ id: 'sized', amount: 4000 });
+    const { fixture } = await createComponent([trib]);
+
+    const arrow: HTMLElement = fixture.nativeElement.querySelector('[data-tributary-id="sized"]');
+
+    expect(arrow.style.getPropertyValue('--shaft-width')).toMatch(/px$/);
+    expect(arrow.style.getPropertyValue('--tick-length')).toMatch(/px$/);
+    expect(parseFloat(arrow.style.getPropertyValue('--tick-length'))).toBeGreaterThan(0);
   });
 
   it('emits the source Tributary when its line is tapped', async () => {
@@ -214,23 +241,23 @@ describe('StreamBand', () => {
       const { fixture } = await createComponent(cluster, 60);
 
       const groupPaths = fixture.nativeElement.querySelectorAll('path.tributary.group');
-      const individualPaths = fixture.nativeElement.querySelectorAll('path.tributary:not(.group)');
+      const individualArrows = fixture.nativeElement.querySelectorAll('.tributary-arrow');
       const badge: HTMLElement = fixture.nativeElement.querySelector('.tributary-badge');
 
       expect(groupPaths.length).toBe(1);
-      expect(individualPaths.length).toBe(0);
+      expect(individualArrows.length).toBe(0);
       expect(badge.textContent).toBe('×3');
     });
 
-    it('renders items outside the proximity threshold as individual lines, not a group', async () => {
+    it('renders items outside the proximity threshold as individual arrows, not a group', async () => {
       const items = [tributaryAt({ id: 'a', x: 10 }), tributaryAt({ id: 'b', x: 50 })];
       const { fixture } = await createComponent(items, 60);
 
       const groupPaths = fixture.nativeElement.querySelectorAll('path.tributary.group');
-      const individualPaths = fixture.nativeElement.querySelectorAll('path.tributary:not(.group)');
+      const individualArrows = fixture.nativeElement.querySelectorAll('.tributary-arrow');
 
       expect(groupPaths.length).toBe(0);
-      expect(individualPaths.length).toBe(2);
+      expect(individualArrows.length).toBe(2);
     });
 
     it('renders the ×N badge as a plain HTML overlay outside the SVG, not an SVG element', async () => {
@@ -331,7 +358,7 @@ describe('StreamBand', () => {
       const emitted = vi.fn();
       component.tributaryClick.subscribe(emitted);
 
-      tap(fixture, 'path.tributary:not(.group)');
+      tap(fixture, '.tributary-arrow');
 
       expect(emitted).toHaveBeenCalledTimes(1);
     });
@@ -428,11 +455,11 @@ describe('StreamBand', () => {
         boundaryX: 10,
       });
 
-      const lines = component['tributaryLines']();
-      const low = lines.find((l: { id: string }) => l.id === 'low')!;
-      const high = lines.find((l: { id: string }) => l.id === 'high')!;
+      const arrows = component['tributaryArrowGeometry']();
+      const low = arrows.find((a: { id: string }) => a.id === 'low')!;
+      const high = arrows.find((a: { id: string }) => a.id === 'high')!;
 
-      expect(low.y2).toBeCloseTo(high.y2);
+      expect(low.anchorY).toBeCloseTo(high.anchorY);
     });
   });
 
@@ -549,9 +576,10 @@ describe('StreamBand', () => {
       const { component: alone } = await createComponent([small]);
       const { component: withBigNeighbor } = await createComponent([small, big]);
 
-      const strokeAlone = alone['tributaryLines']().find((l: { id: string }) => l.id === 'small')!.strokeWidth;
-      const strokeWithNeighbor = withBigNeighbor['tributaryLines']().find(
-        (l: { id: string }) => l.id === 'small',
+      const strokeAlone = alone['tributaryArrowGeometry']().find((a: { id: string }) => a.id === 'small')!
+        .strokeWidth;
+      const strokeWithNeighbor = withBigNeighbor['tributaryArrowGeometry']().find(
+        (a: { id: string }) => a.id === 'small',
       )!.strokeWidth;
 
       expect(strokeWithNeighbor).toBe(strokeAlone);
@@ -562,7 +590,9 @@ describe('StreamBand', () => {
 
       const { component } = await createComponent([tiny]);
 
-      expect(component['tributaryLines']().find((l: { id: string }) => l.id === 'tiny')!.strokeWidth).toBe(1);
+      expect(component['tributaryArrowGeometry']().find((a: { id: string }) => a.id === 'tiny')!.strokeWidth).toBe(
+        1,
+      );
     });
   });
 });
