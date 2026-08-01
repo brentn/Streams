@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Tributary } from './tributaries';
-import { bundleId, CLUSTER_THRESHOLD_DAYS, clusterTributaries, flattenGroupMembers } from './tributary-clusters';
+import { bundleId, CLUSTER_THRESHOLD_DAYS, clusterTributaries } from './tributary-clusters';
 
 function tributary(overrides: Partial<Tributary>): Tributary {
   return {
@@ -89,33 +89,5 @@ describe('bundleId', () => {
     const c = tributary({ id: 'c' });
 
     expect(bundleId([a, b])).not.toBe(bundleId([a, c]));
-  });
-});
-
-describe('flattenGroupMembers', () => {
-  it('passes a real (non-minor) member through unchanged', () => {
-    const a = tributary({ id: 'a', kind: 'flow' });
-    const b = tributary({ id: 'b', kind: 'transfer' });
-
-    expect(flattenGroupMembers([a, b])).toEqual([a, b]);
-  });
-
-  it("expands a 'minor' rollup member into its own real members, rather than listing it as one opaque row", () => {
-    const minorMemberA = tributary({ id: 'coffee', label: 'Coffee' });
-    const minorMemberB = tributary({ id: 'parking', label: 'Parking' });
-    const rollup = tributary({
-      id: 'minor-out-x',
-      kind: 'minor',
-      members: [minorMemberA, minorMemberB],
-    });
-    const major = tributary({ id: 'rent', kind: 'flow' });
-
-    const result = flattenGroupMembers([major, rollup]);
-
-    expect(result).toEqual([major, minorMemberA, minorMemberB]);
-  });
-
-  it('returns nothing for an empty cluster', () => {
-    expect(flattenGroupMembers([])).toEqual([]);
   });
 });

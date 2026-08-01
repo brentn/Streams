@@ -1,9 +1,13 @@
 import { BandPoint } from './band-segments';
 
-/** Linear scale of a magnitude against a window's max, capped at maxPx — shared by the balance ribbon's half-thickness and a tributary line's stroke width. */
-export function magnitudeScale(maxMagnitude: number, maxPx: number): (magnitude: number) => number {
+/** Linear scale of a magnitude against a stable domain, clamped to `[minPx, maxPx]` — used for a tributary line's stroke width (see issue #74: the domain must stay fixed across scrub frames, never derived from whatever's currently visible). */
+export function magnitudeScale(
+  maxMagnitude: number,
+  maxPx: number,
+  minPx = 0,
+): (magnitude: number) => number {
   if (maxMagnitude <= 0) return () => 0;
-  return (magnitude: number) => Math.min(maxPx, (Math.abs(magnitude) / maxMagnitude) * maxPx);
+  return (magnitude: number) => Math.max(minPx, Math.min(maxPx, (Math.abs(magnitude) / maxMagnitude) * maxPx));
 }
 
 /**

@@ -6,12 +6,13 @@ import { BandPoint } from '../../core/charting/band-segments';
 import { magnitudeScale, ribbonPoints } from '../../core/charting/ribbon';
 import { Tributary } from '../../core/charting/tributaries';
 import { buildTributaryBundles } from '../../core/charting/tributary-bundles';
-import { bundleId, clusterTributaries, flattenGroupMembers } from '../../core/charting/tributary-clusters';
+import { bundleId, clusterTributaries } from '../../core/charting/tributary-clusters';
 import { buildTributaryLines } from '../../core/charting/tributary-lines';
-import { applyMinorRollup } from '../../core/charting/tributary-minor-rollup';
 
 /** Cap on a tributary line's stroke width, independent of the balance ribbon's own thickness scale. */
 const MAX_TRIBUTARY_STROKE_WIDTH = 6;
+/** Floor on a tributary line's stroke width — even a very small item next to a large color domain should stay visible, not taper to nothing. */
+const MIN_TRIBUTARY_STROKE_WIDTH = 1;
 
 /** The band's fixed half-thickness, as a fraction of `height` — validated in the `prototype/balance-color-stream` throwaway prototype (see ADR-0009). */
 const CONSTANT_HALF_THICKNESS_FRACTION = 0.7;
@@ -123,53 +124,49 @@ export class StreamBand {
     };
   });
 
-  private readonly maxTributaryAmount = computed(() =>
-    this.tributaries().reduce((max, t) => Math.max(max, t.amount), 0),
-  );
-
   /** The ribbon's own (fixed) half-thickness — where a tributary joins/leaves its edge, not the flat centerline. Ignores the point's own balance, unlike the old magnitude-scaled width encoding. */
   private readonly halfThicknessAt = computed(() => {
     const half = this.constantHalfThickness();
     return () => half;
   });
 
+  /**
+   * Sized against `colorCurve().domain` — the same stable, scrub-position-independent reference
+   * the ribbon's own color already uses — rather than the currently-visible tributaries' own max,
+   * so a line's stroke width can't shift just because the sliding window's contents happened to
+   * change. See issue #74.
+   */
   private readonly strokeScale = computed(() =>
-    magnitudeScale(this.maxTributaryAmount(), MAX_TRIBUTARY_STROKE_WIDTH),
+    magnitudeScale(this.colorCurve().domain, MAX_TRIBUTARY_STROKE_WIDTH, MIN_TRIBUTARY_STROKE_WIDTH),
   );
 
-  /**
-   * Magnitude-based rollup (#67) runs before proximity clustering (#66), per #67's recommended
-   * composition order — the resulting per-direction minor aggregate is just another Tributary
-   * as far as clustering is concerned, and may itself end up folded into a proximity cluster
-   * alongside real (major) occurrences.
-   */
-  private readonly rolledUpTributaries = computed(() => applyMinorRollup(this.tributaries()));
-
-  private readonly clusters = computed(() => clusterTributaries(this.rolledUpTributaries()));
+  private readonly clusters = computed(() => clusterTributaries(this.tributaries()));
 
   /**
-   * A "group" is anything rendered as a stand-in line with a ×N badge rather than as its own
-   * labeled line: a proximity cluster of 2+ (#66), or a single `kind: 'minor'` magnitude rollup
-   * (#67) standing in for its own 2+ real members. Both behave identically —
-   * tapping shows a plain name+date+amount list of the group's real underlying Tributaries
-   * (`flattenGroupMembers`), never a zoom or a fanned re-layout of lines. (An earlier version
-   * auto-zoomed into a #66 cluster's neighborhood instead; that was reverted — see #59's
-   * follow-up amendment — since it distorted the chart under the SVG's non-uniform
-   * `preserveAspectRatio="none"` scaling and needlessly diverged from #67's own list-only
-   * interaction for the exact same "too many/too tight to show as lines" problem.)
+   * A "group" is a proximity cluster of 2+ (#66), rendered as a stand-in line with a ×N badge
+   * rather than each member's own labeled line. Tapping shows a plain name+date+amount list of
+   * the group's real underlying Tributaries, never a zoom or a fanned re-layout of lines (an
+   * earlier version auto-zoomed into a cluster's neighborhood instead; that was reverted — see
+   * #59's follow-up amendment — since it distorted the chart under the SVG's non-uniform
+   * `preserveAspectRatio="none"` scaling).
+   *
+   * #67 additionally rolled small-magnitude items into a per-direction aggregate regardless of
+   * date proximity, to also cover sheer flow-count crowding — removed (issue #74 follow-up): it
+   * had no locality check at all, so it could combine items months apart into one aggregate, and
+   * its membership churned every scrub frame as items entered/left the visible window. If
+   * flow-count crowding (as opposed to date-proximity crowding, which #66 already covers) turns
+   * out to be a real problem again, it needs a locality-aware redesign, not a revert.
    */
-  private readonly groupClusters = computed(() =>
-    this.clusters().filter((cluster) => cluster.length > 1 || cluster[0].kind === 'minor'),
-  );
+  private readonly groupClusters = computed(() => this.clusters().filter((cluster) => cluster.length > 1));
 
   protected readonly groups = computed(() =>
     buildTributaryBundles(this.groupClusters(), this.centerY(), this.halfThicknessAt(), this.strokeScale()),
   );
 
-  /** Every tributary rendered as its own labeled line: singletons that aren't a magnitude rollup. */
+  /** Every tributary rendered as its own labeled line: singletons, not part of a proximity cluster. */
   private readonly individualTributaries = computed<Tributary[]>(() =>
     this.clusters()
-      .filter((cluster) => cluster.length === 1 && cluster[0].kind !== 'minor')
+      .filter((cluster) => cluster.length === 1)
       .flat(),
   );
 
@@ -261,9 +258,8 @@ export class StreamBand {
       direction === 'in'
         ? { top: `calc(${badgeTopPercent}% + ${GROUP_LIST_CLEARANCE})`, bottom: null }
         : { top: null, bottom: `calc(${100 - badgeTopPercent}% + ${GROUP_LIST_CLEARANCE})` };
-    const members = flattenGroupMembers(cluster);
-    const total = members.reduce((sum, member) => sum + member.amount, 0);
-    return { direction, members, total, verticalStyle };
+    const total = cluster.reduce((sum, member) => sum + member.amount, 0);
+    return { direction, members: cluster, total, verticalStyle };
   });
 
   /**

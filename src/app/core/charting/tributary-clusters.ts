@@ -47,13 +47,3 @@ export function bundleId(cluster: Tributary[]): string {
     .sort()
     .join('|')}`;
 }
-
-/**
- * The real Tributaries a cluster represents, for its tap-to-expand name+date+amount list —
- * a `kind: 'minor'` member (issue #67's magnitude rollup) stands in for several real
- * below-threshold occurrences, so it's expanded back into its own `members` here rather than
- * listed as one opaque, unlabeled row.
- */
-export function flattenGroupMembers(cluster: Tributary[]): Tributary[] {
-  return cluster.flatMap((t) => (t.kind === 'minor' ? (t.members ?? []) : [t]));
-}

@@ -337,131 +337,6 @@ describe('StreamBand', () => {
     });
   });
 
-  describe('legibility for tiny amounts / high flow count (#67)', () => {
-    it('rolls up 2+ minor-magnitude same-direction items into one group with a ×N badge, hiding their individual lines', async () => {
-      const major = tributaryAt({ id: 'major', x: 5, amount: 1000, label: 'Rent' });
-      const minorA = tributaryAt({ id: 'minor-a', x: 10, amount: 20, label: 'Coffee' });
-      const minorB = tributaryAt({ id: 'minor-b', x: 50, amount: 30, label: 'Parking' });
-      const { fixture } = await createComponent([major, minorA, minorB], 60);
-
-      const badges: NodeListOf<HTMLElement> = fixture.nativeElement.querySelectorAll('.tributary-badge');
-      const plainLines = fixture.nativeElement.querySelectorAll('path.tributary:not(.group)');
-      const labels: NodeListOf<HTMLElement> = fixture.nativeElement.querySelectorAll('.tributary-label');
-
-      expect(badges.length).toBe(1);
-      expect(badges[0].textContent).toBe('×2');
-      expect(plainLines.length).toBe(1); // only the major
-      expect(Array.from(labels).some((l) => l.textContent === 'Coffee')).toBe(false);
-      expect(Array.from(labels).some((l) => l.textContent === 'Parking')).toBe(false);
-    });
-
-    it('does not roll up a lone minor item — it renders and drills in normally', async () => {
-      const major = tributaryAt({ id: 'major', x: 5, amount: 1000 });
-      const lonelyMinor = tributaryAt({ id: 'lonely', x: 50, amount: 20, label: 'Coffee' });
-      const { component, fixture } = await createComponent([major, lonelyMinor], 60);
-      const emitted = vi.fn();
-      component.tributaryClick.subscribe(emitted);
-
-      expect(fixture.nativeElement.querySelector('.tributary-badge')).toBeNull();
-      const plainLines = fixture.nativeElement.querySelectorAll('path.tributary:not(.group)');
-      expect(plainLines.length).toBe(2);
-
-      tap(fixture, `[data-tributary-id="${lonelyMinor.id}"]`);
-
-      expect(emitted).toHaveBeenCalledWith(lonelyMinor);
-    });
-
-    it('tapping the badge expands a name+date+amount list, with no fanned lines added', async () => {
-      const major = tributaryAt({ id: 'major', x: 5, amount: 1000 });
-      const minorA = tributaryAt({ id: 'minor-a', x: 10, amount: 20, label: 'Coffee' });
-      const minorB = tributaryAt({ id: 'minor-b', x: 50, amount: 30, label: 'Parking' });
-      const { fixture } = await createComponent([major, minorA, minorB], 60);
-      const pathCountBefore = fixture.nativeElement.querySelectorAll('path.tributary').length;
-
-      tap(fixture, '.tributary-badge');
-
-      const list: HTMLElement = fixture.nativeElement.querySelector('.group-list');
-      const items: NodeListOf<HTMLElement> = fixture.nativeElement.querySelectorAll('.group-list li');
-      const pathCountAfter = fixture.nativeElement.querySelectorAll('path.tributary').length;
-
-      expect(list).toBeTruthy();
-      expect(items.length).toBe(2);
-      expect(Array.from(items).map((i) => i.textContent)).toEqual(
-        expect.arrayContaining([expect.stringContaining('Coffee'), expect.stringContaining('Parking')]),
-      );
-      expect(pathCountAfter).toBe(pathCountBefore);
-    });
-
-    it('does not emit tributaryClick when the rollup badge is tapped', async () => {
-      const major = tributaryAt({ id: 'major', x: 5, amount: 1000 });
-      const minorA = tributaryAt({ id: 'minor-a', x: 10, amount: 20 });
-      const minorB = tributaryAt({ id: 'minor-b', x: 50, amount: 30 });
-      const { component, fixture } = await createComponent([major, minorA, minorB], 60);
-      const emitted = vi.fn();
-      component.tributaryClick.subscribe(emitted);
-
-      tap(fixture, '.tributary-badge');
-
-      expect(emitted).not.toHaveBeenCalled();
-    });
-
-    it('still drills in normally on a real (major) tributary once a rollup exists alongside it', async () => {
-      const major = tributaryAt({ id: 'major', x: 5, amount: 1000 });
-      const minorA = tributaryAt({ id: 'minor-a', x: 10, amount: 20 });
-      const minorB = tributaryAt({ id: 'minor-b', x: 50, amount: 30 });
-      const { component, fixture } = await createComponent([major, minorA, minorB], 60);
-      const emitted = vi.fn();
-      component.tributaryClick.subscribe(emitted);
-
-      tap(fixture, 'path.tributary:not(.group)');
-
-      expect(emitted).toHaveBeenCalledWith(major);
-    });
-
-    describe('composition with proximity clustering (#66)', () => {
-      it('folds the rollup into a #66 proximity group when it lands near a major, showing the true flattened member count', async () => {
-        const major = tributaryAt({ id: 'major', x: 10, amount: 1000, label: 'Rent' });
-        const minorA = tributaryAt({ id: 'minor-a', x: 11, amount: 20, label: 'Coffee' });
-        const minorB = tributaryAt({ id: 'minor-b', x: 12, amount: 30, label: 'Parking' });
-        const { fixture } = await createComponent([major, minorA, minorB], 60);
-
-        const groupPaths = fixture.nativeElement.querySelectorAll('path.tributary.group');
-        const badge: HTMLElement = fixture.nativeElement.querySelector('.tributary-badge');
-
-        // One merged group (major + the rolled-up minor aggregate), but its badge counts the
-        // real flattened members — 1 major + 2 minors = ×3, not ×2 (cluster.length) or ×1.
-        expect(groupPaths.length).toBe(1);
-        expect(badge.textContent).toBe('×3');
-      });
-
-      it("tapping the merged group's badge lists every real member — the major and both flattened minors — with no zoom", async () => {
-        const major = tributaryAt({ id: 'major', x: 10, amount: 1000, label: 'Rent' });
-        const minorA = tributaryAt({ id: 'minor-a', x: 11, amount: 20, label: 'Coffee' });
-        const minorB = tributaryAt({ id: 'minor-b', x: 12, amount: 30, label: 'Parking' });
-        const { component, fixture } = await createComponent([major, minorA, minorB], 60);
-        const emitted = vi.fn();
-        component.tributaryClick.subscribe(emitted);
-        const viewBoxBefore = fixture.nativeElement.querySelector('svg').getAttribute('viewBox');
-
-        tap(fixture, '.tributary-badge');
-
-        const viewBoxAfter = fixture.nativeElement.querySelector('svg').getAttribute('viewBox');
-        const items: NodeListOf<HTMLElement> = fixture.nativeElement.querySelectorAll('.group-list li');
-
-        expect(viewBoxAfter).toBe(viewBoxBefore);
-        expect(emitted).not.toHaveBeenCalled();
-        expect(items.length).toBe(3);
-        expect(Array.from(items).map((i) => i.textContent)).toEqual(
-          expect.arrayContaining([
-            expect.stringContaining('Rent'),
-            expect.stringContaining('Coffee'),
-            expect.stringContaining('Parking'),
-          ]),
-        );
-      });
-    });
-  });
-
   describe('color encoding (#77 — Signed Balance color ribbon)', () => {
     it('renders one flat-filled band polygon per consecutive day, never the old width-based segments', async () => {
       const flatPoints: BandPoint[] = [point(0, 100), point(1, 100), point(2, 100)];
@@ -663,6 +538,31 @@ describe('StreamBand', () => {
       const overlay: HTMLElement = fixture.nativeElement.querySelector('.projected-overlay');
       expect(parseFloat(overlay.style.left)).toBeCloseTo(0);
       expect(parseFloat(overlay.style.width)).toBeCloseTo(100);
+    });
+  });
+
+  describe('tributary stroke width against a stable domain (issue #74)', () => {
+    it("sizes a tributary's stroke against the color-curve domain, not the other tributaries currently in view", async () => {
+      const small = tributaryAt({ id: 'small', amount: 100 });
+      const big = tributaryAt({ id: 'big', amount: 4000, x: 60 });
+
+      const { component: alone } = await createComponent([small]);
+      const { component: withBigNeighbor } = await createComponent([small, big]);
+
+      const strokeAlone = alone['tributaryLines']().find((l: { id: string }) => l.id === 'small')!.strokeWidth;
+      const strokeWithNeighbor = withBigNeighbor['tributaryLines']().find(
+        (l: { id: string }) => l.id === 'small',
+      )!.strokeWidth;
+
+      expect(strokeWithNeighbor).toBe(strokeAlone);
+    });
+
+    it('never renders a stroke thinner than the 1px floor, even for a tiny amount against a large domain', async () => {
+      const tiny = tributaryAt({ id: 'tiny', amount: 1 });
+
+      const { component } = await createComponent([tiny]);
+
+      expect(component['tributaryLines']().find((l: { id: string }) => l.id === 'tiny')!.strokeWidth).toBe(1);
     });
   });
 });

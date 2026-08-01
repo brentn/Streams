@@ -49,19 +49,6 @@ describe('buildTributaryBundles', () => {
     expect(bundle.count).toBe(3);
   });
 
-  it("counts a 'minor' rollup member's real underlying items, not the cluster's own member count", () => {
-    const rollup = tributary({
-      id: 'minor-out-x',
-      kind: 'minor',
-      members: [tributary({ id: 'coffee' }), tributary({ id: 'parking' }), tributary({ id: 'tolls' })],
-    });
-    const cluster = [tributary({ id: 'major' }), rollup];
-
-    const [bundle] = buildTributaryBundles([cluster], 60, () => 10, () => 3);
-
-    expect(bundle.count).toBe(4); // 1 major + 3 flattened minor members, not 2 (cluster.length)
-  });
-
   it('carries the shared direction through', () => {
     const cluster = [tributary({ direction: 'out' }), tributary({ direction: 'out' })];
 

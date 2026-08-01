@@ -14,6 +14,12 @@ describe('magnitudeScale', () => {
     const scale = magnitudeScale(0, 20);
     expect(scale(0)).toBe(0);
   });
+
+  it('floors a nonzero magnitude at minPx rather than letting it taper toward zero', () => {
+    const scale = magnitudeScale(1000, 20, 2);
+    expect(scale(1)).toBe(2);
+    expect(scale(500)).toBe(10);
+  });
 });
 
 describe('ribbonPoints', () => {
