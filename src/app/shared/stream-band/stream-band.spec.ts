@@ -160,6 +160,34 @@ describe('StreamBand', () => {
       expect(emitted).toHaveBeenCalledWith(flowTributary);
     });
 
+    /**
+     * `.tributary-label` is nested inside `.tributary-arrow[data-tributary-id]` (#80), so a tap
+     * landing directly on the name label — not just the shaft/tick — must resolve to the same
+     * Tributary via `.closest()`. This is also the seam that would have caught the label's
+     * leftover `pointer-events: none` (a holdover from the old design, where the label sat on top
+     * of a separately-clickable SVG line and needed to pass clicks through to it): with that CSS
+     * still in place, a real click on the label went nowhere even though this DOM-resolution
+     * check alone still passed — see the computed-style assertion below for the part that
+     * actually exercises the CSS.
+     */
+    it('resolves a tap landing directly on the tributary label and emits tributaryClick', async () => {
+      const { component, fixture } = await createComponent([flowTributary]);
+      const emitted = vi.fn();
+      component.tributaryClick.subscribe(emitted);
+
+      tap(fixture, '.tributary-label');
+
+      expect(emitted).toHaveBeenCalledWith(flowTributary);
+    });
+
+    it('keeps the tributary label actually clickable — not pointer-events: none — since it is now the primary label target, unlike the old SVG-line design it replaced', async () => {
+      const { fixture } = await createComponent([flowTributary]);
+
+      const label: HTMLElement = fixture.nativeElement.querySelector('.tributary-label');
+
+      expect(getComputedStyle(label).pointerEvents).not.toBe('none');
+    });
+
     it('resolves a tapped group line (via data-group-id) and opens its list, without emitting tributaryClick', async () => {
       const cluster = [tributaryAt({ id: 'a', x: 10 }), tributaryAt({ id: 'b', x: 11 })];
       const { component, fixture } = await createComponent(cluster, 60);

@@ -47,7 +47,7 @@ export class StreamBand {
   readonly tributaries = input<Tributary[]>([]);
   /** Cap on the ribbon's total thickness, as a fraction of `height` — reserves vertical margin above/below for tributaries to lean into. Defaults to no cap (the ribbon may fill the full height, as the multi-account view's lanes do). */
   readonly maxThicknessFraction = input(1);
-  /** The source Tributary a user clicked its line to open — for drill-in (issue #65). The label stays `pointer-events: none` (see `stream-band.css`), so only the line itself is clickable. */
+  /** The source Tributary a user clicked to open — for drill-in (issue #65). Both the arrow (shaft/tick) and its nested name label are clickable, since the label is a DOM descendant of the arrow's `data-tributary-id` element (see `handleTap`). */
   readonly tributaryClick = output<Tributary>();
   /**
    * Which color curve/CSS palette this band uses: `'account'` (blue/brown, flat $5000 domain)

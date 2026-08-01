@@ -187,7 +187,6 @@
   position: absolute;
   top: calc(50% + .5rem);
   white-space: nowrap;
-  pointer-events: none;
   font-size: 0.65rem;
   font-weight: 600;
   color: var(--color-ink-primary);
