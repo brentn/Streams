@@ -260,7 +260,7 @@ describe('StreamBand', () => {
   });
 
   describe('proximity clustering (#66)', () => {
-    it('collapses a same-direction cluster within the proximity threshold into one group line with a ×N badge, hiding individual lines', async () => {
+    it('collapses a same-direction cluster within the proximity threshold into one group arrow with a ×N badge, hiding individual arrows', async () => {
       const cluster = [
         tributaryAt({ id: 'a', x: 10 }),
         tributaryAt({ id: 'b', x: 11 }),
@@ -268,23 +268,35 @@ describe('StreamBand', () => {
       ];
       const { fixture } = await createComponent(cluster, 60);
 
-      const groupPaths = fixture.nativeElement.querySelectorAll('path.tributary.group');
-      const individualArrows = fixture.nativeElement.querySelectorAll('.tributary-arrow');
+      const groupArrows = fixture.nativeElement.querySelectorAll('.tributary-arrow.group');
+      const individualArrows = fixture.nativeElement.querySelectorAll('.tributary-arrow:not(.group)');
       const badge: HTMLElement = fixture.nativeElement.querySelector('.tributary-badge');
 
-      expect(groupPaths.length).toBe(1);
+      expect(groupArrows.length).toBe(1);
       expect(individualArrows.length).toBe(0);
       expect(badge.textContent).toBe('×3');
+    });
+
+    it("renders a group arrow with the same shaft/tick shape/styling as an individual tributary (#81)", async () => {
+      const cluster = [tributaryAt({ id: 'a', x: 10 }), tributaryAt({ id: 'b', x: 11 })];
+      const { fixture } = await createComponent(cluster, 60);
+
+      const groupArrow: HTMLElement = fixture.nativeElement.querySelector('.tributary-arrow.group');
+
+      expect(groupArrow.querySelector('.arrow-shaft')).toBeTruthy();
+      expect(groupArrow.querySelector('.arrow-tick')).toBeTruthy();
+      expect(groupArrow.style.getPropertyValue('--shaft-width')).toMatch(/px$/);
+      expect(groupArrow.style.getPropertyValue('--tick-length')).toMatch(/px$/);
     });
 
     it('renders items outside the proximity threshold as individual arrows, not a group', async () => {
       const items = [tributaryAt({ id: 'a', x: 10 }), tributaryAt({ id: 'b', x: 50 })];
       const { fixture } = await createComponent(items, 60);
 
-      const groupPaths = fixture.nativeElement.querySelectorAll('path.tributary.group');
-      const individualArrows = fixture.nativeElement.querySelectorAll('.tributary-arrow');
+      const groupArrows = fixture.nativeElement.querySelectorAll('.tributary-arrow.group');
+      const individualArrows = fixture.nativeElement.querySelectorAll('.tributary-arrow:not(.group)');
 
-      expect(groupPaths.length).toBe(0);
+      expect(groupArrows.length).toBe(0);
       expect(individualArrows.length).toBe(2);
     });
 
@@ -306,12 +318,12 @@ describe('StreamBand', () => {
       const emitted = vi.fn();
       component.tributaryClick.subscribe(emitted);
 
-      tap(fixture, 'path.tributary.group');
+      tap(fixture, '.tributary-arrow.group');
 
       expect(emitted).not.toHaveBeenCalled();
     });
 
-    it("tapping a group opens a name+date+amount list of its real members, with no zoom and no new lines added", async () => {
+    it("tapping a group opens a name+date+amount list of its real members, with no zoom and no new arrows added", async () => {
       const cluster = [
         tributaryAt({ id: 'a', x: 10, label: 'Coffee', date: new Date(2026, 3, 10) }),
         tributaryAt({ id: 'b', x: 11, label: 'Parking', date: new Date(2026, 3, 11) }),
@@ -319,16 +331,16 @@ describe('StreamBand', () => {
       ];
       const { fixture } = await createComponent(cluster, 60);
       const viewBoxBefore = fixture.nativeElement.querySelector('svg').getAttribute('viewBox');
-      const pathCountBefore = fixture.nativeElement.querySelectorAll('path.tributary').length;
+      const arrowCountBefore = fixture.nativeElement.querySelectorAll('.tributary-arrow').length;
 
-      tap(fixture, 'path.tributary.group');
+      tap(fixture, '.tributary-arrow.group');
 
       const viewBoxAfter = fixture.nativeElement.querySelector('svg').getAttribute('viewBox');
-      const pathCountAfter = fixture.nativeElement.querySelectorAll('path.tributary').length;
+      const arrowCountAfter = fixture.nativeElement.querySelectorAll('.tributary-arrow').length;
       const items: NodeListOf<HTMLElement> = fixture.nativeElement.querySelectorAll('.group-list li');
 
       expect(viewBoxAfter).toBe(viewBoxBefore);
-      expect(pathCountAfter).toBe(pathCountBefore);
+      expect(arrowCountAfter).toBe(arrowCountBefore);
       expect(items.length).toBe(3);
       expect(Array.from(items).map((i) => i.textContent)).toEqual(
         expect.arrayContaining([
@@ -347,7 +359,7 @@ describe('StreamBand', () => {
       ];
       const { fixture } = await createComponent(cluster, 60);
 
-      tap(fixture, 'path.tributary.group');
+      tap(fixture, '.tributary-arrow.group');
 
       const header: HTMLElement = fixture.nativeElement.querySelector('.group-list-header span');
       expect(header.textContent).toContain('$90.00');
@@ -359,13 +371,13 @@ describe('StreamBand', () => {
       const cluster = [tributaryAt({ id: 'a', x: 10 }), tributaryAt({ id: 'b', x: 11 })];
       const { fixture } = await createComponent(cluster, 60);
 
-      tap(fixture, 'path.tributary.group');
+      tap(fixture, '.tributary-arrow.group');
       expect(fixture.nativeElement.querySelector('.group-list')).toBeTruthy();
 
       tap(fixture, '.group-list-close');
 
       expect(fixture.nativeElement.querySelector('.group-list')).toBeNull();
-      expect(fixture.nativeElement.querySelector('path.tributary.group')).toBeTruthy();
+      expect(fixture.nativeElement.querySelector('.tributary-arrow.group')).toBeTruthy();
     });
 
     it('re-tapping the same group toggles its list closed, rather than double-opening it', async () => {

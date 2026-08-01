@@ -18,14 +18,6 @@
         [style.fillOpacity]="segment.opacity"
       />
     }
-    @for (group of groups(); track group.id) {
-      <path
-        [attr.d]="group.d"
-        class="tributary group"
-        [class.out]="group.direction === 'out'"
-        [attr.data-group-id]="group.id"
-      />
-    }
   </svg>
   @for (arrow of tributaryArrows(); track arrow.id) {
     <div
@@ -43,6 +35,22 @@
       </span>
     </div>
   }
+  @for (group of groupArrows(); track group.id) {
+    <div
+      class="tributary-arrow group"
+      [class.out]="group.direction === 'out'"
+      [style.left.%]="group.leftPercent"
+      [style.top.%]="group.topPercent"
+      [style.--shaft-width]="group.strokeWidth + 'px'"
+      [style.--tick-length]="group.tickLength + 'px'"
+      [attr.data-group-id]="group.id"
+    >
+      <span class="arrow-tick"></span>
+      <span class="arrow-shaft">
+        <button type="button" class="tributary-badge">×{{ group.count }}</button>
+      </span>
+    </div>
+  }
   @if (projectedOverlay(); as overlay) {
     <div
       class="projected-overlay"
@@ -51,15 +59,6 @@
       [style.width.%]="overlay.widthPercent"
       [style.height.%]="overlay.heightPercent"
     ></div>
-  }
-  @for (badge of groupBadges(); track badge.id) {
-    <button
-      type="button"
-      class="tributary-badge"
-      [style.left.%]="badge.leftPercent"
-      [style.top.%]="badge.topPercent"
-      [attr.data-group-id]="badge.id"
-    >×{{ badge.count }}</button>
   }
   @if (expandedGroupMembers(); as group) {
     <div class="group-list" [style.top]="group.verticalStyle.top" [style.bottom]="group.verticalStyle.bottom">

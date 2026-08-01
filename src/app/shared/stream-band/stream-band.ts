@@ -159,9 +159,28 @@ export class StreamBand {
    */
   private readonly groupClusters = computed(() => this.clusters().filter((cluster) => cluster.length > 1));
 
-  protected readonly groups = computed(() =>
+  private readonly groups = computed(() =>
     buildTributaryBundles(this.groupClusters(), this.centerY(), this.halfThicknessAt(), this.strokeScale()),
   );
+
+  /**
+   * A group's blue 45° shaft+tick mark (#81) — the same overlay-based render as an individual
+   * tributary's own arrow (`tributaryArrows`), converted from the bundle's anchor to overlay
+   * percentages here rather than in the template, same as `tributaryArrows` does. The nested ×N
+   * badge (see stream-band.html/css) takes the place of the name label an individual arrow nests
+   * at its free end.
+   */
+  protected readonly groupArrows = computed(() => {
+    const toPercent = this.toPercent();
+    return this.groups().map((group) => ({
+      id: group.id,
+      direction: group.direction,
+      count: group.count,
+      strokeWidth: group.strokeWidth,
+      tickLength: group.tickLength,
+      ...toPercent(group.anchorX, group.anchorY),
+    }));
+  });
 
   /** Every tributary rendered as its own labeled arrow: singletons, not part of a proximity cluster. */
   private readonly individualTributaries = computed<Tributary[]>(() =>
@@ -280,7 +299,7 @@ export class StreamBand {
     const cluster = this.expandedGroup();
     if (!cluster) return null;
     const direction = cluster[0].direction;
-    const badgeTopPercent = this.groupBadges().find((b) => b.id === this.expandedGroupId())?.topPercent ?? 50;
+    const badgeTopPercent = this.groupArrows().find((a) => a.id === this.expandedGroupId())?.topPercent ?? 50;
     const verticalStyle =
       direction === 'in'
         ? { top: `calc(${badgeTopPercent}% + ${GROUP_LIST_CLEARANCE})`, bottom: null }
@@ -290,9 +309,9 @@ export class StreamBand {
   });
 
   /**
-   * Converts an SVG-space (x, y) into the overlay's percentage coordinates. Shared by tributary
-   * arrow anchors and group count badges — both plain HTML overlays rather than SVG text/shapes,
-   * since the chart's non-uniform x/y scaling (`preserveAspectRatio="none"`) stretches SVG
+   * Converts an SVG-space (x, y) into the overlay's percentage coordinates. Shared by individual
+   * and grouped/rolled-up tributary arrow anchors — both plain HTML overlays rather than SVG
+   * shapes, since the chart's non-uniform x/y scaling (`preserveAspectRatio="none"`) stretches SVG
    * glyphs into an illegible horizontal smear and would distort a circular badge into an ellipse.
    */
   private readonly toPercent = computed(() => {
@@ -302,14 +321,5 @@ export class StreamBand {
       leftPercent: (x / width) * 100,
       topPercent: (y / height) * 100,
     });
-  });
-
-  protected readonly groupBadges = computed(() => {
-    const toPercent = this.toPercent();
-    return this.groups().map((group) => ({
-      id: group.id,
-      count: group.count,
-      ...toPercent(group.badgeX, group.badgeY),
-    }));
   });
 }

@@ -31,8 +31,8 @@ export interface TributaryArrow {
 /**
  * Anchors every individual tributary to where it joins/leaves the ribbon's edge at the
  * occurrence's x — the ribbon's own edge there, not its flat centerline, since the ribbon's
- * thickness already varies with the balance. Grouped/rolled-up stand-ins keep using
- * `buildTributaryLines`/`buildTributaryBundles` (SVG path geometry) — out of scope for #80.
+ * thickness already varies with the balance. Also the geometry engine behind
+ * `buildTributaryBundles` (#81), which anchors a cluster's/rollup's centroid stand-in the same way.
  */
 export function buildTributaryArrows(
   tributaries: Tributary[],

@@ -1,7 +1,7 @@
 import { FlowDirection } from '../models/flow';
 import { BandPoint } from './band-segments';
 
-/** Which edge of the ribbon a tributary joins: the top edge for 'in', the bottom edge for 'out' — the ribbon's own edge at that x, not its flat centerline. Shared by `tributary-lines.ts` and `tributary-arrows.ts` so the two renderers can't drift on this rule. */
+/** Which edge of the ribbon a tributary joins: the top edge for 'in', the bottom edge for 'out' — the ribbon's own edge at that x, not its flat centerline. Shared by `tributary-arrows.ts` and `tributary-bundles.ts` so individual and grouped/rolled-up marks can't drift on this rule. */
 export function ribbonEdgeY(direction: FlowDirection, centerY: number, half: number): number {
   return direction === 'in' ? centerY - half : centerY + half;
 }

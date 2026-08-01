@@ -71,29 +71,14 @@
 }
 
 /*
- * A group's stand-in line — grouped/rolled-up tributaries are out of scope for #80 and keep their
- * original SVG-path rendering (see `buildTributaryBundles`/`buildTributaryLines`), direction-coded
- * green/brown and all. Individual tributaries no longer use this class — see `.tributary-arrow`.
- */
-.tributary {
-  fill: var(--color-accent);
-  stroke: none;
-  cursor: pointer;
-}
-
-.tributary.out {
-  fill: var(--color-opposite-sign);
-}
-
-/*
- * An individual tributary's blue 45° shaft+tick mark (#80) — plain HTML/CSS overlay elements, not
- * SVG, for the same non-uniform-scaling reason `.tributary-label`/`.tributary-badge`/
- * `.projected-overlay` already are: the chart's `preserveAspectRatio="none"` non-uniform x/y
- * scaling can't render a guaranteed-true 45° as SVG path geometry. `.tributary-arrow` itself is a
- * zero-size anchor at the tributary's join point on the ribbon's edge (`toPercent`, same as a
- * label/badge anchor); `.arrow-shaft`/`.arrow-tick` are its only visible children, positioned
- * purely from plain CSS `top`/`transform` off that one anchor — no SVG coordinates involved, so
- * the 45° lean holds exactly regardless of window width.
+ * An individual tributary's, and a group's (#81), blue 45° shaft+tick mark (#80) — plain HTML/CSS
+ * overlay elements, not SVG, for the same non-uniform-scaling reason `.tributary-label`/
+ * `.tributary-badge`/`.projected-overlay` already are: the chart's `preserveAspectRatio="none"`
+ * non-uniform x/y scaling can't render a guaranteed-true 45° as SVG path geometry. `.tributary-arrow`
+ * itself is a zero-size anchor at the tributary's/group's join point on the ribbon's edge
+ * (`toPercent`, same as a label/badge anchor); `.arrow-shaft`/`.arrow-tick` are its only visible
+ * children, positioned purely from plain CSS `top`/`transform` off that one anchor — no SVG
+ * coordinates involved, so the 45° lean holds exactly regardless of window width.
  *
  * Both directions share the same "\" 45° lean (matching `.tributary-label`'s own fixed rotation
  * below): an outgoing shaft starts at the anchor and swings down-right; an incoming shaft starts
@@ -106,6 +91,12 @@
   width: 0;
   height: 0;
   cursor: pointer;
+  /* The shaft's own lean, one source of truth for both `.arrow-shaft`'s rotation and `.tributary-badge`'s counter-rotation (#81) below — so the two can't drift apart into two separately-maintained angle literals. */
+  --shaft-angle: 225deg;
+}
+
+.tributary-arrow.out {
+  --shaft-angle: 45deg;
 }
 
 /* Both directions render in the same blue, replacing the old green(in)/brown(out) split — safe here since tributaries never render on the green/red Total lane (see stream-band.ts's `colorPalette` doc comment). */
@@ -143,12 +134,11 @@
   height: var(--shaft-width);
   min-height: 1px;
   transform-origin: 0 50%;
-  transform: rotate(225deg);
+  transform: rotate(var(--shaft-angle));
 }
 
 .tributary-arrow.out .arrow-shaft {
   top: calc(var(--tick-length) - var(--shaft-width) / 2);
-  transform: rotate(45deg);
 }
 
 /*
@@ -229,10 +219,22 @@
  * `preserveAspectRatio="none"` (non-uniform x/y scaling to fill the container); that distorts
  * any circular SVG shape into an ellipse (see issue #66). It's a real `<button>` — the primary
  * tap target for opening the group's list, since a thin line can be a fiddly target.
+ *
+ * Nested inside `.arrow-shaft` (#81), same as `.tributary-label` above and for the same reason:
+ * anchoring it at the shaft's own tip (`left: 100%; top: 50%`, its rotation pivot's opposite end)
+ * inherits the shaft's real screen-space position exactly, at every window width, rather than a
+ * separately-computed approximate SVG-space free-end coordinate. Unlike the label, though, the
+ * badge's own content (digits) should stay upright rather than lean with the shaft, so it carries
+ * a counter-rotation undoing the shaft's inherited lean (`--shaft-angle`, defined on
+ * `.tributary-arrow` above — the same custom property `.arrow-shaft`'s own rotation reads, so the
+ * two can't drift apart) — the same "\"-diagonal reasoning behind the label's rotation doesn't
+ * apply here since a count badge isn't read along the shaft.
  */
 .tributary-badge {
   position: absolute;
-  transform: translate(-50%, -50%);
+  left: 100%;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(calc(-1 * var(--shaft-angle)));
   display: flex;
   align-items: center;
   justify-content: center;

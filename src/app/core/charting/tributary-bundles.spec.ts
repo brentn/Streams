@@ -17,12 +17,12 @@ function tributary(overrides: Partial<Tributary>): Tributary {
 }
 
 describe('buildTributaryBundles', () => {
-  it('joins the bundle line at the cluster\'s centroid x, not any one member\'s x', () => {
+  it('anchors the bundle arrow at the cluster\'s centroid x, not any one member\'s x', () => {
     const cluster = [tributary({ id: 'a', x: 10, direction: 'in' }), tributary({ id: 'b', x: 20, direction: 'in' })];
 
     const [bundle] = buildTributaryBundles([cluster], 60, () => 10, () => 3);
 
-    expect(bundle.x2).toBe(15);
+    expect(bundle.anchorX).toBe(15);
   });
 
   it('sizes the stroke from the combined magnitude of every member, via the given scale', () => {
@@ -65,13 +65,14 @@ describe('buildTributaryBundles', () => {
     expect(bundle.id).toBe(bundleId(cluster));
   });
 
-  it('places the badge at the line\'s free end, same as an individual tributary label', () => {
-    const cluster = [tributary({ id: 'a', x: 10, direction: 'in' }), tributary({ id: 'b', x: 10, direction: 'in' })];
+  it("scales the tick's length with the shaft's own strokeWidth, same as an individual tributary arrow", () => {
+    const cluster = [tributary({ id: 'a' }), tributary({ id: 'b' })];
 
-    const [bundle] = buildTributaryBundles([cluster], 60, () => 10, () => 3);
+    const [thin] = buildTributaryBundles([cluster], 60, () => 10, () => 2);
+    const [thick] = buildTributaryBundles([cluster], 60, () => 10, () => 10);
 
-    expect(bundle.badgeX).toBe(bundle.x1);
-    expect(bundle.badgeY).toBe(bundle.y1);
+    expect(thick.tickLength).toBeGreaterThan(thin.tickLength);
+    expect(thin.tickLength).toBeGreaterThan(0);
   });
 
   it('builds one bundle per cluster, in order', () => {
