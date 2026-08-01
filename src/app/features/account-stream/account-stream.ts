@@ -20,6 +20,7 @@ import {
   balanceSeries,
   runningDryAlert,
 } from '../../core/projection/projection-engine';
+import { signedBalance } from '../../core/charting/balance-color';
 import { BandPoint } from '../../core/charting/band-segments';
 import {
   boundaryXFor,
@@ -131,7 +132,7 @@ export class AccountStream {
   protected readonly isOppositeSign = computed(() => {
     const account = this.account();
     const balance = this.balance();
-    return account !== null && balance !== null && balance * account.expectedSign < 0;
+    return account !== null && balance !== null && signedBalance(balance, account.expectedSign) < 0;
   });
 
   private readonly windowDates = computed(() => buildWindowDates(this.selectedDate()));

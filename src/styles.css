@@ -23,6 +23,9 @@
   /* Chart: opposite-of-expected-sign segment */
   --color-opposite-sign: #a8611f;
 
+  /* Chart: Signed Balance >= 0 (account-stream's color-encoded ribbon — see ADR-0009) */
+  --color-positive-balance: #2a78d6;
+
   /* Type scale */
   --font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
   --text-eyebrow: 0.75rem;
@@ -49,6 +52,7 @@
     --color-critical: #d03b3b;
 
     --color-opposite-sign: #d19255;
+    --color-positive-balance: #3987e5;
   }
 }
 
@@ -68,6 +72,7 @@
   --color-critical: #d03b3b;
 
   --color-opposite-sign: #d19255;
+  --color-positive-balance: #3987e5;
 }
 
 * {

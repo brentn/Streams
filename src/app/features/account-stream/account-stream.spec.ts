@@ -587,4 +587,49 @@ describe('AccountStream', () => {
       expect(component['isUncategorizedHighlighted']()).toBe(true);
     });
   });
+
+  describe('Signed-Balance color ribbon (#77)', () => {
+    it('renders the constant-width color-encoded ribbon (not the width-based one) for an Asset account whose balance is normal', async () => {
+      storage.getAccounts.mockResolvedValue([{ ...account, expectedSign: 1, balance: 1000 }]);
+
+      const fixture = TestBed.createComponent(AccountStream);
+      fixture.componentRef.setInput('id', 'acc-1');
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+      fixture.detectChanges();
+
+      const fills = fixture.nativeElement.querySelectorAll('.band-fill');
+      expect(fixture.nativeElement.querySelectorAll('.segment').length).toBe(0);
+      expect(fills.length).toBeGreaterThan(0);
+      expect(Array.from(fills as NodeListOf<Element>).every((el) => el.classList.contains('positive'))).toBe(true);
+    });
+
+    it('renders the same positive (blue) hue for a Liability account whose balance is normal (negative), via Signed Balance rather than raw balance', async () => {
+      storage.getAccounts.mockResolvedValue([{ ...account, expectedSign: -1, balance: -1000 }]);
+
+      const fixture = TestBed.createComponent(AccountStream);
+      fixture.componentRef.setInput('id', 'acc-1');
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+      fixture.detectChanges();
+
+      const fills = fixture.nativeElement.querySelectorAll('.band-fill');
+      expect(fills.length).toBeGreaterThan(0);
+      expect(Array.from(fills as NodeListOf<Element>).every((el) => el.classList.contains('positive'))).toBe(true);
+    });
+
+    it('renders the negative (brown) hue for a Liability account whose raw balance is positive (opposite of expected)', async () => {
+      storage.getAccounts.mockResolvedValue([{ ...account, expectedSign: -1, balance: 1000 }]);
+
+      const fixture = TestBed.createComponent(AccountStream);
+      fixture.componentRef.setInput('id', 'acc-1');
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+      fixture.detectChanges();
+
+      const fills = fixture.nativeElement.querySelectorAll('.band-fill');
+      expect(fills.length).toBeGreaterThan(0);
+      expect(Array.from(fills as NodeListOf<Element>).every((el) => el.classList.contains('negative'))).toBe(true);
+    });
+  });
 });

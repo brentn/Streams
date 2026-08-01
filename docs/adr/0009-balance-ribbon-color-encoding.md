@@ -1,0 +1,23 @@
+# Balance ribbon: constant-width, fixed-domain diverging color instead of magnitude-scaled width
+
+The width-by-`|balance|` ribbon rescaled its own thickness — and everything laid out around it — as the visible scrub window changed, because its domain (`maxAbsBalance`) was recomputed from only the currently-rendered days. #70 replaces it with a constant-width band that encodes Signed Balance (see `CONTEXT.md`) as color instead, decided via `/grill-with-docs`.
+
+**Decision**:
+
+- Individual account lanes use a flat **$5000** color domain — not per-account, not window-relative — deliberately, so a fuller account reads visually fuller than a near-empty one rather than every account normalizing to fill its own scale.
+- The multi-account Total lane uses its own domain: `max(|total balance|)` over the full scrubbable range (-365..+180 days from today), computed once independent of scroll position, with opacity clamped to full at 80% of that max so the top fifth of the range doesn't need its own headroom.
+- Both use the same curve: a solid hue (not a white-RGB-mix), linear in `|Signed Balance| / domain` from a floor up to opacity `1.0`, hue flipping abruptly at the zero crossing — rendered over an explicit white backing rect so the compositing math reproduces white-mixing in both light and dark mode, rather than blending into the page's (near-black, in dark mode) surface. The floor itself is per-hue, not shared: blue (Signed Balance ≥ 0) starts at `0.05`, brown (< 0) starts at a higher `0.2` — brown read as too faint/washed-out at the same low floor blue uses, at the same ratio, once checked against the running app.
+- Liability accounts get the identical treatment via Signed Balance (`balance × expectedSign`) rather than being excluded or special-cased. This was originally scoped in #70 as a deferred follow-up ("decide liability semantics separately"); the sign-multiply generalization resolved it outright instead.
+- Rendered as one flat-filled `<polygon>` per day (`shape-rendering: crispEdges`), not an SVG `<linearGradient>` or canvas/Path2D — validated against real data in an earlier throwaway prototype (`prototype/balance-color-stream`), and keeps the same order of DOM nodes the existing width-based segments already produced.
+
+## Considered options
+
+- **Per-account fixed domain** (e.g. each account's own full-history max) — rejected for individual lanes: it would make every account look equally "full" regardless of actual size, defeating the point of a fixed domain, which is comparing accounts to each other at a glance.
+- **White-RGB-mixing** toward the target hue (what the throwaway prototype did) instead of opacity — rejected in favor of opacity + an explicit white backing rect, so the browser's own compositing does the blending and the result is identical in both themes by construction, rather than a hardcoded literal-white mix that would look like a stray bright patch on a dark page.
+- **SVG gradient or canvas/Path2D rendering** — rejected for now; per-day flat polygons were already validated against real data and don't introduce new DOM-node-count concerns at the data volumes involved (~60 polygons/lane, the same order of magnitude the prior width-based segments already rendered).
+
+## Consequences
+
+- New CSS tokens for blue (`#2a78d6` light / `#3987e5` dark) and red (`#d6336c` light / `#e8598c` dark) join the existing green (`--color-accent`) and brown (`--color-opposite-sign`) tokens — validated together via the dataviz skill's palette checker, since all four can appear in adjacent lanes on `multi-account-stream`. That check surfaced, but this ticket does not fix, a pre-existing issue: the existing green/brown pair itself already sits in the CVD-warn band in light mode and fails the accessibility floor in dark mode, independent of this change. (#77, the individual-account-lane half of this ADR, adds only the blue token — the red token and the Total lane's own domain belong to the still-open multi-account-lane follow-up ticket.)
+- The sign-segmented width-scaling path (`segmentBandBySign`, `halfThicknessAt`'s magnitude-varying case, tributary taper) becomes dead code once every account renders through the new encoding, and is removed rather than kept behind a flag.
+- The $5000 and 80%-of-max constants are hardcoded, not user-configurable; revisit if real usage shows account balances clustering far outside what that domain reads well for.

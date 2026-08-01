@@ -81,3 +81,13 @@ _Avoid_: Forecast range
 **Running-Dry Alert**:
 A notification that an Account's projected balance is expected to cross below its Dry Floor within the Projection Horizon. Evaluated per Account, distinct from a Variance Alert, which is evaluated per Flow.
 _Avoid_: Low balance warning
+
+### Accounts
+
+**Expected Sign**:
+Per-Account setting fixing which balance direction is normal for that Account: Asset (positive is normal) or Liability (negative is normal). User-set during connect, via a sign-confirmation step — never inferred from the account's balance at connect time (an overdrawn checking account would misclassify) and never defaulted.
+_Avoid_: sign, polarity, account type
+
+**Signed Balance**:
+A balance reoriented by its Account's Expected Sign (`balance × Expected Sign`) so "as expected" always reads positive and "opposite of expected" always reads negative, for either an Asset or a Liability alike. Used wherever a value needs to encode *how far from expected* an Account is on a continuous scale — e.g. the stream ribbon's balance-to-color mapping — rather than as a flat expected/opposite split.
+_Avoid_: raw balance (when the distinction matters), normalized balance

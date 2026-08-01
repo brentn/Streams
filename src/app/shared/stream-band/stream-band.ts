@@ -1,9 +1,11 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, computed, input, output, signal } from '@angular/core';
 import { Sign } from '../../core/models/account';
+import { segmentsByPoint } from '../../core/charting/balance-color';
 import { BandPoint } from '../../core/charting/band-segments';
 import { magnitudeScale, ribbonPoints } from '../../core/charting/ribbon';
-import { buildRenderSegments } from '../../core/charting/render-segments';
+import { BandPhase, buildRenderSegments } from '../../core/charting/render-segments';
+import { splitAtX } from '../../core/charting/split-at-x';
 import { Tributary } from '../../core/charting/tributaries';
 import { buildTributaryBundles } from '../../core/charting/tributary-bundles';
 import { bundleId, clusterTributaries, flattenGroupMembers } from '../../core/charting/tributary-clusters';
@@ -12,6 +14,9 @@ import { applyMinorRollup } from '../../core/charting/tributary-minor-rollup';
 
 /** Cap on a tributary line's stroke width, independent of the balance ribbon's own thickness scale. */
 const MAX_TRIBUTARY_STROKE_WIDTH = 6;
+
+/** A `'color'`-encoded band's fixed half-thickness, as a fraction of the max the width encoding could reach — validated in the `prototype/balance-color-stream` throwaway prototype (see ADR-0009). Fixed rather than magnitude-scaled, since the whole point of the color encoding is to stop the band's thickness moving. */
+const CONSTANT_HALF_THICKNESS_FRACTION = 0.7;
 
 /** Minimum gap kept between an open group-list panel and the specific badge that opened it, so a second tap at the badge's old position can't land on a list row instead — see `expandedGroupMembers`. */
 const GROUP_LIST_CLEARANCE = '1.75rem';
@@ -45,12 +50,32 @@ export class StreamBand {
   readonly maxThicknessFraction = input(1);
   /** The source Tributary a user clicked its line to open — for drill-in (issue #65). The label stays `pointer-events: none` (see `stream-band.css`), so only the line itself is clickable. */
   readonly tributaryClick = output<Tributary>();
+  /**
+   * Which of two ways this instance renders `|balance|`: `'width'` (the original,
+   * magnitude-scaled thickness — still used by `multi-account-stream`) or `'color'` (constant
+   * width, Signed Balance encoded as fill hue/opacity instead — used by `account-stream`, see
+   * ADR-0009). Defaults to `'width'` so every existing caller is unaffected.
+   */
+  readonly encoding = input<'width' | 'color'>('width');
 
   protected readonly centerY = computed(() => this.height() / 2);
 
-  private readonly halfThickness = computed(() =>
+  private readonly widthScale = computed(() =>
     magnitudeScale(this.maxAbsBalance(), (this.maxThicknessFraction() * this.height()) / 2),
   );
+
+  private readonly constantHalfThickness = computed(
+    () => (this.maxThicknessFraction() * this.height() * CONSTANT_HALF_THICKNESS_FRACTION) / 2,
+  );
+
+  /** The half-thickness function actually used to draw the ribbon and to anchor tributaries — magnitude-scaled for `'width'`, fixed for `'color'` (so a tributary's join point no longer tapers with its neighboring balance — see ADR-0009). */
+  private readonly halfThickness = computed(() => {
+    if (this.encoding() === 'color') {
+      const constant = this.constantHalfThickness();
+      return () => constant;
+    }
+    return this.widthScale();
+  });
 
   protected readonly viewBox = computed(() => `0 0 ${this.viewWidth()} ${this.height()}`);
 
@@ -62,6 +87,40 @@ export class StreamBand {
         polygon: ribbonPoints(segment.points, this.centerY(), scale),
       }),
     );
+  });
+
+  /**
+   * `'color'` encoding: one flat-filled polygon per consecutive point pair, colored by its own
+   * Signed Balance (see `segmentsByPoint`) rather than a width-based segment run — each day gets
+   * its own exact hue/opacity, so a sign crossing needs no special segmentation of its own the
+   * way `segmentBandBySign` requires for the width encoding.
+   */
+  protected readonly colorSegments = computed(() => {
+    if (this.encoding() !== 'color') return [];
+    const scale = this.halfThickness();
+    const { before, after } = splitAtX(this.points(), this.boundaryX());
+    const build = (pts: BandPoint[], phase: BandPhase) =>
+      segmentsByPoint(pts, this.expectedSign()).map((segment) => ({
+        phase,
+        hue: segment.hue,
+        opacity: segment.opacity,
+        polygon: ribbonPoints(segment.points, this.centerY(), scale),
+      }));
+    return [...build(before, 'actual'), ...build(after, 'projected')];
+  });
+
+  /**
+   * `'color'` encoding: an explicit white backing rect behind every day's translucent fill, so
+   * the opacity-compositing math reproduces white-mixing identically in both light and dark mode
+   * rather than blending toward the page's actual (near-black, in dark mode) surface — see
+   * ADR-0009. Literal white (not a `--color-*` token) is deliberate: the point is a fixed
+   * compositing basis that does *not* follow the theme.
+   */
+  protected readonly colorBandEdges = computed(() => {
+    if (this.encoding() !== 'color') return null;
+    const half = this.constantHalfThickness();
+    const centerY = this.centerY();
+    return { top: centerY - half, bottom: centerY + half, height: 2 * half };
   });
 
   private readonly maxTributaryAmount = computed(() =>

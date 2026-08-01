@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { describe, expect, it, vi } from 'vitest';
 import { BandPoint } from '../../core/charting/band-segments';
+import { Sign } from '../../core/models/account';
 import { Tributary } from '../../core/charting/tributaries';
 import { StreamBand } from './stream-band';
 
@@ -10,15 +11,30 @@ function point(x: number, balance: number): BandPoint {
 
 const points: BandPoint[] = [point(0, 100), point(1, 100), point(2, 100)];
 
+interface CreateComponentOverrides {
+  points?: BandPoint[];
+  boundaryX?: number;
+  maxAbsBalance?: number;
+  encoding?: 'width' | 'color';
+  expectedSign?: Sign;
+}
+
 describe('StreamBand', () => {
-  async function createComponent(tributaries: Tributary[] = [], viewWidth = 2) {
+  async function createComponent(
+    tributaries: Tributary[] = [],
+    viewWidth = 2,
+    overrides: CreateComponentOverrides = {},
+  ) {
+    TestBed.resetTestingModule();
     await TestBed.configureTestingModule({ imports: [StreamBand] }).compileComponents();
     const fixture = TestBed.createComponent(StreamBand);
-    fixture.componentRef.setInput('points', points);
-    fixture.componentRef.setInput('boundaryX', 1);
-    fixture.componentRef.setInput('maxAbsBalance', 100);
+    fixture.componentRef.setInput('points', overrides.points ?? points);
+    fixture.componentRef.setInput('boundaryX', overrides.boundaryX ?? 1);
+    fixture.componentRef.setInput('maxAbsBalance', overrides.maxAbsBalance ?? 100);
     fixture.componentRef.setInput('viewWidth', viewWidth);
     fixture.componentRef.setInput('tributaries', tributaries);
+    if (overrides.encoding !== undefined) fixture.componentRef.setInput('encoding', overrides.encoding);
+    if (overrides.expectedSign !== undefined) fixture.componentRef.setInput('expectedSign', overrides.expectedSign);
     fixture.detectChanges();
     return { component: fixture.componentInstance, fixture };
   }
@@ -428,5 +444,151 @@ describe('StreamBand', () => {
         );
       });
     });
+  });
+
+  describe('color encoding (#77 — Signed Balance color ribbon)', () => {
+    it('defaults to the width encoding — no band-fill polygons rendered', async () => {
+      const { fixture } = await createComponent();
+
+      expect(fixture.nativeElement.querySelectorAll('.band-fill').length).toBe(0);
+      expect(fixture.nativeElement.querySelectorAll('.segment').length).toBeGreaterThan(0);
+    });
+
+    it('renders one flat-filled band polygon per consecutive day, not the width-based segments, when encoding is color', async () => {
+      const flatPoints: BandPoint[] = [point(0, 100), point(1, 100), point(2, 100)];
+      const { fixture } = await createComponent([], 2, {
+        points: flatPoints,
+        boundaryX: 10,
+        encoding: 'color',
+      });
+
+      expect(fixture.nativeElement.querySelectorAll('.segment').length).toBe(0);
+      expect(fixture.nativeElement.querySelectorAll('.band-fill').length).toBe(flatPoints.length - 1);
+    });
+
+    it('renders the positive (blue) hue for a positive Signed Balance on an Asset account', async () => {
+      const { fixture } = await createComponent([], 2, {
+        points: [point(0, 1000), point(1, 1000)],
+        boundaryX: 10,
+        encoding: 'color',
+        expectedSign: 1,
+      });
+
+      const fill: SVGPolygonElement = fixture.nativeElement.querySelector('.band-fill');
+      expect(fill.classList.contains('positive')).toBe(true);
+      expect(fill.classList.contains('negative')).toBe(false);
+    });
+
+    it('renders the negative (brown) hue for a negative Signed Balance on an Asset account', async () => {
+      const { fixture } = await createComponent([], 2, {
+        points: [point(0, -1000), point(1, -1000)],
+        boundaryX: 10,
+        encoding: 'color',
+        expectedSign: 1,
+      });
+
+      const fill: SVGPolygonElement = fixture.nativeElement.querySelector('.band-fill');
+      expect(fill.classList.contains('negative')).toBe(true);
+      expect(fill.classList.contains('positive')).toBe(false);
+    });
+
+    it('reads a Liability account through Signed Balance — a negative raw balance (as expected) renders positive', async () => {
+      const { fixture } = await createComponent([], 2, {
+        points: [point(0, -1000), point(1, -1000)],
+        boundaryX: 10,
+        encoding: 'color',
+        expectedSign: -1,
+      });
+
+      const fill: SVGPolygonElement = fixture.nativeElement.querySelector('.band-fill');
+      expect(fill.classList.contains('positive')).toBe(true);
+    });
+
+    it('reads a Liability account whose raw balance is opposite of expected (positive) as the negative hue', async () => {
+      const { fixture } = await createComponent([], 2, {
+        points: [point(0, 1000), point(1, 1000)],
+        boundaryX: 10,
+        encoding: 'color',
+        expectedSign: -1,
+      });
+
+      const fill: SVGPolygonElement = fixture.nativeElement.querySelector('.band-fill');
+      expect(fill.classList.contains('negative')).toBe(true);
+    });
+
+    it("ramps a segment's fill-opacity linearly with |Signed Balance| against the flat $5000 domain, clamped past it", async () => {
+      const { fixture } = await createComponent([], 4, {
+        points: [point(0, 0), point(1, 2500), point(2, 5000), point(3, 50000)],
+        boundaryX: 10,
+        encoding: 'color',
+        expectedSign: 1,
+      });
+
+      const fills: SVGPolygonElement[] = Array.from(fixture.nativeElement.querySelectorAll('.band-fill'));
+      const opacities = fills.map((el) => Number(el.style.fillOpacity));
+
+      expect(opacities[0]).toBeCloseTo(0.05); // balance 0
+      expect(opacities[1]).toBeCloseTo(0.525); // balance 2500 -> halfway
+      expect(opacities[2]).toBeCloseTo(1.0); // balance 5000 -> full
+      // note: segment i is colored by point i (the leading point) — the last point (50000)
+      // never leads a segment here, so clamping is exercised via balance 5000 already at the ceiling.
+    });
+
+    it('marks a segment past the actual/projected boundary as projected', async () => {
+      const { fixture } = await createComponent([], 3, {
+        points: [point(0, 100), point(1, 100), point(2, 100)],
+        boundaryX: 1,
+        encoding: 'color',
+        expectedSign: 1,
+      });
+
+      const fills: SVGPolygonElement[] = Array.from(fixture.nativeElement.querySelectorAll('.band-fill'));
+      expect(fills.some((el) => el.classList.contains('projected'))).toBe(true);
+      expect(fills.some((el) => !el.classList.contains('projected'))).toBe(true);
+    });
+
+    it('renders exactly one white backing rect sized to the constant band, only for color encoding', async () => {
+      const widthResult = await createComponent([], 2, { encoding: 'width' });
+      const colorResult = await createComponent([], 2, { encoding: 'color' });
+
+      expect(widthResult.fixture.nativeElement.querySelectorAll('.band-backing').length).toBe(0);
+      const backingRects = colorResult.fixture.nativeElement.querySelectorAll('.band-backing');
+      expect(backingRects.length).toBe(1);
+      expect(Number(backingRects[0].getAttribute('width'))).toBe(2);
+      expect(Number(backingRects[0].getAttribute('height'))).toBeGreaterThan(0);
+    });
+
+    it(
+      "anchors tributaries to a fixed edge regardless of balance magnitude in color encoding — " +
+        'unlike width encoding, whose join point tapers with each point\'s own magnitude',
+      async () => {
+        const varyingPoints: BandPoint[] = [point(0, 100), point(5, 100000)];
+        const lowBalanceTrib = tributaryAt({ id: 'low', x: 0, direction: 'in' });
+        const highBalanceTrib = tributaryAt({ id: 'high', x: 5, direction: 'in' });
+
+        const widthResult = await createComponent([lowBalanceTrib, highBalanceTrib], 10, {
+          points: varyingPoints,
+          boundaryX: 10,
+          maxAbsBalance: 100000,
+          encoding: 'width',
+        });
+        const colorResult = await createComponent([lowBalanceTrib, highBalanceTrib], 10, {
+          points: varyingPoints,
+          boundaryX: 10,
+          maxAbsBalance: 100000,
+          encoding: 'color',
+        });
+
+        const widthLines = widthResult.component['tributaryLines']();
+        const colorLines = colorResult.component['tributaryLines']();
+        const widthLow = widthLines.find((l: { id: string }) => l.id === 'low')!;
+        const widthHigh = widthLines.find((l: { id: string }) => l.id === 'high')!;
+        const colorLow = colorLines.find((l: { id: string }) => l.id === 'low')!;
+        const colorHigh = colorLines.find((l: { id: string }) => l.id === 'high')!;
+
+        expect(widthLow.y2).not.toBeCloseTo(widthHigh.y2);
+        expect(colorLow.y2).toBeCloseTo(colorHigh.y2);
+      },
+    );
   });
 });
