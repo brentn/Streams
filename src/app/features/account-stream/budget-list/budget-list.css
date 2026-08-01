@@ -20,37 +20,58 @@ h2 {
   overflow-y: auto;
 }
 
+/* Full-width bar: name and percentage are text overlaid directly on the fill/track, not
+   squeezed into a track that shrinks with the name's length. */
 .budget-row {
+  position: relative;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 1rem;
-  background: var(--color-surface);
+  height: 2.75rem;
   border: 1px solid var(--color-border);
   border-radius: 0.5rem;
-  padding: 0.75rem 1rem;
+  padding: 0 1rem;
   cursor: pointer;
-}
-
-.name {
-  color: var(--color-ink-primary);
-  font-weight: 600;
-  flex-shrink: 0;
+  overflow: hidden;
 }
 
 .progress-track {
-  flex: 1;
-  height: 0.5rem;
-  border-radius: 0.25rem;
+  position: absolute;
+  inset: 0;
   background: var(--color-gridline);
-  overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  border-radius: 0.25rem;
   background: var(--color-accent);
+}
+
+.budget-row.warn .progress-fill {
+  background: var(--color-warning);
 }
 
 .budget-row.over .progress-fill {
   background: var(--color-critical);
+}
+
+.name,
+.pct {
+  position: relative;
+  color: var(--color-ink-primary);
+  font-weight: 600;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 -1px 2px rgba(255, 255, 255, 0.35);
+}
+
+.name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pct {
+  flex-shrink: 0;
 }

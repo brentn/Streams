@@ -3,11 +3,17 @@
     <h2>Budgets</h2>
     <ul class="budget-rows">
       @for (row of rows(); track row.flow.id) {
-        <li class="budget-row" [class.over]="row.used > row.limit" (click)="budgetClick.emit(row.flow)">
-          <span class="name">{{ row.flow.name }}</span>
+        <li
+          class="budget-row"
+          [class.warn]="row.status === 'warn'"
+          [class.over]="row.status === 'over'"
+          (click)="budgetClick.emit(row.flow)"
+        >
           <div class="progress-track">
             <div class="progress-fill" [style.width.%]="row.pct"></div>
           </div>
+          <span class="name">{{ row.flow.name }}</span>
+          <span class="pct">{{ row.displayPct | number: '1.0-0' }}%</span>
         </li>
       }
     </ul>

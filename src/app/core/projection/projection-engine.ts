@@ -1,5 +1,12 @@
 import { Account } from '../models/account';
-import { AmountChange, BudgetFlow, Cadence, Flow, Tolerance, signedFlowAmount } from '../models/flow';
+import {
+  AmountChange,
+  BudgetFlow,
+  Cadence,
+  Flow,
+  Tolerance,
+  signedFlowAmount,
+} from '../models/flow';
 import { Transaction } from '../models/transaction';
 import { Transfer } from '../models/transfer';
 import { amountAtDate } from './amount-timeline';
@@ -215,7 +222,8 @@ export interface VarianceAlert {
   actual: number;
 }
 
-function toleranceAmount(tolerance: Tolerance, expectedMagnitude: number): number {
+/** Converts a Tolerance (percent or fixed) to a dollar amount against `expectedMagnitude`. Shared by `varianceAlert` and the Budgets list's proximity-band coloring. */
+export function toleranceAmount(tolerance: Tolerance, expectedMagnitude: number): number {
   return tolerance.kind === 'percent'
     ? Math.abs(expectedMagnitude) * (tolerance.value / 100)
     : tolerance.value;
@@ -282,7 +290,13 @@ export function varianceAlert(
       : Math.abs(diff) > tolerance;
   if (!breached) return null;
 
-  return { flowId: flow.id, periodStart: startExclusive, periodEnd: endInclusive, expected, actual };
+  return {
+    flowId: flow.id,
+    periodStart: startExclusive,
+    periodEnd: endInclusive,
+    expected,
+    actual,
+  };
 }
 
 /**
@@ -300,4 +314,26 @@ export function budgetProgress(
   const used = Math.max(0, actualFlowMagnitude(flow, transactions, startExclusive, endInclusive));
   const limit = amountAtDate(flow.limit, flow.amountChanges ?? [], today);
   return { used, limit };
+}
+
+export type BudgetProgressStatus = 'ok' | 'warn' | 'over';
+
+/**
+ * The Budgets list row's color state for `used` against `limit` — distinct from
+ * `varianceAlert`'s single-directional breach check against a *completed* period. This reads
+ * Tolerance as a **symmetric** band around `limit` (`limit ± toleranceAmount`) against the
+ * *in-progress* period's `used` from `budgetProgress`, regardless of the Flow's `direction`. See
+ * ADR-0011. With no Tolerance set, there's no `warn` band — `ok` through `limit`, `over` past it.
+ */
+export function budgetProgressStatus(
+  used: number,
+  limit: number,
+  tolerance: Tolerance | undefined,
+): BudgetProgressStatus {
+  if (!tolerance) return used > limit ? 'over' : 'ok';
+
+  const amount = toleranceAmount(tolerance, limit);
+  if (used > limit + amount) return 'over';
+  if (used >= limit - amount) return 'warn';
+  return 'ok';
 }

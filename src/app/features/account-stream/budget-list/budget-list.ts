@@ -1,13 +1,22 @@
 import { Component, computed, input, output } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
 import { BudgetFlow, Flow } from '../../../core/models/flow';
 import { Transaction } from '../../../core/models/transaction';
-import { budgetProgress } from '../../../core/projection/projection-engine';
+import {
+  BudgetProgressStatus,
+  budgetProgress,
+  budgetProgressStatus,
+} from '../../../core/projection/projection-engine';
 
 export interface BudgetRow {
   flow: BudgetFlow;
   used: number;
   limit: number;
+  /** True, uncapped usage percentage — the text shown on the row. */
+  displayPct: number;
+  /** Fill width percentage, capped at 100 so an over-limit Budget's bar doesn't overflow its track. */
   pct: number;
+  status: BudgetProgressStatus;
 }
 
 /**
@@ -19,30 +28,36 @@ export interface BudgetRow {
  */
 @Component({
   selector: 'app-budget-list',
+  imports: [DecimalPipe],
   templateUrl: './budget-list.html',
   styleUrl: './budget-list.css',
 })
 export class BudgetList {
   readonly flows = input.required<Flow[]>();
   readonly transactions = input.required<Transaction[]>();
+  /** The stream's scrub position — which Budget Period's actuals each progress bar reflects. See ADR-0011. */
+  readonly selectedDate = input.required<Date>();
 
   readonly budgetClick = output<BudgetFlow>();
 
-  /**
-   * Real wall-clock "now", not the page's scrubbable `selectedDate` — a Budget Period is a
-   * real-calendar concept independent of the stream's scrub position, the same convention
-   * `TransactionReview`'s unwindowed uncategorized list and `account-stream.ts`'s `dryAlert`
-   * (`runningDryAlert(..., new Date())`) already use for "current state" that sits beside,
-   * rather than inside, the scrubbable stream visualization.
-   */
+  /** Sorted alphabetically by name, independent of Budget Period or amount. */
   protected readonly rows = computed<BudgetRow[]>(() => {
-    const today = new Date();
+    const today = this.selectedDate();
     const transactions = this.transactions();
     return this.flows()
       .filter((flow): flow is BudgetFlow => flow.kind === 'budget')
       .map((flow) => {
         const { used, limit } = budgetProgress(flow, transactions, today);
-        return { flow, used, limit, pct: limit > 0 ? Math.min(100, (used / limit) * 100) : 0 };
-      });
+        const displayPct = limit > 0 ? (used / limit) * 100 : 0;
+        return {
+          flow,
+          used,
+          limit,
+          displayPct,
+          pct: Math.min(100, displayPct),
+          status: budgetProgressStatus(used, limit, flow.tolerance),
+        };
+      })
+      .sort((a, b) => a.flow.name.localeCompare(b.flow.name));
   });
 }

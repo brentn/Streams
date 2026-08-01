@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { BudgetFlow, Cadence, RecurringFlow } from '../models/flow';
+import { BudgetFlow, Cadence, RecurringFlow, Tolerance } from '../models/flow';
 import { Transaction } from '../models/transaction';
 import { Transfer } from '../models/transfer';
 import {
   balanceAtDate,
   balanceSeries,
   budgetProgress,
+  budgetProgressStatus,
   PROJECTION_HORIZON_DAYS,
   runningDryAlert,
   totalBalanceSeries,
@@ -303,11 +304,17 @@ describe('balanceSeries', () => {
   });
 });
 
-describe('totalBalanceSeries (#79 — the Total lane\'s own domain, summed across accounts per date)', () => {
-  it('sums every account\'s balance at each date', () => {
+describe("totalBalanceSeries (#79 — the Total lane's own domain, summed across accounts per date)", () => {
+  it("sums every account's balance at each date", () => {
     const dates = [new Date('2026-07-19T00:00:00Z'), account.balanceDate];
-    const transactionsByAccount = new Map([[account.id, []], [otherAccount.id, []]]);
-    const flowsByAccount = new Map([[account.id, []], [otherAccount.id, []]]);
+    const transactionsByAccount = new Map([
+      [account.id, []],
+      [otherAccount.id, []],
+    ]);
+    const flowsByAccount = new Map([
+      [account.id, []],
+      [otherAccount.id, []],
+    ]);
 
     const totals = totalBalanceSeries(
       [account, otherAccount],
@@ -554,12 +561,44 @@ describe('budgetProgress', () => {
     expect(budgetProgress(flow, transactions, today)).toEqual({ used: 0, limit: 400 });
   });
 
-  it('reflects a Step Change in effect as of today\'s limit', () => {
+  it("reflects a Step Change in effect as of today's limit", () => {
     const flow = budgetFlow({
       limit: 400,
       direction: 'out',
       amountChanges: [{ type: 'step', effectiveDate: new Date(2026, 6, 10), amount: 500 }],
     });
     expect(budgetProgress(flow, [], today)).toEqual({ used: 0, limit: 500 });
+  });
+});
+
+describe('budgetProgressStatus', () => {
+  it('is ok below the limit and over past it when no Tolerance is set', () => {
+    expect(budgetProgressStatus(300, 400, undefined)).toBe('ok');
+    expect(budgetProgressStatus(400, 400, undefined)).toBe('ok');
+    expect(budgetProgressStatus(400.01, 400, undefined)).toBe('over');
+  });
+
+  it('is ok below the band, warn within it, and over past it with a percent Tolerance', () => {
+    const tolerance: Tolerance = { kind: 'percent', value: 10 }; // band: 360..440
+    expect(budgetProgressStatus(359, 400, tolerance)).toBe('ok');
+    expect(budgetProgressStatus(360, 400, tolerance)).toBe('warn');
+    expect(budgetProgressStatus(400, 400, tolerance)).toBe('warn');
+    expect(budgetProgressStatus(440, 400, tolerance)).toBe('warn');
+    expect(budgetProgressStatus(440.01, 400, tolerance)).toBe('over');
+  });
+
+  it('applies a fixed Tolerance as a flat-dollar band regardless of direction', () => {
+    const tolerance: Tolerance = { kind: 'fixed', value: 50 }; // band: 350..450
+    expect(budgetProgressStatus(349, 400, tolerance)).toBe('ok');
+    expect(budgetProgressStatus(350, 400, tolerance)).toBe('warn');
+    expect(budgetProgressStatus(450, 400, tolerance)).toBe('warn');
+    expect(budgetProgressStatus(450.01, 400, tolerance)).toBe('over');
+  });
+
+  it('reads ok for an income Budget far under its target, unlike varianceAlert treating shortfall as a breach', () => {
+    // budgetProgressStatus is symmetric and direction-agnostic: only used > limit + tolerance is 'over'.
+    const tolerance: Tolerance = { kind: 'fixed', value: 100 };
+    expect(budgetProgressStatus(1950, 2000, tolerance)).toBe('warn');
+    expect(budgetProgressStatus(1000, 2000, tolerance)).toBe('ok');
   });
 });
