@@ -67,7 +67,7 @@
 .projected-overlay {
   position: absolute;
   pointer-events: none;
-  background-image: repeating-linear-gradient(45deg, rgb(0 0 0 / 0.22) 0 3px, transparent 3px 8px);
+  background-image: repeating-linear-gradient(45deg, rgb(0 0 0 / 0.22) 0 1px, transparent 1px 8px);
 }
 
 .tributary {
