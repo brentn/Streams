@@ -67,7 +67,7 @@
   @if (expandedGroupMembers(); as group) {
     <div class="group-list" [style.top]="group.verticalStyle.top" [style.bottom]="group.verticalStyle.bottom">
       <div class="group-list-header">
-        <span>{{ group.direction === 'in' ? 'Incoming' : 'Outgoing' }} ({{ group.members.length }})</span>
+        <span>{{ group.total | currency }}</span>
         <button type="button" class="group-list-close" data-group-close aria-label="Close list">×</button>
       </div>
       <ul>

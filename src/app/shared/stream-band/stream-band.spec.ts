@@ -284,6 +284,22 @@ describe('StreamBand', () => {
       );
     });
 
+    it("shows the total across all members in the header instead of the bare 'Incoming (N)'/'Outgoing (N)' count (#73)", async () => {
+      const cluster = [
+        tributaryAt({ id: 'a', x: 10, amount: 20 }),
+        tributaryAt({ id: 'b', x: 11, amount: 30 }),
+        tributaryAt({ id: 'c', x: 12, amount: 40 }),
+      ];
+      const { fixture } = await createComponent(cluster, 60);
+
+      tap(fixture, 'path.tributary.group');
+
+      const header: HTMLElement = fixture.nativeElement.querySelector('.group-list-header span');
+      expect(header.textContent).toContain('$90.00');
+      expect(header.textContent).not.toContain('Incoming');
+      expect(header.textContent).not.toContain('Outgoing');
+    });
+
     it('a close control returns from the open list to no list open', async () => {
       const cluster = [tributaryAt({ id: 'a', x: 10 }), tributaryAt({ id: 'b', x: 11 })];
       const { fixture } = await createComponent(cluster, 60);

@@ -262,7 +262,9 @@ export class StreamBand {
       direction === 'in'
         ? { top: `calc(${badgeTopPercent}% + ${GROUP_LIST_CLEARANCE})`, bottom: null }
         : { top: null, bottom: `calc(${100 - badgeTopPercent}% + ${GROUP_LIST_CLEARANCE})` };
-    return { direction, members: flattenGroupMembers(cluster), verticalStyle };
+    const members = flattenGroupMembers(cluster);
+    const total = members.reduce((sum, member) => sum + member.amount, 0);
+    return { direction, members, total, verticalStyle };
   });
 
   /**
