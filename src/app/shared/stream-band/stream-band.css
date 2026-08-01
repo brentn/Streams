@@ -182,6 +182,16 @@
  * also *why* incoming anchors via `right: 0` rather than `left: 100%`: the self-flip swaps which
  * screen-side its box's own edges end up on, so anchoring the "wrong" local edge first is what
  * lands it on the correct screen side after the flip (verified in the scratchpad arrow-harness).
+ *
+ * Incoming's `transform-origin: 100% 50%` (below) is load-bearing, not decoration: without it,
+ * `rotate(180deg)` pivots around the box's own *center* (the CSS default), which — since `right: 0`
+ * keeps only the box's right edge fixed while its center drifts further left as the name gets
+ * longer — makes the label's effective position swing back past the tip and overlap the ribbon
+ * for long names (confirmed by tracing the two-rotation composition; outgoing has no extra
+ * self-rotation, so it never hit this). Pivoting around the same edge that's already pinned to the
+ * tip (`right: 0` ⇒ `100% 50%`) keeps that point fixed through the rotation, so the rest of the box
+ * consistently extends away from the ribbon no matter how long the text is — matching outgoing's
+ * already-correct, unbounded "always grows away" behavior.
  */
 .tributary-label {
   position: absolute;
@@ -199,16 +209,17 @@
 }
 
 .tributary-arrow.out .tributary-label {
-  left: 100%;
+  left: 0;
   padding-left: 0.35rem;
   text-align: left;
   transform: translateY(-50%);
 }
 
 .tributary-arrow:not(.out) .tributary-label {
-  right: 0;
+  right: 1.5rem;
   padding-right: 0.35rem;
   text-align: right;
+  transform-origin: 100% 50%;
   transform: translateY(-50%) rotate(180deg);
 }
 
