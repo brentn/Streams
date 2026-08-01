@@ -1,9 +1,9 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { isSubstringMatch, normalizeMatchText } from '../../../../core/categorization/categorization';
 import { Account } from '../../../../core/models/account';
-import { Flow } from '../../../../core/models/flow';
+import { Flow, isOneTimeFlow } from '../../../../core/models/flow';
 import { MatchedTarget, Transaction } from '../../../../core/models/transaction';
 import { transferLabel } from '../../../../core/models/transfer-label';
 import { Transfer } from '../../../../core/models/transfer';
@@ -14,6 +14,16 @@ export interface AssignFlowDialogData {
   flows: Flow[];
   transfers: Transfer[];
   accounts: Account[];
+  /** Used to exclude an already-used one-time Flow from the options — see `availableFlows`. */
+  transactions: Transaction[];
+}
+
+/** A one-time Flow is a single, non-repeating occurrence — once any Transaction is matched to it, it's used up and shouldn't be offered again, not even to the Transaction it's already assigned to. */
+function isUsedOneTimeFlow(flow: Flow, transactions: Transaction[]): boolean {
+  return (
+    isOneTimeFlow(flow) &&
+    transactions.some((t) => t.matchedTarget?.kind === 'flow' && t.matchedTarget.id === flow.id)
+  );
 }
 
 export interface AssignFlowDialogResult {
@@ -35,10 +45,16 @@ export class AssignFlowDialog {
   protected readonly data = inject<AssignFlowDialogData>(DIALOG_DATA);
 
   protected readonly flows = signal(this.data.flows);
+  /** `flows`, filtered to drop already-used one-time Flows and sorted alphabetically — what the dropdown actually offers. */
+  protected readonly availableFlows = computed(() =>
+    this.flows()
+      .filter((flow) => !isUsedOneTimeFlow(flow, this.data.transactions))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  );
   protected readonly matchText = signal(this.data.transaction.description);
   protected readonly selectedTarget = signal<MatchedTarget | null>(
     this.data.transaction.matchedTarget ??
-      (this.data.flows[0] ? { kind: 'flow', id: this.data.flows[0].id } : null) ??
+      (this.availableFlows()[0] ? { kind: 'flow', id: this.availableFlows()[0].id } : null) ??
       (this.data.transfers[0] ? { kind: 'transfer', id: this.data.transfers[0].id } : null),
   );
   protected readonly formError = signal<string | null>(null);

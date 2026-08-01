@@ -40,6 +40,16 @@ const accounts: Account[] = [
   { id: 'acc-2', name: 'Savings', institutionName: 'Bank', balance: 0, balanceDate: new Date(), expectedSign: 1, dryFloor: 0 },
 ];
 
+const oneTimeBonus: RecurringFlow = {
+  id: 'flow-onetime',
+  accountId: 'acc-1',
+  name: 'Bonus',
+  direction: 'in',
+  kind: 'recurring',
+  amount: 300,
+  cadence: { period: 'once', date: new Date('2026-07-10') },
+};
+
 const matched: Transaction = {
   id: 'txn-2',
   accountId: 'acc-1',
@@ -63,7 +73,7 @@ describe('AssignFlowDialog', () => {
 
   function createComponent(data: Partial<AssignFlowDialogData> & { transaction: Transaction }) {
     dialogRef = { close: vi.fn() };
-    const fullData: AssignFlowDialogData = { flows: [], transfers: [], accounts, ...data };
+    const fullData: AssignFlowDialogData = { flows: [], transfers: [], accounts, transactions: [], ...data };
     TestBed.configureTestingModule({
       imports: [AssignFlowDialog],
       providers: [
@@ -253,6 +263,67 @@ describe('AssignFlowDialog', () => {
         target: { kind: 'flow', id: 'flow-new' },
         newFlow,
       });
+    });
+  });
+
+  describe('available Flow options', () => {
+    it('sorts Flows alphabetically by name', () => {
+      const component = createComponent({ transaction: unmatched, flows: [payrollFlow, coffeeFlow] });
+
+      expect(component['availableFlows']()).toEqual([coffeeFlow, payrollFlow]);
+    });
+
+    it('excludes a one-time Flow once any Transaction is matched to it', () => {
+      const component = createComponent({
+        transaction: unmatched,
+        flows: [coffeeFlow, oneTimeBonus],
+        transactions: [matched, { ...unmatched, id: 'txn-3', matchedTarget: { kind: 'flow', id: 'flow-onetime' } }],
+      });
+
+      expect(component['availableFlows']()).toEqual([coffeeFlow]);
+    });
+
+    it('excludes a one-time Flow even for the Transaction it is already assigned to', () => {
+      const alreadyAssigned: Transaction = {
+        ...unmatched,
+        matchedTarget: { kind: 'flow', id: 'flow-onetime' },
+      };
+      const component = createComponent({
+        transaction: alreadyAssigned,
+        flows: [coffeeFlow, oneTimeBonus],
+        transactions: [alreadyAssigned],
+      });
+
+      expect(component['availableFlows']()).toEqual([coffeeFlow]);
+    });
+
+    it('does not exclude a non-one-time recurring or budget Flow even when matched', () => {
+      const component = createComponent({
+        transaction: unmatched,
+        flows: [coffeeFlow, payrollFlow],
+        transactions: [matched],
+      });
+
+      expect(component['availableFlows']()).toEqual([coffeeFlow, payrollFlow]);
+    });
+
+    it('inserts a Flow created inline in sorted position', () => {
+      const component = createComponent({ transaction: unmatched, flows: [payrollFlow] });
+      const alphaFlow: RecurringFlow = { ...coffeeFlow, id: 'flow-alpha', name: 'Alpha' };
+
+      component['onFlowCreated'](alphaFlow);
+
+      expect(component['availableFlows']()).toEqual([alphaFlow, payrollFlow]);
+    });
+
+    it('defaults selection to the first available (filtered, sorted) Flow when the Transaction has no current match', () => {
+      const component = createComponent({
+        transaction: unmatched,
+        flows: [payrollFlow, coffeeFlow, oneTimeBonus],
+        transactions: [{ ...unmatched, id: 'txn-3', matchedTarget: { kind: 'flow', id: 'flow-onetime' } }],
+      });
+
+      expect(component['selectedTarget']()).toEqual({ kind: 'flow', id: 'flow-coffee' });
     });
   });
 });

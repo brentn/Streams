@@ -106,7 +106,7 @@ describe('TransactionReview', () => {
     component['openAssignForm'](unmatched);
 
     expect(dialog.open).toHaveBeenCalledWith(AssignFlowDialog, {
-      data: { transaction: unmatched, flows: [payrollFlow], transfers: [], accounts },
+      data: { transaction: unmatched, flows: [payrollFlow], transfers: [], accounts, transactions: [unmatched] },
     });
   });
 

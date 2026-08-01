@@ -154,6 +154,7 @@ export class TributaryPanel {
         flows: this.flows(),
         transfers: this.transfers(),
         accounts: this.accounts(),
+        transactions: this.transactions(),
       },
     });
     ref.closed.subscribe((result) => {

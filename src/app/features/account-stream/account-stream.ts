@@ -13,7 +13,7 @@ import { RouterLink } from '@angular/router';
 import { Dialog } from '@angular/cdk/dialog';
 import { deleteFlowCascade } from '../../core/categorization/delete-flow-cascade';
 import { Account } from '../../core/models/account';
-import { BudgetFlow, Flow } from '../../core/models/flow';
+import { BudgetFlow, Flow, isOneTimeFlow } from '../../core/models/flow';
 import { Transaction } from '../../core/models/transaction';
 import { Transfer } from '../../core/models/transfer';
 import {
@@ -268,8 +268,7 @@ export class AccountStream {
     const flow = tributary.kind === 'flow' ? this.flows().find((f) => f.id === tributary.flowId) : undefined;
     const transfer =
       tributary.kind === 'transfer' ? this.transfers().find((t) => t.id === tributary.transferId) : undefined;
-    const isOneTime =
-      (flow?.kind === 'recurring' && flow.cadence.period === 'once') || transfer?.cadence.period === 'once';
+    const isOneTime = (flow ? isOneTimeFlow(flow) : false) || transfer?.cadence.period === 'once';
 
     if (isOneTime) {
       this.openEditModal(flow, transfer);

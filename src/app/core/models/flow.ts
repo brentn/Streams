@@ -88,3 +88,8 @@ export function signedFlowAmount(amount: number, direction: FlowDirection): numb
   const sign: Sign = direction === 'in' ? 1 : -1;
   return amount * sign;
 }
+
+/** A recurring-kind Flow whose Cadence is a single, non-repeating occurrence rather than an ongoing schedule. */
+export function isOneTimeFlow(flow: Flow): boolean {
+  return flow.kind === 'recurring' && flow.cadence.period === 'once';
+}

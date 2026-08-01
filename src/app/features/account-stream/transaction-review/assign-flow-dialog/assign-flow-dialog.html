@@ -25,9 +25,9 @@
           [value]="selectedTarget() ? encodeTarget(selectedTarget()!) : ''"
           (change)="onTargetChange($any($event.target).value)"
         >
-          @if (flows().length > 0) {
+          @if (availableFlows().length > 0) {
             <optgroup label="Flows">
-              @for (flow of flows(); track flow.id) {
+              @for (flow of availableFlows(); track flow.id) {
                 <option
                   [value]="encodeTarget({ kind: 'flow', id: flow.id })"
                   [selected]="selectedTarget()?.kind === 'flow' && selectedTarget()?.id === flow.id"

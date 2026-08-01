@@ -286,7 +286,13 @@ describe('TributaryPanel', () => {
     component['openAssignForm'](matching);
 
     expect(dialog.open).toHaveBeenCalledWith(AssignFlowDialog, {
-      data: { transaction: matching, flows: [rentFlow], transfers: [savingsTransfer], accounts },
+      data: {
+        transaction: matching,
+        flows: [rentFlow],
+        transfers: [savingsTransfer],
+        accounts,
+        transactions: [matching],
+      },
     });
 
     closed.next({ matchText: 'rent payment', target: { kind: 'flow', id: 'flow-rent' } });

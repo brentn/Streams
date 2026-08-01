@@ -51,6 +51,7 @@ export class TransactionReview {
         flows: this.flows(),
         transfers: this.transfers(),
         accounts: this.accounts(),
+        transactions: this.transactions(),
       },
     });
 
