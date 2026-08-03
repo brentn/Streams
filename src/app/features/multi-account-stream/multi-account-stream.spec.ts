@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Account } from '../../core/models/account';
-import { Flow } from '../../core/models/flow';
+import { Flow, RecurringFlow } from '../../core/models/flow';
 import { Transfer } from '../../core/models/transfer';
 import { HALF_WINDOW_DAYS, SCRUB_MAX_DAYS, SCRUB_MIN_DAYS } from '../../core/charting/date-window';
 import { SimpleFinAdapter } from '../../core/simplefin/simplefin-adapter';
@@ -498,6 +498,41 @@ describe('MultiAccountStream', () => {
 
       const heading = fixture.nativeElement.querySelector('.lane-heading');
       expect(heading?.querySelector('app-dry-alert-badge')).toBeTruthy();
+    });
+
+    it('folds an Outstanding Flow’s missing amount into a lane’s Running-Dry projection (ADR-0012)', async () => {
+      const now = Date.now();
+      // balanceDate synced an hour ago, well after the Flow's one-time occurrence two hours
+      // ago — so it's Outstanding — and well before "now", so effectiveFlowsByAccount's own
+      // synthetic occurrence always lands safely inside (balanceDate, now].
+      const syncedChecking: Account = {
+        ...checking,
+        balance: 1000,
+        balanceDate: new Date(now - 60 * 60 * 1000),
+        dryFloor: 850,
+      };
+      storage.getAccounts.mockResolvedValue([syncedChecking, creditCard]);
+      const lateFlow: RecurringFlow = {
+        id: 'flow-late',
+        accountId: 'acc-checking',
+        name: 'Rent',
+        direction: 'out',
+        kind: 'recurring',
+        amount: 200,
+        cadence: { period: 'once', date: new Date(now - 2 * 60 * 60 * 1000) },
+      };
+      storage.getFlowsForAccount.mockImplementation((accountId: string) =>
+        Promise.resolve(accountId === 'acc-checking' ? [lateFlow] : []),
+      );
+
+      const fixture = TestBed.createComponent(MultiAccountStream);
+      const component = fixture.componentInstance;
+      await component['load']();
+
+      // Without the fix, the missed occurrence would simply vanish from the projection and
+      // the balance would still read 1000, never crossing the 850 Dry Floor.
+      const lanes = component['lanes']();
+      expect(lanes[0].runningDryAlert).toEqual(expect.objectContaining({ balance: 800 }));
     });
   });
 });

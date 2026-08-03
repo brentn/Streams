@@ -20,6 +20,7 @@ import {
   RunningDryAlert,
   runningDryAlert,
   totalBalanceSeries,
+  withOutstandingOccurrences,
 } from '../../core/projection/projection-engine';
 import { BandPoint } from '../../core/charting/band-segments';
 import {
@@ -98,9 +99,23 @@ export class MultiAccountStream {
 
   private readonly windowDates = computed(() => buildWindowDates(this.selectedDate()));
 
+  /** `flowsByAccount` with every currently-Outstanding recurring-kind Flow's missing occurrence restored as a synthetic today-dated one, per account — see ADR-0012. Feeds every balance/Dry Floor projection below. */
+  private readonly effectiveFlowsByAccount = computed(() => {
+    const today = new Date();
+    const flowsByAccount = this.flowsByAccount();
+    const transactionsByAccount = this.transactionsByAccount();
+    const result = new Map<string, Flow[]>();
+    for (const account of this.accounts()) {
+      const flows = flowsByAccount.get(account.id) ?? [];
+      const transactions = transactionsByAccount.get(account.id) ?? [];
+      result.set(account.id, withOutstandingOccurrences(flows, transactions, account, today));
+    }
+    return result;
+  });
+
   protected readonly lanes = computed<AccountLane[]>(() => {
     const transactionsByAccount = this.transactionsByAccount();
-    const flowsByAccount = this.flowsByAccount();
+    const flowsByAccount = this.effectiveFlowsByAccount();
     const transfersByAccount = this.transfersByAccount();
     const dates = this.windowDates();
     const selectedDate = this.selectedDate();
@@ -150,7 +165,7 @@ export class MultiAccountStream {
       this.accounts(),
       this.transactionsByAccount(),
       dates,
-      this.flowsByAccount(),
+      this.effectiveFlowsByAccount(),
       this.transfersByAccount(),
     );
     return totals.reduce((max, total) => Math.max(max, Math.abs(total)), 0);

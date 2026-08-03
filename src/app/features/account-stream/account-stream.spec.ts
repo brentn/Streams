@@ -294,6 +294,39 @@ describe('AccountStream', () => {
 
       expect(component['dryAlert']()).toEqual(expect.objectContaining({ balance: 1000 }));
     });
+
+    it('folds an Outstanding Flow’s missing amount into the Running-Dry projection (ADR-0012)', async () => {
+      const now = Date.now();
+      // balanceDate synced an hour ago, well after the Flow's one-time occurrence two hours
+      // ago — so it's Outstanding — and well before "now", so effectiveFlows' own synthetic
+      // occurrence always lands safely inside (balanceDate, now].
+      const syncedAccount: Account = {
+        ...account,
+        balance: 1000,
+        balanceDate: new Date(now - 60 * 60 * 1000),
+        dryFloor: 850,
+      };
+      storage.getAccounts.mockResolvedValue([syncedAccount]);
+      const lateFlow: RecurringFlow = {
+        id: 'flow-late',
+        accountId: 'acc-1',
+        name: 'Rent',
+        direction: 'out',
+        kind: 'recurring',
+        amount: 200,
+        cadence: { period: 'once', date: new Date(now - 2 * 60 * 60 * 1000) },
+      };
+      storage.getFlowsForAccount.mockResolvedValue([lateFlow]);
+
+      const fixture = TestBed.createComponent(AccountStream);
+      const component = fixture.componentInstance;
+
+      await component['load']('acc-1');
+
+      // Without the fix, the missed occurrence would simply vanish from the projection and
+      // the balance would still read 1000, never crossing the 850 Dry Floor.
+      expect(component['dryAlert']()).toEqual(expect.objectContaining({ balance: 800 }));
+    });
   });
 
   describe('fresh account, no flows/transfers/transactions', () => {

@@ -20,6 +20,7 @@ import {
   balanceAtDate,
   balanceSeries,
   runningDryAlert,
+  withOutstandingOccurrences,
 } from '../../core/projection/projection-engine';
 import { signedBalance } from '../../core/charting/balance-color';
 import { BandPoint } from '../../core/charting/band-segments';
@@ -103,6 +104,14 @@ export class AccountStream {
   protected readonly isUncategorizedHighlighted = signal(false);
   private readonly transactionReviewEl = viewChild('transactionReview', { read: ElementRef<HTMLElement> });
 
+  /** `flows` with every currently-Outstanding recurring-kind Flow's missing occurrence restored as a synthetic today-dated one — see ADR-0012. Feeds every balance/Dry Floor projection below; `buildTributaries` deliberately keeps reading the raw `flows()` signal instead (its own rendering of Outstanding is #88's ticket). */
+  protected readonly effectiveFlows = computed(() => {
+    const account = this.account();
+    return account
+      ? withOutstandingOccurrences(this.flows(), this.transactions(), account, new Date())
+      : this.flows();
+  });
+
   /** Recomputed from the current Account/Flow/Transfer/Transaction state, so it updates automatically as new Transactions sync in and the projection shifts. */
   protected readonly dryAlert = computed(() => {
     const account = this.account();
@@ -110,7 +119,7 @@ export class AccountStream {
     return runningDryAlert(
       account,
       this.transactions(),
-      this.flows(),
+      this.effectiveFlows(),
       this.transfers(),
       new Date(),
     );
@@ -123,7 +132,7 @@ export class AccountStream {
           account,
           this.transactions(),
           this.selectedDate(),
-          this.flows(),
+          this.effectiveFlows(),
           this.transfers(),
         )
       : null;
@@ -149,7 +158,7 @@ export class AccountStream {
       account,
       this.transactions(),
       this.windowDates(),
-      this.flows(),
+      this.effectiveFlows(),
       this.transfers(),
     ).map((p, i) => ({ x: i, balance: p.balance }));
   });

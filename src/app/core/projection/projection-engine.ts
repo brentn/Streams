@@ -4,6 +4,7 @@ import {
   BudgetFlow,
   Cadence,
   Flow,
+  RecurringFlow,
   Tolerance,
   signedFlowAmount,
 } from '../models/flow';
@@ -11,7 +12,7 @@ import { Transaction } from '../models/transaction';
 import { Transfer } from '../models/transfer';
 import { amountAtDate } from './amount-timeline';
 import { budgetContribution, currentPeriod, previousCompletedPeriod } from './budget-period';
-import { lastCompletedPeriod, occurrencesInRange } from './cadence';
+import { lastCompletedPeriod, mostRecentOccurrence, occurrencesInRange } from './cadence';
 
 /** The sum of a Cadence's occurrences over `(startExclusive, endInclusive]`, each valued via its amount-change timeline. */
 function cadenceTimelineContribution(
@@ -185,6 +186,12 @@ function addDays(date: Date, days: number): Date {
   return result;
 }
 
+function startOfDay(date: Date): Date {
+  const result = new Date(date);
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
+
 export interface RunningDryAlert {
   date: Date;
   balance: number;
@@ -297,6 +304,80 @@ export function varianceAlert(
     expected,
     actual,
   };
+}
+
+export interface OutstandingAlert {
+  flowId: string;
+  occurrenceDate: Date;
+  amount: number;
+}
+
+/**
+ * Per ADR-0012 / CONTEXT.md's Outstanding entry: a recurring-kind Flow's most recent occurrence
+ * is Outstanding once the Account's `balanceDate` has advanced to or past that occurrence's date
+ * with no Transaction matched to the Flow in `(previousOccurrence, today]` (or `(epoch, today]`
+ * for a Flow's first-ever occurrence). Only the single latest occurrence is ever evaluated — a
+ * Flow already Outstanding doesn't accumulate further. Returns null for a budget-kind Flow (no
+ * occurrence timeline) or when no occurrence has happened yet.
+ */
+export function outstandingAlert(
+  flow: Flow,
+  transactions: Transaction[],
+  account: Pick<Account, 'balanceDate'>,
+  today: Date,
+): OutstandingAlert | null {
+  if (flow.kind !== 'recurring') return null;
+
+  const found = mostRecentOccurrence(flow.cadence, today);
+  if (!found) return null;
+  const { windowStart, occurrence } = found;
+  if (account.balanceDate.getTime() < occurrence.getTime()) return null;
+
+  // Day-inclusive of today's calendar date, matching `actualFlowMagnitude`'s own end-of-day
+  // boundary handling — a match posted later today (after whatever time-of-day `today` itself
+  // carries) still counts, rather than only up to the exact instant `today` represents.
+  const upperBoundExclusive = addDays(startOfDay(today), 1);
+  const hasMatch = transactions.some(
+    (txn) =>
+      txn.matchedTarget?.kind === 'flow' &&
+      txn.matchedTarget.id === flow.id &&
+      txn.date.getTime() > windowStart.getTime() &&
+      txn.date.getTime() < upperBoundExclusive.getTime(),
+  );
+  if (hasMatch) return null;
+
+  const amount = amountAtDate(flow.amount, flow.amountChanges ?? [], occurrence);
+  return { flowId: flow.id, occurrenceDate: occurrence, amount };
+}
+
+/**
+ * Every currently-Outstanding recurring-kind Flow, synthesized as an ad hoc one-time occurrence
+ * dated `today` and appended to `flows`. Restores the missing amount to the forward projection
+ * (`balanceAtDate`/`balanceSeries`/`runningDryAlert`/`totalBalanceSeries`) that would otherwise
+ * silently drop it the moment `balanceDate` passes the missed occurrence — see ADR-0012. Resolves
+ * itself automatically on the next call once a Transaction matches or `balanceDate` moves again.
+ */
+export function withOutstandingOccurrences(
+  flows: Flow[],
+  transactions: Transaction[],
+  account: Pick<Account, 'balanceDate'>,
+  today: Date,
+): Flow[] {
+  const synthetic: RecurringFlow[] = [];
+  for (const flow of flows) {
+    const alert = outstandingAlert(flow, transactions, account, today);
+    if (!alert) continue;
+    synthetic.push({
+      id: `${flow.id}-outstanding`,
+      accountId: flow.accountId,
+      name: flow.name,
+      direction: flow.direction,
+      kind: 'recurring',
+      amount: alert.amount,
+      cadence: { period: 'once', date: today },
+    });
+  }
+  return synthetic.length === 0 ? flows : [...flows, ...synthetic];
 }
 
 /**

@@ -7,10 +7,12 @@ import {
   balanceSeries,
   budgetProgress,
   budgetProgressStatus,
+  outstandingAlert,
   PROJECTION_HORIZON_DAYS,
   runningDryAlert,
   totalBalanceSeries,
   varianceAlert,
+  withOutstandingOccurrences,
 } from './projection-engine';
 
 const account = { id: 'acc-1', balance: 1000, balanceDate: new Date('2026-07-25T12:00:00Z') };
@@ -568,6 +570,135 @@ describe('budgetProgress', () => {
       amountChanges: [{ type: 'step', effectiveDate: new Date(2026, 6, 10), amount: 500 }],
     });
     expect(budgetProgress(flow, [], today)).toEqual({ used: 0, limit: 500 });
+  });
+});
+
+describe('outstandingAlert (ADR-0012)', () => {
+  // weeklyCadence-shaped recurringFlow's Friday series: ...07-17, 07-24, 07-31, 08-07...
+
+  it('returns null when balanceDate has not yet caught up to the most recent occurrence', () => {
+    const flow = recurringFlow({ amount: 100, direction: 'out' });
+    const today = new Date('2026-08-01T12:00:00Z'); // most recent occurrence at/before today is 07-31
+    const notYetSynced = { ...account, balanceDate: new Date('2026-07-25T12:00:00Z') };
+    expect(outstandingAlert(flow, [], notYetSynced, today)).toBeNull();
+  });
+
+  it('flags the most recent occurrence as Outstanding once balanceDate has passed it with no match', () => {
+    const flow = recurringFlow({ amount: 100, direction: 'out' });
+    const today = new Date('2026-08-01T12:00:00Z');
+    const synced = { ...account, balanceDate: new Date('2026-08-01T12:00:00Z') };
+    expect(outstandingAlert(flow, [], synced, today)).toEqual({
+      flowId: 'flow-1',
+      occurrenceDate: new Date(2026, 6, 31),
+      amount: 100,
+    });
+  });
+
+  it('returns null once a Transaction matches the Flow after the previous occurrence', () => {
+    const flow = recurringFlow({ amount: 100, direction: 'out' });
+    const today = new Date('2026-08-01T12:00:00Z');
+    const synced = { ...account, balanceDate: new Date('2026-08-01T12:00:00Z') };
+    const transactions = [matchedTxn('t1', '2026-07-31T09:00:00Z', -100, flow.id)];
+    expect(outstandingAlert(flow, transactions, synced, today)).toBeNull();
+  });
+
+  it('ignores a Transaction matched to a different Flow', () => {
+    const flow = recurringFlow({ amount: 100, direction: 'out' });
+    const today = new Date('2026-08-01T12:00:00Z');
+    const synced = { ...account, balanceDate: new Date('2026-08-01T12:00:00Z') };
+    const transactions = [matchedTxn('t1', '2026-07-31T09:00:00Z', -100, 'other-flow')];
+    expect(outstandingAlert(flow, transactions, synced, today)).not.toBeNull();
+  });
+
+  it('ignores a Transaction that only fulfilled an earlier occurrence, not the most recent one', () => {
+    const flow = recurringFlow({ amount: 100, direction: 'out' });
+    const today = new Date('2026-08-01T12:00:00Z');
+    const synced = { ...account, balanceDate: new Date('2026-08-01T12:00:00Z') };
+    const transactions = [matchedTxn('t1', '2026-07-17T09:00:00Z', -100, flow.id)];
+    expect(outstandingAlert(flow, transactions, synced, today)).not.toBeNull();
+  });
+
+  it('returns null for a budget-kind Flow — no occurrence timeline to go Outstanding', () => {
+    const today = new Date('2026-08-01T12:00:00Z');
+    const synced = { ...account, balanceDate: new Date('2026-08-01T12:00:00Z') };
+    expect(outstandingAlert(budgetFlow(), [], synced, today)).toBeNull();
+  });
+
+  it('returns null when no occurrence has happened yet', () => {
+    const flow = recurringFlow({ cadence: { period: 'once', date: new Date(2030, 0, 1) } });
+    const today = new Date('2026-08-01T12:00:00Z');
+    expect(outstandingAlert(flow, [], account, today)).toBeNull();
+  });
+
+  it('evaluates a one-time Cadence Flow the same way as a recurring one', () => {
+    const flow = recurringFlow({
+      amount: 250,
+      direction: 'out',
+      cadence: { period: 'once', date: new Date(2026, 6, 20) },
+    });
+    const today = new Date('2026-07-25T12:00:00Z');
+    const synced = { ...account, balanceDate: new Date('2026-07-25T12:00:00Z') };
+    expect(outstandingAlert(flow, [], synced, today)).toEqual({
+      flowId: 'flow-1',
+      occurrenceDate: new Date(2026, 6, 20),
+      amount: 250,
+    });
+  });
+
+  it("sizes the amount using amountChanges in effect at the occurrence date, not today's", () => {
+    const flow = recurringFlow({
+      amount: 100,
+      direction: 'out',
+      amountChanges: [{ type: 'step', effectiveDate: new Date(2026, 6, 28), amount: 150 }],
+    });
+    const today = new Date('2026-08-01T12:00:00Z');
+    const synced = { ...account, balanceDate: new Date('2026-08-01T12:00:00Z') };
+    expect(outstandingAlert(flow, [], synced, today)?.amount).toBe(150);
+  });
+});
+
+describe('withOutstandingOccurrences (ADR-0012)', () => {
+  it('returns the original array unchanged when no Flow is Outstanding', () => {
+    const flow = recurringFlow({ amount: 100, direction: 'out' });
+    const today = new Date('2026-08-01T12:00:00Z');
+    const synced = { ...account, balanceDate: new Date('2026-08-01T12:00:00Z') };
+    const transactions = [matchedTxn('t1', '2026-07-31T09:00:00Z', -100, flow.id)];
+    expect(withOutstandingOccurrences([flow], transactions, synced, today)).toEqual([flow]);
+  });
+
+  it('appends a synthetic one-time occurrence, dated today, for an Outstanding Flow', () => {
+    const flow = recurringFlow({ amount: 100, direction: 'out' });
+    const today = new Date('2026-08-01T12:00:00Z');
+    const synced = { ...account, balanceDate: new Date('2026-08-01T12:00:00Z') };
+    const result = withOutstandingOccurrences([flow], [], synced, today);
+
+    expect(result).toHaveLength(2);
+    expect(result[0]).toBe(flow);
+    expect(result[1]).toMatchObject({
+      accountId: flow.accountId,
+      direction: 'out',
+      kind: 'recurring',
+      amount: 100,
+      cadence: { period: 'once', date: today },
+    });
+    expect(result[1].id).not.toBe(flow.id);
+  });
+
+  it('leaves a budget-kind Flow untouched — no occurrence to synthesize', () => {
+    const flow = budgetFlow();
+    const today = new Date('2026-08-01T12:00:00Z');
+    const synced = { ...account, balanceDate: new Date('2026-08-01T12:00:00Z') };
+    expect(withOutstandingOccurrences([flow], [], synced, today)).toEqual([flow]);
+  });
+
+  it('feeds the missing amount back into the forward balance projection — the accuracy gap ADR-0012 closes', () => {
+    const flow = recurringFlow({ amount: 100, direction: 'out' });
+    const today = new Date('2026-08-01T15:00:00Z');
+    const synced = { ...account, balance: 1000, balanceDate: new Date('2026-08-01T08:00:00Z') };
+    const effectiveFlows = withOutstandingOccurrences([flow], [], synced, today);
+
+    expect(balanceAtDate(synced, [], today, [flow])).toBe(1000); // the bug: the missed occurrence just vanishes
+    expect(balanceAtDate(synced, [], today, effectiveFlows)).toBe(900); // restored via the synthetic entry
   });
 });
 

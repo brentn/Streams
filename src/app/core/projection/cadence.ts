@@ -136,6 +136,11 @@ export function occurrencesInRange(cadence: Cadence, startExclusive: Date, endIn
   return results.sort((a, b) => a.getTime() - b.getTime());
 }
 
+/** Every occurrence of `cadence` up to and including `asOf`, oldest first — the shared basis `lastCompletedPeriod` and `mostRecentOccurrence` each slice differently. */
+function occurrencesUpTo(cadence: Cadence, asOf: Date): Date[] {
+  return occurrencesInRange(cadence, new Date(0), asOf);
+}
+
 /**
  * The `(previousOccurrence, mostRecentOccurrence]` window for the latest occurrence at or
  * before `asOf`, or `null` if fewer than two occurrences have happened yet — a Variance
@@ -145,10 +150,30 @@ export function lastCompletedPeriod(
   cadence: Cadence,
   asOf: Date,
 ): { startExclusive: Date; endInclusive: Date } | null {
-  const occurrences = occurrencesInRange(cadence, new Date(0), asOf);
+  const occurrences = occurrencesUpTo(cadence, asOf);
   if (occurrences.length < 2) return null;
   return {
     startExclusive: occurrences[occurrences.length - 2],
     endInclusive: occurrences[occurrences.length - 1],
+  };
+}
+
+/**
+ * The latest occurrence at or before `asOf`, plus the window's start for deciding whether it's
+ * been fulfilled — the occurrence before it, or the epoch for a Flow's first-ever occurrence
+ * (there being no prior occurrence to bound the start). `null` if no occurrence has happened
+ * yet. Used by `outstandingAlert` (ADR-0012) — unlike `lastCompletedPeriod`, one occurrence is
+ * enough, since Outstanding asks "has *this* occurrence been fulfilled" rather than needing a
+ * fully bounded prior period.
+ */
+export function mostRecentOccurrence(
+  cadence: Cadence,
+  asOf: Date,
+): { windowStart: Date; occurrence: Date } | null {
+  const occurrences = occurrencesUpTo(cadence, asOf);
+  if (occurrences.length === 0) return null;
+  return {
+    windowStart: occurrences.length >= 2 ? occurrences[occurrences.length - 2] : new Date(0),
+    occurrence: occurrences[occurrences.length - 1],
   };
 }
