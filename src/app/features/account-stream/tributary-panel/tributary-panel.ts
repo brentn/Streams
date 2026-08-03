@@ -3,6 +3,7 @@ import { Dialog } from '@angular/cdk/dialog';
 import { afterNextRender, Component, computed, ElementRef, inject, input, output, viewChildren } from '@angular/core';
 import { applyAssignment } from '../../../core/categorization/apply-assignment';
 import { deleteFlowCascade } from '../../../core/categorization/delete-flow-cascade';
+import { deleteTransferCascade } from '../../../core/categorization/delete-transfer-cascade';
 import { Account } from '../../../core/models/account';
 import { Flow } from '../../../core/models/flow';
 import { Transaction } from '../../../core/models/transaction';
@@ -12,7 +13,7 @@ import { Tributary } from '../../../core/charting/tributaries';
 import { StorageRepository } from '../../../core/storage/storage-repository';
 import { AssignFlowDialog, AssignFlowDialogResult } from '../transaction-review/assign-flow-dialog/assign-flow-dialog';
 import { FlowFormDialog, FlowFormDialogResult } from '../flow-form-dialog/flow-form-dialog';
-import { TransferFormDialog } from '../transfer-form-dialog/transfer-form-dialog';
+import { TransferFormDialog, TransferFormDialogResult } from '../transfer-form-dialog/transfer-form-dialog';
 
 export interface TributaryDayGroup {
   date: Date;
@@ -137,11 +138,15 @@ export class TributaryPanel {
 
     const transfer = this.transfer();
     if (transfer) {
-      const ref = this.dialog.open<Transfer>(TransferFormDialog, {
+      const ref = this.dialog.open<TransferFormDialogResult>(TransferFormDialog, {
         data: { accountId: this.accountId(), accounts: this.accounts(), transfer },
       });
-      ref.closed.subscribe((saved) => {
-        if (saved) void this.persistTransfer(saved);
+      ref.closed.subscribe((result) => {
+        if (result === 'deleted') {
+          void this.deleteTransferAndClose(transfer);
+        } else if (result) {
+          void this.persistTransfer(result);
+        }
       });
     }
   }
@@ -161,6 +166,13 @@ export class TributaryPanel {
   private async persistTransfer(transfer: Transfer): Promise<void> {
     await this.storage.upsertTransfer(transfer);
     this.changed.emit();
+  }
+
+  /** The panel is showing a Transfer that no longer exists once this resolves, so it closes itself. */
+  private async deleteTransferAndClose(transfer: Transfer): Promise<void> {
+    await deleteTransferCascade(this.storage, transfer);
+    this.changed.emit();
+    this.close();
   }
 
   protected openAssignForm(transaction: Transaction): void {

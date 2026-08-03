@@ -65,6 +65,14 @@ describe('TransferFormDialog', () => {
     expect(dialogRef.close).toHaveBeenCalledWith();
   });
 
+  it("closes with 'deleted' on delete", () => {
+    const component = createComponent({ accountId: 'acc-1', accounts, transfer: newTransfer });
+
+    component['onDeleted']();
+
+    expect(dialogRef.close).toHaveBeenCalledWith('deleted');
+  });
+
   it('passes the given Transfer through for edit mode', () => {
     const component = createComponent({ accountId: 'acc-1', accounts, transfer: newTransfer });
 

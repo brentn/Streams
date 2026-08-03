@@ -10,7 +10,7 @@ import { Transfer } from '../../../core/models/transfer';
 import { StorageRepository } from '../../../core/storage/storage-repository';
 import { AssignFlowDialog, AssignFlowDialogResult } from '../transaction-review/assign-flow-dialog/assign-flow-dialog';
 import { FlowFormDialog, FlowFormDialogResult } from '../flow-form-dialog/flow-form-dialog';
-import { TransferFormDialog } from '../transfer-form-dialog/transfer-form-dialog';
+import { TransferFormDialog, TransferFormDialogResult } from '../transfer-form-dialog/transfer-form-dialog';
 import { TributaryPanel } from './tributary-panel';
 
 const account: Account = {
@@ -86,6 +86,8 @@ describe('TributaryPanel', () => {
     upsertTransactions: ReturnType<typeof vi.fn>;
     deleteCategorizationRule: ReturnType<typeof vi.fn>;
     deleteFlow: ReturnType<typeof vi.fn>;
+    getTransactionsForAccount: ReturnType<typeof vi.fn>;
+    deleteTransfer: ReturnType<typeof vi.fn>;
   };
   let dialog: { open: ReturnType<typeof vi.fn> };
 
@@ -104,6 +106,8 @@ describe('TributaryPanel', () => {
       upsertTransactions: vi.fn().mockResolvedValue(undefined),
       deleteCategorizationRule: vi.fn().mockResolvedValue(undefined),
       deleteFlow: vi.fn().mockResolvedValue(undefined),
+      getTransactionsForAccount: vi.fn().mockResolvedValue([]),
+      deleteTransfer: vi.fn().mockResolvedValue(undefined),
     };
     dialog = { open: vi.fn() };
     Element.prototype.scrollIntoView = vi.fn();
@@ -319,6 +323,36 @@ describe('TributaryPanel', () => {
     expect(storage.upsertTransactions).toHaveBeenCalledWith([{ ...matching, matchedTarget: null }]);
     expect(storage.deleteFlow).toHaveBeenCalledWith('flow-rent');
     expect(storage.upsertFlow).not.toHaveBeenCalled();
+    expect(changed).toHaveBeenCalled();
+    expect(closedOutput).toHaveBeenCalled();
+  });
+
+  it("cascade-deletes the Transfer, emits changed, and closes the panel, when the dialog closes with 'deleted'", async () => {
+    const matching = txn({ matchedTarget: { kind: 'transfer', id: 'transfer-savings' } });
+    const { component } = await createComponent({ tributary: transferTributary });
+    const changed = vi.fn();
+    const closedOutput = vi.fn();
+    component.changed.subscribe(changed);
+    component.closed.subscribe(closedOutput);
+    const closed = new Subject<TransferFormDialogResult | undefined>();
+    dialog.open.mockReturnValue({ closed });
+    storage.getCategorizationRules.mockResolvedValue([
+      { matchText: 'rent payment', target: { kind: 'transfer', id: 'transfer-savings' } },
+    ]);
+    storage.getTransactionsForAccount.mockImplementation((accountId: string) =>
+      Promise.resolve(accountId === 'acc-1' ? [matching] : []),
+    );
+
+    component['editItem']();
+    closed.next('deleted');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(storage.getTransactionsForAccount).toHaveBeenCalledWith('acc-1');
+    expect(storage.getTransactionsForAccount).toHaveBeenCalledWith('acc-2');
+    expect(storage.deleteCategorizationRule).toHaveBeenCalledWith('rent payment');
+    expect(storage.upsertTransactions).toHaveBeenCalledWith([{ ...matching, matchedTarget: null }]);
+    expect(storage.deleteTransfer).toHaveBeenCalledWith('transfer-savings');
+    expect(storage.upsertTransfer).not.toHaveBeenCalled();
     expect(changed).toHaveBeenCalled();
     expect(closedOutput).toHaveBeenCalled();
   });

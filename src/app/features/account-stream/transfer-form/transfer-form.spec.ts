@@ -34,17 +34,17 @@ describe('TransferForm', () => {
     fixture.componentRef.setInput('accounts', accountList);
     fixture.componentRef.setInput('transfer', transfer);
     fixture.detectChanges();
-    return fixture.componentInstance;
+    return { component: fixture.componentInstance, fixture };
   }
 
   it('excludes the current account from the list of other-account choices', async () => {
-    const component = await createComponent('acc-1');
+    const { component } = await createComponent('acc-1');
 
     expect(component['otherAccounts']().map((a) => a.id)).toEqual(['acc-2', 'acc-3']);
   });
 
   it('emits a new Transfer on save, with this account as the from-side when direction is out', async () => {
-    const component = await createComponent('acc-1');
+    const { component } = await createComponent('acc-1');
     const saved = vi.fn();
     component.saved.subscribe(saved);
 
@@ -67,7 +67,7 @@ describe('TransferForm', () => {
   });
 
   it('emits a new Transfer on save, with this account as the to-side when direction is in', async () => {
-    const component = await createComponent('acc-1');
+    const { component } = await createComponent('acc-1');
     const saved = vi.fn();
     component.saved.subscribe(saved);
 
@@ -96,7 +96,7 @@ describe('TransferForm', () => {
       },
     };
 
-    const component = await createComponent('acc-1', transfer);
+    const { component } = await createComponent('acc-1', transfer);
 
     expect(component['direction']()).toBe('out');
     expect(component['otherAccountId']()).toBe('acc-2');
@@ -117,7 +117,7 @@ describe('TransferForm', () => {
       },
     };
 
-    const component = await createComponent('acc-1', transfer);
+    const { component } = await createComponent('acc-1', transfer);
 
     expect(component['direction']()).toBe('in');
     expect(component['otherAccountId']()).toBe('acc-3');
@@ -136,7 +136,7 @@ describe('TransferForm', () => {
         anchorDate: new Date(2026, 0, 1),
       },
     };
-    const component = await createComponent('acc-1', transfer);
+    const { component } = await createComponent('acc-1', transfer);
     const saved = vi.fn();
     component.saved.subscribe(saved);
 
@@ -147,7 +147,7 @@ describe('TransferForm', () => {
   });
 
   it('includes amountChanges on save', async () => {
-    const component = await createComponent('acc-1');
+    const { component } = await createComponent('acc-1');
     const saved = vi.fn();
     component.saved.subscribe(saved);
 
@@ -167,7 +167,7 @@ describe('TransferForm', () => {
   });
 
   it('blocks save when the cadence has an End Date before its anchor date', async () => {
-    const component = await createComponent('acc-1');
+    const { component } = await createComponent('acc-1');
     const saved = vi.fn();
     component.saved.subscribe(saved);
 
@@ -186,7 +186,7 @@ describe('TransferForm', () => {
   });
 
   it('emits cancelled without emitting saved', async () => {
-    const component = await createComponent('acc-1');
+    const { component } = await createComponent('acc-1');
     const saved = vi.fn();
     const cancelled = vi.fn();
     component.saved.subscribe(saved);
@@ -196,5 +196,66 @@ describe('TransferForm', () => {
 
     expect(cancelled).toHaveBeenCalled();
     expect(saved).not.toHaveBeenCalled();
+  });
+
+  describe('delete', () => {
+    const existingTransfer: Transfer = {
+      id: 'transfer-1',
+      fromAccountId: 'acc-1',
+      toAccountId: 'acc-2',
+      amount: 500,
+      cadence: {
+        period: 'month',
+        interval: 1,
+        anchors: [{ day: 1 }],
+        anchorDate: new Date(2026, 0, 1),
+      },
+    };
+
+    it('does not show a Delete button when creating a new Transfer', async () => {
+      const { fixture } = await createComponent();
+
+      expect(fixture.nativeElement.querySelector('.delete')).toBeNull();
+    });
+
+    it('shows a Delete button when editing an existing Transfer', async () => {
+      const { fixture } = await createComponent('acc-1', existingTransfer);
+
+      expect(fixture.nativeElement.querySelector('.delete')).not.toBeNull();
+    });
+
+    it('does not emit deleted until the delete is confirmed', async () => {
+      const { component } = await createComponent('acc-1', existingTransfer);
+      const deleted = vi.fn();
+      component.deleted.subscribe(deleted);
+
+      component['startDelete']();
+
+      expect(deleted).not.toHaveBeenCalled();
+      expect(component['isConfirmingDelete']()).toBe(true);
+    });
+
+    it('emits deleted once the delete is confirmed', async () => {
+      const { component } = await createComponent('acc-1', existingTransfer);
+      const deleted = vi.fn();
+      component.deleted.subscribe(deleted);
+
+      component['startDelete']();
+      component['confirmDelete']();
+
+      expect(deleted).toHaveBeenCalled();
+    });
+
+    it('backs out of confirmation without emitting deleted on cancel', async () => {
+      const { component } = await createComponent('acc-1', existingTransfer);
+      const deleted = vi.fn();
+      component.deleted.subscribe(deleted);
+
+      component['startDelete']();
+      component['cancelDelete']();
+
+      expect(deleted).not.toHaveBeenCalled();
+      expect(component['isConfirmingDelete']()).toBe(false);
+    });
   });
 });

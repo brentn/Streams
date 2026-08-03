@@ -11,7 +11,10 @@ export interface TransferFormDialogData {
   transfer?: Transfer;
 }
 
-/** Opens `TransferForm` as a modal, per the CDK Dialog pattern `AssignFlowDialog` established — closes with the saved Transfer, or no result on cancel. */
+/** `'deleted'` distinguishes a confirmed delete from the saved Transfer a normal submit closes with. */
+export type TransferFormDialogResult = Transfer | 'deleted';
+
+/** Opens `TransferForm` as a modal, per the CDK Dialog pattern `AssignFlowDialog` established — closes with the saved Transfer, `'deleted'`, or no result on cancel. */
 @Component({
   selector: 'app-transfer-form-dialog',
   imports: [TransferForm],
@@ -19,7 +22,7 @@ export interface TransferFormDialogData {
   styleUrl: './transfer-form-dialog.css',
 })
 export class TransferFormDialog {
-  private readonly dialogRef = inject(DialogRef<Transfer>);
+  private readonly dialogRef = inject(DialogRef<TransferFormDialogResult>);
   protected readonly data = inject<TransferFormDialogData>(DIALOG_DATA);
 
   protected onSaved(transfer: Transfer): void {
@@ -28,5 +31,9 @@ export class TransferFormDialog {
 
   protected onCancelled(): void {
     this.dialogRef.close();
+  }
+
+  protected onDeleted(): void {
+    this.dialogRef.close('deleted');
   }
 }

@@ -33,6 +33,7 @@ export class TransferForm {
   readonly transfer = input<Transfer | null>(null);
   readonly saved = output<Transfer>();
   readonly cancelled = output<void>();
+  readonly deleted = output<void>();
 
   protected readonly direction = signal<TransferDirection>('out');
   protected readonly otherAccountId = signal('');
@@ -40,6 +41,7 @@ export class TransferForm {
   protected readonly cadenceOption = signal<CadenceOption>('monthly');
   protected readonly cadenceFields = signal<CadenceFields>(defaultCadenceFields());
   protected readonly amountChanges = signal<AmountChange[]>([]);
+  protected readonly isConfirmingDelete = signal(false);
 
   protected readonly numberInputValue = numberInputValue;
 
@@ -105,5 +107,17 @@ export class TransferForm {
 
   protected cancel(): void {
     this.cancelled.emit();
+  }
+
+  protected startDelete(): void {
+    this.isConfirmingDelete.set(true);
+  }
+
+  protected cancelDelete(): void {
+    this.isConfirmingDelete.set(false);
+  }
+
+  protected confirmDelete(): void {
+    this.deleted.emit();
   }
 }

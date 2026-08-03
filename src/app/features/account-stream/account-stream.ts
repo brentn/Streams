@@ -12,6 +12,7 @@ import { CurrencyPipe, DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { Dialog } from '@angular/cdk/dialog';
 import { deleteFlowCascade } from '../../core/categorization/delete-flow-cascade';
+import { deleteTransferCascade } from '../../core/categorization/delete-transfer-cascade';
 import { Account } from '../../core/models/account';
 import { BudgetFlow, Flow, isOneTimeFlow } from '../../core/models/flow';
 import { Transaction } from '../../core/models/transaction';
@@ -48,7 +49,7 @@ import { StatusBanner } from '../../shared/status-banner/status-banner';
 import { StreamBand } from '../../shared/stream-band/stream-band';
 import { BudgetList } from './budget-list/budget-list';
 import { FlowFormDialog, FlowFormDialogResult } from './flow-form-dialog/flow-form-dialog';
-import { TransferFormDialog } from './transfer-form-dialog/transfer-form-dialog';
+import { TransferFormDialog, TransferFormDialogResult } from './transfer-form-dialog/transfer-form-dialog';
 import { TransactionReview } from './transaction-review/transaction-review';
 import { TributaryPanel } from './tributary-panel/tributary-panel';
 
@@ -327,17 +328,26 @@ export class AccountStream {
         }
       });
     } else if (transfer) {
-      const ref = this.dialog.open<Transfer>(TransferFormDialog, {
+      const ref = this.dialog.open<TransferFormDialogResult>(TransferFormDialog, {
         data: { accountId: account.id, accounts: this.allAccounts(), transfer },
       });
-      ref.closed.subscribe((saved) => {
-        if (saved) void this.persistTransfer(saved);
+      ref.closed.subscribe((result) => {
+        if (result === 'deleted') {
+          void this.deleteTransferAndReload(transfer);
+        } else if (result) {
+          void this.persistTransfer(result);
+        }
       });
     }
   }
 
   private async deleteFlowAndReload(flowId: string): Promise<void> {
     await deleteFlowCascade(this.storage, this.transactions(), flowId);
+    await this.reloadAll();
+  }
+
+  private async deleteTransferAndReload(transfer: Transfer): Promise<void> {
+    await deleteTransferCascade(this.storage, transfer);
     await this.reloadAll();
   }
 
