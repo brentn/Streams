@@ -69,4 +69,12 @@ describe('buildTributaryArrows', () => {
     expect(arrow.direction).toBe('out');
     expect(arrow.label).toBe('→ Savings');
   });
+
+  it("carries a source Tributary's warning flag through, for #88's distinct treatment", () => {
+    const [warned] = buildTributaryArrows([tributary({ warning: true })], 60, () => 10, () => 1);
+    const [unwarned] = buildTributaryArrows([tributary({})], 60, () => 10, () => 1);
+
+    expect(warned.warning).toBe(true);
+    expect(unwarned.warning).toBeUndefined();
+  });
 });

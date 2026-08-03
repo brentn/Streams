@@ -18,6 +18,8 @@ export interface TributaryBundle {
   anchorY: number;
   strokeWidth: number;
   tickLength: number;
+  /** True when any member carries `warning` (an Outstanding Flow's marker or "Pending" stand-in, #88) — the badge must signal this rather than reading as an ordinary bundle, per ADR-0012. */
+  warning: boolean;
 }
 
 /** A stand-in Tributary at the cluster's centroid x, amount summed across every member — reuses `buildTributaryArrows`' anchor geometry rather than duplicating the lean/join math. */
@@ -53,6 +55,7 @@ export function buildTributaryBundles(
       anchorY: arrow.anchorY,
       strokeWidth: arrow.strokeWidth,
       tickLength: arrow.tickLength,
+      warning: cluster.some((t) => t.warning === true),
     };
   });
 }

@@ -105,6 +105,25 @@
   background: var(--color-positive-balance);
 }
 
+/*
+ * An Outstanding Flow's own past occurrence marker (#88, ADR-0012) — the same shaft+tick geometry,
+ * recolored into `--color-warning` rather than a second shape/icon, so it reads as "this one didn't
+ * come through" at a glance without competing with the normal blue tributaries around it.
+ */
+.tributary-arrow.warning .arrow-tick,
+.tributary-arrow.warning .arrow-shaft {
+  background: var(--color-warning);
+}
+
+.tributary-arrow.warning .tributary-label {
+  color: var(--color-warning);
+}
+
+/* A group whose cluster contains an Outstanding Flow's marker/stand-in (ADR-0012's bundle-badge consequence, #88) — signaled on the ×N badge itself since the shaft/tick recolor above already covers the group arrow's own line. */
+.tributary-badge.warning {
+  background: var(--color-warning);
+}
+
 .arrow-tick {
   position: absolute;
   left: calc(var(--shaft-width) / -2);

@@ -4,7 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Account } from '../../core/models/account';
-import { BudgetFlow, RecurringFlow } from '../../core/models/flow';
+import { BudgetFlow, DayOfWeek, RecurringFlow } from '../../core/models/flow';
 import { Transaction } from '../../core/models/transaction';
 import { Transfer } from '../../core/models/transfer';
 import { SCRUB_MAX_DAYS, SCRUB_MIN_DAYS } from '../../core/charting/date-window';
@@ -370,6 +370,83 @@ describe('AccountStream', () => {
       expect(component['tributaries']()).toEqual([
         expect.objectContaining({ kind: 'uncategorized', direction: 'out', amount: 12 }),
       ]);
+    });
+  });
+
+  describe('Outstanding Flow tributary rendering (#88)', () => {
+    // A weekly Flow anchored to the weekday three days ago, so its most recent occurrence
+    // landed in the past (distinct from today's synthetic stand-in position) regardless of
+    // which day of the week the suite happens to run on.
+    const now = new Date();
+    const missedOccurrence = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 3);
+    const weeklyFlow: RecurringFlow = {
+      id: 'flow-weekly',
+      accountId: 'acc-1',
+      name: 'Subscription',
+      direction: 'out',
+      kind: 'recurring',
+      amount: 15,
+      cadence: {
+        period: 'week',
+        interval: 1,
+        anchors: [{ dayOfWeek: missedOccurrence.getDay() as DayOfWeek }],
+        anchorDate: new Date(2020, 0, 1),
+      },
+    };
+
+    it("flags the missed occurrence's own Tributary as a warning and adds a same-day 'Pending' stand-in", async () => {
+      storage.getFlowsForAccount.mockResolvedValue([weeklyFlow]);
+
+      const fixture = TestBed.createComponent(AccountStream);
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+
+      const tributaries = component['tributaries']().filter((t) => t.flowId === 'flow-weekly');
+
+      const original = tributaries.find((t) => t.date.getTime() === missedOccurrence.getTime());
+      expect(original?.warning).toBe(true);
+
+      const standIn = tributaries.find((t) => t.label === 'Pending: Subscription');
+      expect(standIn).toEqual(
+        expect.objectContaining({ kind: 'flow', flowId: 'flow-weekly', direction: 'out', amount: 15 }),
+      );
+      expect(standIn?.warning).toBe(true);
+    });
+
+    it('opens the same TributaryPanel a real occurrence would when the Pending stand-in is clicked', async () => {
+      storage.getFlowsForAccount.mockResolvedValue([weeklyFlow]);
+
+      const fixture = TestBed.createComponent(AccountStream);
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+
+      const standIn = component['tributaries']().find((t) => t.label === 'Pending: Subscription')!;
+      component['onTributaryClick'](standIn);
+
+      expect(dialog.open).not.toHaveBeenCalled();
+      expect(component['openTributary']()).toEqual(standIn);
+    });
+
+    it('stops flagging the past marker and stops rendering the Pending stand-in once a match posts', async () => {
+      storage.getFlowsForAccount.mockResolvedValue([weeklyFlow]);
+      const matched: Transaction = {
+        id: 'txn-1',
+        accountId: 'acc-1',
+        date: missedOccurrence,
+        amount: -15,
+        description: 'SUBSCRIPTION CO',
+        matchedTarget: { kind: 'flow', id: 'flow-weekly' },
+      };
+      storage.getTransactionsForAccount.mockResolvedValue([matched]);
+
+      const fixture = TestBed.createComponent(AccountStream);
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+
+      const tributaries = component['tributaries']().filter((t) => t.flowId === 'flow-weekly');
+
+      expect(tributaries.some((t) => t.label === 'Pending: Subscription')).toBe(false);
+      expect(tributaries.some((t) => t.warning)).toBe(false);
     });
   });
 

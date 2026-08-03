@@ -36,6 +36,7 @@ import {
   buildTributaries,
   buildUncategorizedTributaries,
   Tributary,
+  withOutstandingTributaries,
 } from '../../core/charting/tributaries';
 import { bannerPresentation, derivedBannerState } from '../../core/sync/sync-presentation';
 import { SyncCoordinator } from '../../core/sync/sync-coordinator';
@@ -104,7 +105,7 @@ export class AccountStream {
   protected readonly isUncategorizedHighlighted = signal(false);
   private readonly transactionReviewEl = viewChild('transactionReview', { read: ElementRef<HTMLElement> });
 
-  /** `flows` with every currently-Outstanding recurring-kind Flow's missing occurrence restored as a synthetic today-dated one — see ADR-0012. Feeds every balance/Dry Floor projection below; `buildTributaries` deliberately keeps reading the raw `flows()` signal instead (its own rendering of Outstanding is #88's ticket). */
+  /** `flows` with every currently-Outstanding recurring-kind Flow's missing occurrence restored as a synthetic today-dated one — see ADR-0012. Feeds every balance/Dry Floor projection below; `buildTributaries` deliberately keeps reading the raw `flows()` signal instead — its own rendering of Outstanding is layered on separately, via `withOutstandingTributaries` (#88). */
   protected readonly effectiveFlows = computed(() => {
     const account = this.account();
     return account
@@ -163,11 +164,17 @@ export class AccountStream {
     ).map((p, i) => ({ x: i, balance: p.balance }));
   });
 
-  /** Real Flow/Transfer tributaries plus the aggregate "uncategorized" one sourced from unmatched Transactions — see ticket #63. */
+  /**
+   * Real Flow/Transfer tributaries plus the aggregate "uncategorized" one sourced from unmatched
+   * Transactions (see ticket #63), then layered with Outstanding-Flow rendering (#88): the missed
+   * occurrence's own marker flagged as a warning, plus a same-day "Pending" stand-in at today's
+   * position. `buildUncategorizedTributaries`/`buildTributaries` output is what gets layered —
+   * Outstanding doesn't touch the uncategorized bucket.
+   */
   protected readonly tributaries = computed(() => {
     const account = this.account();
     if (!account) return [];
-    return [
+    const base = [
       ...buildTributaries(
         this.flows(),
         this.transfers(),
@@ -177,6 +184,14 @@ export class AccountStream {
       ),
       ...buildUncategorizedTributaries(this.transactions(), this.selectedDate()),
     ];
+    return withOutstandingTributaries(
+      base,
+      this.flows(),
+      this.transactions(),
+      account,
+      new Date(),
+      this.selectedDate(),
+    );
   });
 
   protected readonly boundaryX = computed(() => {

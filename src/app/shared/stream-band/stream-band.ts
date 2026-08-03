@@ -178,6 +178,7 @@ export class StreamBand {
       count: group.count,
       strokeWidth: group.strokeWidth,
       tickLength: group.tickLength,
+      warning: group.warning,
       ...toPercent(group.anchorX, group.anchorY),
     }));
   });
@@ -216,6 +217,7 @@ export class StreamBand {
       label: arrow.label,
       strokeWidth: arrow.strokeWidth,
       tickLength: arrow.tickLength,
+      warning: arrow.warning ?? false,
       ...toPercent(arrow.anchorX, arrow.anchorY),
     }));
   });

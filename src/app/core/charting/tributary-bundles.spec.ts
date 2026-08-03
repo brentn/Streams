@@ -75,6 +75,21 @@ describe('buildTributaryBundles', () => {
     expect(thin.tickLength).toBeGreaterThan(0);
   });
 
+  it("signals warning when any member carries it (ADR-0012's bundle-badge consequence for Outstanding Flows, #88)", () => {
+    const plainCluster = [tributary({ id: 'a' }), tributary({ id: 'b' })];
+    const outstandingCluster = [tributary({ id: 'c' }), tributary({ id: 'd', warning: true })];
+
+    const [plainBundle, warnedBundle] = buildTributaryBundles(
+      [plainCluster, outstandingCluster],
+      60,
+      () => 10,
+      () => 3,
+    );
+
+    expect(plainBundle.warning).toBe(false);
+    expect(warnedBundle.warning).toBe(true);
+  });
+
   it('builds one bundle per cluster, in order', () => {
     const clusterA = [tributary({ id: 'a' }), tributary({ id: 'b' })];
     const clusterB = [tributary({ id: 'c', x: 40 }), tributary({ id: 'd', x: 40 })];

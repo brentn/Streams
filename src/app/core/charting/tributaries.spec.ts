@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { Account } from '../models/account';
-import { Flow } from '../models/flow';
+import { Flow, RecurringFlow } from '../models/flow';
 import { Transaction } from '../models/transaction';
 import { Transfer } from '../models/transfer';
-import { budgetDrillInTributary, buildTributaries, buildUncategorizedTributaries } from './tributaries';
+import {
+  budgetDrillInTributary,
+  buildTributaries,
+  buildUncategorizedTributaries,
+  withOutstandingTributaries,
+} from './tributaries';
 
 // Local-midnight parse — see cadence.spec.ts.
 function d(iso: string): Date {
@@ -246,5 +251,107 @@ describe('buildUncategorizedTributaries', () => {
     const result = buildUncategorizedTributaries([txn({ date: d('2020-01-01') })], d('2026-07-10'));
 
     expect(result).toEqual([]);
+  });
+});
+
+describe('withOutstandingTributaries (#88)', () => {
+  // Weekly Friday cadence; most recent occurrence at/before 2026-08-01 (a Saturday) is 2026-07-31.
+  const flow: RecurringFlow = {
+    id: 'flow-1',
+    accountId: 'acc-1',
+    name: 'Paycheck',
+    direction: 'in',
+    kind: 'recurring',
+    amount: 100,
+    cadence: { period: 'week', interval: 1, anchors: [{ dayOfWeek: 5 }], anchorDate: d('2026-01-02') },
+  };
+  const today = d('2026-08-01');
+  const outstandingAccount: Account = { ...accounts[0], balanceDate: today };
+
+  it("marks the Outstanding occurrence's own real Tributary as warning, without duplicating it", () => {
+    const selectedDate = d('2026-07-31');
+    const tributaries = buildTributaries([flow], [], accounts, 'acc-1', selectedDate);
+
+    const result = withOutstandingTributaries(tributaries, [flow], [], outstandingAccount, today, selectedDate);
+
+    const atOccurrence = result.filter(
+      (t) => t.flowId === 'flow-1' && t.date.getTime() === d('2026-07-31').getTime(),
+    );
+    expect(atOccurrence).toHaveLength(1);
+    expect(atOccurrence[0].warning).toBe(true);
+    // The only other warning-flagged item is the "Pending" stand-in, at today (also in this window).
+    const otherWarned = result.filter((t) => t.warning && t.date.getTime() !== d('2026-07-31').getTime());
+    expect(otherWarned.every((t) => t.date.getTime() === today.getTime())).toBe(true);
+  });
+
+  it("appends a synthetic 'Pending: <name>' stand-in at today's position, carrying the Flow's own id", () => {
+    const selectedDate = today;
+    const tributaries = buildTributaries([flow], [], accounts, 'acc-1', selectedDate);
+
+    const result = withOutstandingTributaries(tributaries, [flow], [], outstandingAccount, today, selectedDate);
+
+    expect(result).toHaveLength(tributaries.length + 1);
+    const standIn = result.find((t) => t.label === 'Pending: Paycheck');
+    expect(standIn).toMatchObject({
+      kind: 'flow',
+      flowId: 'flow-1',
+      direction: 'in',
+      amount: 100,
+      date: today,
+      warning: true,
+    });
+  });
+
+  it('leaves the tributaries untouched when no Flow is Outstanding', () => {
+    const selectedDate = today;
+    const tributaries = buildTributaries([flow], [], accounts, 'acc-1', selectedDate);
+    const matched: Transaction[] = [
+      {
+        id: 't1',
+        accountId: 'acc-1',
+        date: d('2026-07-31'),
+        amount: 100,
+        description: 'Paycheck',
+        matchedTarget: { kind: 'flow', id: 'flow-1' },
+      },
+    ];
+
+    const result = withOutstandingTributaries(tributaries, [flow], matched, outstandingAccount, today, selectedDate);
+
+    expect(result).toEqual(tributaries);
+  });
+
+  it("omits the stand-in when today falls outside the selectedDate-centered visible window", () => {
+    const farSelectedDate = d('2026-01-01');
+    const tributaries = buildTributaries([flow], [], accounts, 'acc-1', farSelectedDate);
+
+    const result = withOutstandingTributaries(
+      tributaries,
+      [flow],
+      [],
+      outstandingAccount,
+      today,
+      farSelectedDate,
+    );
+
+    expect(result.some((t) => t.label.startsWith('Pending:'))).toBe(false);
+  });
+
+  it('never marks or stands in for a budget-kind Flow — Outstanding has no occurrence timeline for it', () => {
+    const budget: Flow = {
+      id: 'budget-1',
+      accountId: 'acc-1',
+      name: 'Groceries',
+      direction: 'out',
+      kind: 'budget',
+      limit: 400,
+      period: 'month',
+    };
+    const selectedDate = today;
+    const tributaries = buildTributaries([budget], [], accounts, 'acc-1', selectedDate);
+
+    const result = withOutstandingTributaries(tributaries, [budget], [], outstandingAccount, today, selectedDate);
+
+    expect(result).toEqual(tributaries);
   });
 });

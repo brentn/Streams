@@ -4,6 +4,7 @@ import { Transaction } from '../models/transaction';
 import { Transfer } from '../models/transfer';
 import { amountAtDate } from '../projection/amount-timeline';
 import { occurrencesInRange } from '../projection/cadence';
+import { OutstandingAlert, outstandingAlert } from '../projection/projection-engine';
 import { addDays, boundaryXFor, buildWindowDates } from './date-window';
 
 /** One real Flow/Transfer occurrence, or one unmatched Transaction, to render as a tributary joining/leaving the balance river. */
@@ -19,6 +20,8 @@ export interface Tributary {
   flowId?: string;
   /** The source Transfer's id, set only when `kind === 'transfer'`. */
   transferId?: string;
+  /** Set on both of an Outstanding Flow's markers — its own past-dated occurrence and its same-day "Pending" stand-in (see `withOutstandingTributaries`, #88) — renders with a distinct warning treatment instead of the normal one. */
+  warning?: boolean;
 }
 
 /** The `(startExclusive, endInclusive]` bounds of the `selectedDate`-centered window (see `buildWindowDates`) that every Tributary builder filters occurrences/Transactions into. */
@@ -28,6 +31,11 @@ function windowBounds(selectedDate: Date): { startExclusive: Date; endInclusive:
     startExclusive: addDays(windowDates[0], -1),
     endInclusive: windowDates[windowDates.length - 1],
   };
+}
+
+/** Whether `date` falls in a `windowBounds`-shaped `(startExclusive, endInclusive]` range. */
+function isInWindow(date: Date, bounds: { startExclusive: Date; endInclusive: Date }): boolean {
+  return date.getTime() > bounds.startExclusive.getTime() && date.getTime() <= bounds.endInclusive.getTime();
 }
 
 function periodStart(period: BudgetPeriod, date: Date): Date {
@@ -180,7 +188,7 @@ export function buildUncategorizedTributaries(
   transactions: Transaction[],
   selectedDate: Date,
 ): Tributary[] {
-  const { startExclusive, endInclusive } = windowBounds(selectedDate);
+  const bounds = windowBounds(selectedDate);
 
   const buckets = new Map<string, { direction: FlowDirection; date: Date; total: number }>();
 
@@ -200,7 +208,7 @@ export function buildUncategorizedTributaries(
   }
 
   return Array.from(buckets.values())
-    .filter((b) => b.date.getTime() > startExclusive.getTime() && b.date.getTime() <= endInclusive.getTime())
+    .filter((b) => isInWindow(b.date, bounds))
     .map((b) => ({
       id: `uncategorized-${b.direction}-${b.date.getTime()}`,
       kind: 'uncategorized',
@@ -210,4 +218,56 @@ export function buildUncategorizedTributaries(
       amount: b.total,
       label: 'Uncategorized',
     }));
+}
+
+/**
+ * Layers Outstanding-Flow rendering (#88, ADR-0012) onto `tributaries` (as built by
+ * `buildTributaries`): the missed occurrence's own real Tributary is flagged `warning: true` in
+ * place — never duplicated, since it already renders at its own past date whenever that date is
+ * in view — and a synthetic same-day stand-in, labeled "Pending: `<name>`", carrying the real
+ * Flow's own `flowId` (so clicking it opens the same `TributaryPanel` a real occurrence would) and
+ * also flagged `warning: true`, is appended at today's position. Both share the one `warning` flag
+ * so a clustered bundle containing either (`tributary-bundles.ts`) can tell it's grouping an
+ * Outstanding item without a second signal to keep in sync (ADR-0012's bundle-badge consequence).
+ * The stand-in is omitted when today itself falls outside the `selectedDate`-centered visible
+ * window, same as any other Tributary would be. Both resolve themselves automatically on the next
+ * render once `outstandingAlert` clears — no manual dismissal needed.
+ */
+export function withOutstandingTributaries(
+  tributaries: Tributary[],
+  flows: Flow[],
+  transactions: Transaction[],
+  account: Pick<Account, 'balanceDate'>,
+  today: Date,
+  selectedDate: Date,
+): Tributary[] {
+  const alertsByFlowId = new Map<string, { flow: RecurringFlow; alert: OutstandingAlert }>();
+  for (const flow of flows) {
+    if (flow.kind !== 'recurring') continue;
+    const alert = outstandingAlert(flow, transactions, account, today);
+    if (alert) alertsByFlowId.set(flow.id, { flow, alert });
+  }
+  if (alertsByFlowId.size === 0) return tributaries;
+
+  const marked = tributaries.map((t) => {
+    const entry = t.flowId ? alertsByFlowId.get(t.flowId) : undefined;
+    if (!entry || t.date.getTime() !== entry.alert.occurrenceDate.getTime()) return t;
+    return { ...t, warning: true };
+  });
+
+  if (!isInWindow(today, windowBounds(selectedDate))) return marked;
+
+  const standIns: Tributary[] = Array.from(alertsByFlowId.entries()).map(([flowId, { flow, alert }]) => ({
+    id: `flow-${flowId}-outstanding-pending`,
+    kind: 'flow',
+    direction: flow.direction,
+    date: today,
+    x: boundaryXFor(today, selectedDate),
+    amount: alert.amount,
+    label: `Pending: ${flow.name}`,
+    flowId,
+    warning: true,
+  }));
+
+  return [...marked, ...standIns];
 }

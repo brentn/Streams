@@ -26,6 +26,8 @@ export interface TributaryArrow {
   anchorY: number;
   strokeWidth: number;
   tickLength: number;
+  /** Carried through from the source Tributary (see `withOutstandingTributaries`, #88) — an Outstanding Flow's own past occurrence, rendered with a distinct warning treatment. */
+  warning?: boolean;
 }
 
 /**
@@ -53,6 +55,7 @@ export function buildTributaryArrows(
       anchorY,
       strokeWidth: width,
       tickLength: width * TICK_LENGTH_PER_STROKE_WIDTH,
+      warning: tributary.warning,
     };
   });
 }

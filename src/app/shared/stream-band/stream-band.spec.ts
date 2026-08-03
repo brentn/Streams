@@ -121,6 +121,18 @@ describe('StreamBand', () => {
     expect(outArrow.querySelector('.arrow-tick')).toBeTruthy();
   });
 
+  it("renders an Outstanding Flow's own marker with the .warning modifier (#88), and a normal one without it", async () => {
+    const warned = tributaryAt({ id: 'warned', warning: true });
+    const unwarned = tributaryAt({ id: 'unwarned', x: 60 });
+    const { fixture } = await createComponent([warned, unwarned], 100);
+
+    const warnedArrow: HTMLElement = fixture.nativeElement.querySelector('[data-tributary-id="warned"]');
+    const unwarnedArrow: HTMLElement = fixture.nativeElement.querySelector('[data-tributary-id="unwarned"]');
+
+    expect(warnedArrow.classList.contains('warning')).toBe(true);
+    expect(unwarnedArrow.classList.contains('warning')).toBe(false);
+  });
+
   it("wires the amount-scaled strokeWidth/tickLength into the arrow's --shaft-width/--tick-length custom properties", async () => {
     const trib = tributaryAt({ id: 'sized', amount: 4000 });
     const { fixture } = await createComponent([trib]);
@@ -275,6 +287,20 @@ describe('StreamBand', () => {
       expect(groupArrows.length).toBe(1);
       expect(individualArrows.length).toBe(0);
       expect(badge.textContent).toBe('×3');
+    });
+
+    it("signals a group containing an Outstanding item on the ×N badge, via the .warning modifier (ADR-0012, #88)", async () => {
+      const cluster = [
+        tributaryAt({ id: 'a', x: 10 }),
+        tributaryAt({ id: 'b', x: 11, warning: true }),
+      ];
+      const { fixture } = await createComponent(cluster, 60);
+
+      const groupArrow: HTMLElement = fixture.nativeElement.querySelector('.tributary-arrow.group');
+      const badge: HTMLElement = fixture.nativeElement.querySelector('.tributary-badge');
+
+      expect(groupArrow.classList.contains('warning')).toBe(true);
+      expect(badge.classList.contains('warning')).toBe(true);
     });
 
     it("renders a group arrow with the same shaft/tick shape/styling as an individual tributary (#81)", async () => {

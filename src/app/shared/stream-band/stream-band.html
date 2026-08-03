@@ -23,6 +23,7 @@
     <div
       class="tributary-arrow"
       [class.out]="arrow.direction === 'out'"
+      [class.warning]="arrow.warning"
       [style.left.%]="arrow.leftPercent"
       [style.top.%]="arrow.topPercent"
       [style.--shaft-width]="arrow.strokeWidth + 'px'"
@@ -39,6 +40,7 @@
     <div
       class="tributary-arrow group"
       [class.out]="group.direction === 'out'"
+      [class.warning]="group.warning"
       [style.left.%]="group.leftPercent"
       [style.top.%]="group.topPercent"
       [style.--shaft-width]="group.strokeWidth + 'px'"
@@ -47,7 +49,7 @@
     >
       <span class="arrow-tick"></span>
       <span class="arrow-shaft">
-        <button type="button" class="tributary-badge">×{{ group.count }}</button>
+        <button type="button" class="tributary-badge" [class.warning]="group.warning">×{{ group.count }}</button>
       </span>
     </div>
   }
