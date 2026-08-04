@@ -83,7 +83,7 @@ A notification that an Account's projected balance is expected to cross below it
 _Avoid_: Low balance warning
 
 **Outstanding**:
-A recurring-kind Flow's most recently expected occurrence, once the Account's balance has synced past that occurrence's date with no Transaction ever matching it. Derived fresh from current Flow/Transaction/Account state, never stored — clears itself the moment a match posts. Applies only to a recurring-kind Flow: a budget-kind Flow has no single occurrence to be Outstanding, and a Transfer isn't covered. Only the single latest occurrence is ever evaluated per Flow; a second occurrence going overdue while the first is unresolved signals a different problem, not accumulating lateness. See ADR-0012.
+A recurring-kind Flow's most recently expected occurrence, once the Account's balance has synced past that occurrence's date with no Transaction ever matching it. Derived fresh from current Flow/Transaction/Account state, never stored — clears itself the moment a match posts, or automatically after 14 days past the occurrence's due date, whichever comes first. Applies only to a recurring-kind Flow: a budget-kind Flow has no single occurrence to be Outstanding, and a Transfer isn't covered. Only the single latest occurrence is ever evaluated per Flow; a second occurrence going overdue while the first is unresolved signals a different problem, not accumulating lateness. The occurrence's own past-dated Tributary is excluded from rendering while Outstanding — only its same-day "Pending" stand-in shows, never both. See ADR-0012.
 _Avoid_: Pending (reserved for the synthetic stand-in Tributary's UI label text only — the domain term is Outstanding), Late, Overdue
 
 ### Accounts

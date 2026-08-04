@@ -6,7 +6,7 @@ We call this per-occurrence state **Outstanding** (see CONTEXT.md) and synthesiz
 
 ## Considered Options
 
-- **Fixed grace-period-in-days** before flagging, instead of reusing the occurrence-to-occurrence window `VarianceAlert` already checks — rejected: a new tunable with no precedent elsewhere in the domain.
+- **Fixed grace-period-in-days** before flagging, instead of reusing the occurrence-to-occurrence window `VarianceAlert` already checks — rejected: a new tunable with no precedent elsewhere in the domain. (A fixed-days bound was later adopted for *expiring* Outstanding rather than for the initial flag — see Consequences — since unlike flagging, expiry has no occurrence-to-occurrence window to reuse.)
 - **Persisted flag on the Flow record** — rejected: every other alert in this codebase (`RunningDryAlert`, `VarianceAlert`, `budgetProgressStatus`) is a pure function of current state; a stored flag would need its own dismiss/cleanup machinery nothing else here has.
 - **Accumulating every unmatched occurrence** since the last match into one summed total — rejected: capped at the single latest occurrence per Flow; a second occurrence going overdue while the first is unresolved reads as a different problem (broken Categorization Rule, cancelled payment), not more lateness.
 - **One shared bucket per direction**, mirroring the Uncategorized bucket (ADR-0007) — rejected in favor of one stand-in per Outstanding Flow, individually traceable by `flowId` back to a real `TributaryPanel`, even though several could land on the same day.
@@ -17,4 +17,6 @@ We call this per-occurrence state **Outstanding** (see CONTEXT.md) and synthesiz
 - Scoped to recurring-kind Flows only. Budget-kind Flows have no occurrence to go Outstanding; Transfers share the same Cadence machinery but aren't covered by this decision.
 - The stand-in's UI label reads "Pending: `<Flow name>`" — a display-text choice only; the domain/code term stays Outstanding throughout (CONTEXT.md, `outstandingAlert`, etc.) to avoid two names for one concept.
 - A one-time (`period: 'once'`) Cadence Flow is in scope like any recurring one — a single missed one-time payment gets flagged and stood-in the same way.
-- If the stand-in (or the original occurrence's own marker) falls inside a clustered Tributary bundle (`tributary-bundles.ts`), the bundle's count badge must signal it contains an Outstanding item rather than reading as an ordinary bundle.
+- If the stand-in falls inside a clustered Tributary bundle (`tributary-bundles.ts`), the bundle's count badge must signal it contains an Outstanding item rather than reading as an ordinary bundle.
+- The missed occurrence's own past-dated Tributary is excluded from rendering, not just flagged — the same-day stand-in is the only marker shown, so a missed payment never renders twice (#91).
+- Outstanding stays in effect for at most 14 days past the missed occurrence's due date. Past that bound `outstandingAlert` returns `null` outright — no marker, no stand-in, and, since `withOutstandingOccurrences` derives from the same check, the synthetic amount stops contributing to the balance projection too (#91).

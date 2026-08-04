@@ -20,7 +20,7 @@ export interface Tributary {
   flowId?: string;
   /** The source Transfer's id, set only when `kind === 'transfer'`. */
   transferId?: string;
-  /** Set on both of an Outstanding Flow's markers — its own past-dated occurrence and its same-day "Pending" stand-in (see `withOutstandingTributaries`, #88) — renders with a distinct warning treatment instead of the normal one. */
+  /** Set on an Outstanding Flow's same-day "Pending" stand-in (see `withOutstandingTributaries`, #88/#91) — renders with a distinct warning treatment instead of the normal one. The Flow's own past-dated occurrence is excluded from rendering entirely rather than flagged, so this never appears on a real occurrence's Tributary. */
   warning?: boolean;
 }
 
@@ -221,17 +221,17 @@ export function buildUncategorizedTributaries(
 }
 
 /**
- * Layers Outstanding-Flow rendering (#88, ADR-0012) onto `tributaries` (as built by
- * `buildTributaries`): the missed occurrence's own real Tributary is flagged `warning: true` in
- * place — never duplicated, since it already renders at its own past date whenever that date is
- * in view — and a synthetic same-day stand-in, labeled "Pending: `<name>`", carrying the real
- * Flow's own `flowId` (so clicking it opens the same `TributaryPanel` a real occurrence would) and
- * also flagged `warning: true`, is appended at today's position. Both share the one `warning` flag
- * so a clustered bundle containing either (`tributary-bundles.ts`) can tell it's grouping an
- * Outstanding item without a second signal to keep in sync (ADR-0012's bundle-badge consequence).
- * The stand-in is omitted when today itself falls outside the `selectedDate`-centered visible
- * window, same as any other Tributary would be. Both resolve themselves automatically on the next
- * render once `outstandingAlert` clears — no manual dismissal needed.
+ * Layers Outstanding-Flow rendering (#88, #91, ADR-0012) onto `tributaries` (as built by
+ * `buildTributaries`): the missed occurrence's own real Tributary is excluded entirely — never
+ * rendered alongside the stand-in, even when its past date is otherwise in view, so the same
+ * missed payment never shows twice — and a synthetic same-day stand-in, labeled "Pending:
+ * `<name>`", carrying the real Flow's own `flowId` (so clicking it opens the same `TributaryPanel`
+ * a real occurrence would) and flagged `warning: true`, is appended at today's position. The
+ * exclusion runs regardless of whether today is in the visible window; the stand-in itself is
+ * omitted when today falls outside the `selectedDate`-centered visible window, same as any other
+ * Tributary would be. Both resolve themselves automatically on the next render once
+ * `outstandingAlert` clears (including via its 14-day grace period expiring) — no manual dismissal
+ * needed.
  */
 export function withOutstandingTributaries(
   tributaries: Tributary[],
@@ -249,13 +249,12 @@ export function withOutstandingTributaries(
   }
   if (alertsByFlowId.size === 0) return tributaries;
 
-  const marked = tributaries.map((t) => {
+  const filtered = tributaries.filter((t) => {
     const entry = t.flowId ? alertsByFlowId.get(t.flowId) : undefined;
-    if (!entry || t.date.getTime() !== entry.alert.occurrenceDate.getTime()) return t;
-    return { ...t, warning: true };
+    return !entry || t.date.getTime() !== entry.alert.occurrenceDate.getTime();
   });
 
-  if (!isInWindow(today, windowBounds(selectedDate))) return marked;
+  if (!isInWindow(today, windowBounds(selectedDate))) return filtered;
 
   const standIns: Tributary[] = Array.from(alertsByFlowId.entries()).map(([flowId, { flow, alert }]) => ({
     id: `flow-${flowId}-outstanding-pending`,
@@ -269,5 +268,5 @@ export function withOutstandingTributaries(
     warning: true,
   }));
 
-  return [...marked, ...standIns];
+  return [...filtered, ...standIns];
 }

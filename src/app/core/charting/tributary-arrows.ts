@@ -26,7 +26,7 @@ export interface TributaryArrow {
   anchorY: number;
   strokeWidth: number;
   tickLength: number;
-  /** Carried through from the source Tributary (see `withOutstandingTributaries`, #88) — an Outstanding Flow's own past occurrence, rendered with a distinct warning treatment. */
+  /** Carried through from the source Tributary (see `withOutstandingTributaries`, #88/#91) — an Outstanding Flow's "Pending" stand-in, rendered with a distinct warning treatment. */
   warning?: boolean;
 }
 

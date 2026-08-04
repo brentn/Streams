@@ -268,7 +268,7 @@ describe('withOutstandingTributaries (#88)', () => {
   const today = d('2026-08-01');
   const outstandingAccount: Account = { ...accounts[0], balanceDate: today };
 
-  it("marks the Outstanding occurrence's own real Tributary as warning, without duplicating it", () => {
+  it("excludes the Outstanding occurrence's own real Tributary — only the 'Pending' stand-in shows", () => {
     const selectedDate = d('2026-07-31');
     const tributaries = buildTributaries([flow], [], accounts, 'acc-1', selectedDate);
 
@@ -277,11 +277,12 @@ describe('withOutstandingTributaries (#88)', () => {
     const atOccurrence = result.filter(
       (t) => t.flowId === 'flow-1' && t.date.getTime() === d('2026-07-31').getTime(),
     );
-    expect(atOccurrence).toHaveLength(1);
-    expect(atOccurrence[0].warning).toBe(true);
-    // The only other warning-flagged item is the "Pending" stand-in, at today (also in this window).
-    const otherWarned = result.filter((t) => t.warning && t.date.getTime() !== d('2026-07-31').getTime());
-    expect(otherWarned.every((t) => t.date.getTime() === today.getTime())).toBe(true);
+    expect(atOccurrence).toHaveLength(0);
+    // The only warning-flagged item is the "Pending" stand-in, at today.
+    const warned = result.filter((t) => t.warning);
+    expect(warned).toHaveLength(1);
+    expect(warned[0].date.getTime()).toBe(today.getTime());
+    expect(warned[0].label).toBe('Pending: Paycheck');
   });
 
   it("appends a synthetic 'Pending: <name>' stand-in at today's position, carrying the Flow's own id", () => {
@@ -290,7 +291,8 @@ describe('withOutstandingTributaries (#88)', () => {
 
     const result = withOutstandingTributaries(tributaries, [flow], [], outstandingAccount, today, selectedDate);
 
-    expect(result).toHaveLength(tributaries.length + 1);
+    // Same length as the source: the original occurrence's Tributary is excluded, the stand-in appended.
+    expect(result).toHaveLength(tributaries.length);
     const standIn = result.find((t) => t.label === 'Pending: Paycheck');
     expect(standIn).toMatchObject({
       kind: 'flow',

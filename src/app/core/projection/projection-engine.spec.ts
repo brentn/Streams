@@ -655,6 +655,28 @@ describe('outstandingAlert (ADR-0012)', () => {
     const synced = { ...account, balanceDate: new Date('2026-08-01T12:00:00Z') };
     expect(outstandingAlert(flow, [], synced, today)?.amount).toBe(150);
   });
+
+  it('still alerts when the occurrence is exactly 14 days overdue', () => {
+    const flow = recurringFlow({
+      amount: 100,
+      direction: 'out',
+      cadence: { period: 'once', date: new Date(2026, 6, 1) },
+    });
+    const today = new Date(2026, 6, 15); // 14 days after the 07-01 occurrence
+    const synced = { ...account, balanceDate: today };
+    expect(outstandingAlert(flow, [], synced, today)).not.toBeNull();
+  });
+
+  it('stops alerting once the occurrence is more than 14 days overdue', () => {
+    const flow = recurringFlow({
+      amount: 100,
+      direction: 'out',
+      cadence: { period: 'once', date: new Date(2026, 6, 1) },
+    });
+    const today = new Date(2026, 6, 16); // 15 days after the 07-01 occurrence
+    const synced = { ...account, balanceDate: today };
+    expect(outstandingAlert(flow, [], synced, today)).toBeNull();
+  });
 });
 
 describe('withOutstandingOccurrences (ADR-0012)', () => {
@@ -699,6 +721,17 @@ describe('withOutstandingOccurrences (ADR-0012)', () => {
 
     expect(balanceAtDate(synced, [], today, [flow])).toBe(1000); // the bug: the missed occurrence just vanishes
     expect(balanceAtDate(synced, [], today, effectiveFlows)).toBe(900); // restored via the synthetic entry
+  });
+
+  it('stops contributing the synthetic amount once the missed occurrence is more than 14 days overdue', () => {
+    const flow = recurringFlow({
+      amount: 100,
+      direction: 'out',
+      cadence: { period: 'once', date: new Date(2026, 6, 1) },
+    });
+    const today = new Date(2026, 6, 16); // 15 days after the 07-01 occurrence
+    const synced = { ...account, balanceDate: today };
+    expect(withOutstandingOccurrences([flow], [], synced, today)).toEqual([flow]);
   });
 });
 

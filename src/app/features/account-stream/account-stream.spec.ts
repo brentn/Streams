@@ -396,7 +396,7 @@ describe('AccountStream', () => {
       },
     };
 
-    it("flags the missed occurrence's own Tributary as a warning and adds a same-day 'Pending' stand-in", async () => {
+    it("excludes the missed occurrence's own Tributary and adds a same-day 'Pending' stand-in instead", async () => {
       storage.getFlowsForAccount.mockResolvedValue([weeklyFlow]);
 
       const fixture = TestBed.createComponent(AccountStream);
@@ -406,7 +406,7 @@ describe('AccountStream', () => {
       const tributaries = component['tributaries']().filter((t) => t.flowId === 'flow-weekly');
 
       const original = tributaries.find((t) => t.date.getTime() === missedOccurrence.getTime());
-      expect(original?.warning).toBe(true);
+      expect(original).toBeUndefined();
 
       const standIn = tributaries.find((t) => t.label === 'Pending: Subscription');
       expect(standIn).toEqual(
@@ -429,7 +429,7 @@ describe('AccountStream', () => {
       expect(component['openTributary']()).toEqual(standIn);
     });
 
-    it('stops flagging the past marker and stops rendering the Pending stand-in once a match posts', async () => {
+    it('stops excluding the past marker and stops rendering the Pending stand-in once a match posts', async () => {
       storage.getFlowsForAccount.mockResolvedValue([weeklyFlow]);
       const matched: Transaction = {
         id: 'txn-1',

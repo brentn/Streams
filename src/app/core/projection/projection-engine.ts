@@ -192,6 +192,11 @@ function startOfDay(date: Date): Date {
   return result;
 }
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/** Per ADR-0012's Consequences: how long a missed occurrence stays Outstanding before it reverts to normal. */
+const OUTSTANDING_GRACE_PERIOD_DAYS = 14;
+
 export interface RunningDryAlert {
   date: Date;
   balance: number;
@@ -318,7 +323,9 @@ export interface OutstandingAlert {
  * with no Transaction matched to the Flow in `(previousOccurrence, today]` (or `(epoch, today]`
  * for a Flow's first-ever occurrence). Only the single latest occurrence is ever evaluated — a
  * Flow already Outstanding doesn't accumulate further. Returns null for a budget-kind Flow (no
- * occurrence timeline) or when no occurrence has happened yet.
+ * occurrence timeline), when no occurrence has happened yet, or once the occurrence is more than
+ * `OUTSTANDING_GRACE_PERIOD_DAYS` days overdue — past that bound it reverts fully to normal, per
+ * ADR-0012's Consequences.
  */
 export function outstandingAlert(
   flow: Flow,
@@ -332,6 +339,9 @@ export function outstandingAlert(
   if (!found) return null;
   const { windowStart, occurrence } = found;
   if (account.balanceDate.getTime() < occurrence.getTime()) return null;
+
+  const daysOverdue = (startOfDay(today).getTime() - startOfDay(occurrence).getTime()) / MS_PER_DAY;
+  if (daysOverdue > OUTSTANDING_GRACE_PERIOD_DAYS) return null;
 
   // Day-inclusive of today's calendar date, matching `actualFlowMagnitude`'s own end-of-day
   // boundary handling — a match posted later today (after whatever time-of-day `today` itself
@@ -355,7 +365,8 @@ export function outstandingAlert(
  * dated `today` and appended to `flows`. Restores the missing amount to the forward projection
  * (`balanceAtDate`/`balanceSeries`/`runningDryAlert`/`totalBalanceSeries`) that would otherwise
  * silently drop it the moment `balanceDate` passes the missed occurrence — see ADR-0012. Resolves
- * itself automatically on the next call once a Transaction matches or `balanceDate` moves again.
+ * itself automatically on the next call once a Transaction matches, `balanceDate` moves again, or
+ * the occurrence passes `outstandingAlert`'s 14-day grace period.
  */
 export function withOutstandingOccurrences(
   flows: Flow[],

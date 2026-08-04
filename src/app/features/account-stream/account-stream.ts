@@ -167,10 +167,10 @@ export class AccountStream {
 
   /**
    * Real Flow/Transfer tributaries plus the aggregate "uncategorized" one sourced from unmatched
-   * Transactions (see ticket #63), then layered with Outstanding-Flow rendering (#88): the missed
-   * occurrence's own marker flagged as a warning, plus a same-day "Pending" stand-in at today's
-   * position. `buildUncategorizedTributaries`/`buildTributaries` output is what gets layered —
-   * Outstanding doesn't touch the uncategorized bucket.
+   * Transactions (see ticket #63), then layered with Outstanding-Flow rendering (#88, #91): the
+   * missed occurrence's own Tributary is excluded, replaced by a same-day "Pending" stand-in at
+   * today's position. `buildUncategorizedTributaries`/`buildTributaries` output is what gets
+   * layered — Outstanding doesn't touch the uncategorized bucket.
    */
   protected readonly tributaries = computed(() => {
     const account = this.account();

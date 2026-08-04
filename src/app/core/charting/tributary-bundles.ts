@@ -18,7 +18,7 @@ export interface TributaryBundle {
   anchorY: number;
   strokeWidth: number;
   tickLength: number;
-  /** True when any member carries `warning` (an Outstanding Flow's marker or "Pending" stand-in, #88) — the badge must signal this rather than reading as an ordinary bundle, per ADR-0012. */
+  /** True when any member carries `warning` (an Outstanding Flow's "Pending" stand-in, #88/#91) — the badge must signal this rather than reading as an ordinary bundle, per ADR-0012. */
   warning: boolean;
 }
 
