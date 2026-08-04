@@ -3,7 +3,11 @@ import { Router } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SimpleFinAdapter } from '../../core/simplefin/simplefin-adapter';
 import { StorageRepository } from '../../core/storage/storage-repository';
+import { MAX_SYNC_LOOKBACK_DAYS } from '../../core/sync/sync-window';
 import { ConnectAccount } from './connect-account';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const NOW = new Date('2026-07-29T12:00:00Z');
 
 describe('ConnectAccount', () => {
   let simplefin: {
@@ -83,7 +87,10 @@ describe('ConnectAccount', () => {
     expect(router.navigateByUrl).not.toHaveBeenCalled();
   });
 
-  it('fetches accounts with an explicit start-date rather than letting the adapter default it', async () => {
+  it('fetches a brand-new account from the Sync Floor, never further back', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+
     simplefin.claimAccessUrl.mockResolvedValue('https://user:pass@bridge.simplefin.org/simplefin');
     simplefin.fetchAccounts.mockResolvedValue([]);
 
@@ -94,8 +101,9 @@ describe('ConnectAccount', () => {
 
     expect(simplefin.fetchAccounts).toHaveBeenCalledWith(
       'https://user:pass@bridge.simplefin.org/simplefin',
-      expect.any(Date),
+      new Date(NOW.getTime() - MAX_SYNC_LOOKBACK_DAYS * DAY_MS),
     );
+    vi.useRealTimers();
   });
 
   it('surfaces an error message when the claim fails, staying on the connect step', async () => {

@@ -72,18 +72,27 @@ async function bootstrapCursorIfNeeded(storage: StorageRepository, now: Date): P
 /**
  * Fetches the single "normal" sync window — shared by first-time/reauth linking
  * (`connect-account.ts`) and every resync trigger (auto and manual alike).
+ *
+ * `recoveringFromNeedsReauth` forces the Sync Floor as this call's start date regardless of
+ * what's stored — used when this resync is recovering from Needs Reauthentication, where a
+ * stored `lastSyncedAt` may look recent (a failed attempt during the outage still bumped it)
+ * without reflecting any actual successful sync (ADR-0013).
  */
 export async function fetchNormalSyncWindow(
   storage: StorageRepository,
   simplefin: SimpleFinAdapter,
   accessUrl: string,
+  recoveringFromNeedsReauth = false,
 ): Promise<NormalSyncResult> {
   const now = new Date();
   const [lastSyncedAt, cursor] = await Promise.all([
     storage.getLastSyncedAt(),
     bootstrapCursorIfNeeded(storage, now),
   ]);
-  const normalSyncStartDate = computeNormalSyncStartDate(lastSyncedAt, now);
+  const normalSyncStartDate = computeNormalSyncStartDate(
+    recoveringFromNeedsReauth ? undefined : lastSyncedAt,
+    now,
+  );
   const synced = await simplefin.fetchAccounts(accessUrl, normalSyncStartDate);
 
   return { synced, cursor, normalSyncStartDate, now };
@@ -107,6 +116,10 @@ export async function fetchNormalSyncWindow(
  * a healthy connection's cursor drift into recomputing a "gap" against it on every resync
  * (ADR-0013). Re-anchoring costs nothing extra — it never fetches — so it runs even when
  * `allowBackfill` is false; only spending a request on an unclosed gap is gated by it.
+ *
+ * `recoveringFromNeedsReauth` forces the same "no gap" treatment regardless of `cursor` — a
+ * connection recovering from an outage has no continuous prior coverage to backfill toward
+ * (ADR-0013), so whatever span the cursor implies is discarded rather than chunk-backfilled.
  */
 async function reconcileBackfillCursor(
   storage: StorageRepository,
@@ -114,8 +127,9 @@ async function reconcileBackfillCursor(
   accessUrl: string,
   { cursor, normalSyncStartDate, now }: NormalSyncResult,
   allowBackfill: boolean,
+  recoveringFromNeedsReauth: boolean,
 ): Promise<void> {
-  if (!hasDormantGap(cursor, normalSyncStartDate)) {
+  if (recoveringFromNeedsReauth || !hasDormantGap(cursor, normalSyncStartDate)) {
     await storage.saveOldestFetchedAt(now);
     return;
   }
@@ -147,6 +161,20 @@ async function markAllAccountsNeedsReauth(storage: StorageRepository): Promise<v
 }
 
 /**
+ * Whether this connection itself — not just one Account on it — was left in Needs
+ * Reauthentication by a prior sync attempt, read before this attempt runs so a stale-but-not-yet-
+ * cleared status still counts even if this attempt goes on to succeed. Requires every stored
+ * Account to share the status, matching `markAllAccountsNeedsReauth`'s connection-wide fan-out
+ * (ADR-0003) — a single Account can also land in Needs Reauthentication from its own per-account
+ * SimpleFIN error (`classifySyncStatus`) while the rest of the connection stays healthy, and that
+ * case must not force every other, unrelated Account's resync onto the Sync Floor.
+ */
+async function isRecoveringFromNeedsReauth(storage: StorageRepository): Promise<boolean> {
+  const accounts = await storage.getAccounts();
+  return accounts.length > 0 && accounts.every((account) => account.syncStatus?.kind === 'needs-reauth');
+}
+
+/**
  * Re-syncs every already-confirmed account from SimpleFIN. Shared by `account-stream` and the
  * multi-account view — resync only refreshes accounts the user has already been through the
  * connect flow's sign-confirmation step for; an account SimpleFIN returns that isn't stored
@@ -158,6 +186,13 @@ async function markAllAccountsNeedsReauth(storage: StorageRepository): Promise<v
  * own, since each chunk is another request against SimpleFIN Bridge's ~24/day quota (ADR-0004).
  * It does not gate re-anchoring the cursor when there's no gap to begin with — see
  * `reconcileBackfillCursor`.
+ *
+ * When this connection was left in Needs Reauthentication by a prior attempt, this resync is
+ * recovering from that outage — per ADR-0013 it has no continuous prior coverage to backfill
+ * toward, same as a brand-new account, so it forces the normal sync's own start date to the Sync
+ * Floor (bypassing `lastSyncedAt`, which a failed attempt during the outage may have already
+ * bumped without ever reflecting a real sync) and treats the outage as no gap at all rather than
+ * one to chunk-backfill, re-anchoring the cursor to now on success.
  *
  * A connection-wide auth failure (`SimpleFinAuthError`, from an HTTP 403) is caught here and
  * fanned onto every stored Account as Needs Reauthentication rather than rethrown — that's
@@ -174,10 +209,24 @@ export async function resyncKnownAccounts(
     throw new Error('No SimpleFIN connection found.');
   }
 
+  const recoveringFromNeedsReauth = await isRecoveringFromNeedsReauth(storage);
+
   try {
-    const normalSync = await fetchNormalSyncWindow(storage, simplefin, accessUrl);
+    const normalSync = await fetchNormalSyncWindow(
+      storage,
+      simplefin,
+      accessUrl,
+      recoveringFromNeedsReauth,
+    );
     await reconcileSyncedAccounts(storage, normalSync.synced);
-    await reconcileBackfillCursor(storage, simplefin, accessUrl, normalSync, allowBackfill);
+    await reconcileBackfillCursor(
+      storage,
+      simplefin,
+      accessUrl,
+      normalSync,
+      allowBackfill,
+      recoveringFromNeedsReauth,
+    );
   } catch (err) {
     if (err instanceof SimpleFinAuthError) {
       await markAllAccountsNeedsReauth(storage);

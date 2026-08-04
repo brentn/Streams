@@ -363,6 +363,73 @@ describe('resyncKnownAccounts', () => {
       expect(simplefin.fetchAccounts).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('needs-reauth recovery', () => {
+    // A connection recovering from Needs Reauthentication has no continuous prior coverage to
+    // backfill toward, same as a brand-new account — it resyncs from the Sync Floor only,
+    // regardless of how stale `lastSyncedAt` or the backfill cursor happen to be (ADR-0013).
+    const syncFloor = new Date(NOW.getTime() - MAX_SYNC_LOOKBACK_DAYS * DAY_MS);
+
+    beforeEach(() => {
+      storage.getAccounts.mockResolvedValue([{ ...known, syncStatus: { kind: 'needs-reauth' } }]);
+    });
+
+    it('fetches the normal sync window from the Sync Floor, ignoring a recent-looking lastSyncedAt', async () => {
+      // lastSyncedAt only looks recent because a failed daily auto-resync attempt during the
+      // outage bumped it — it does not reflect an actual successful sync.
+      storage.getLastSyncedAt.mockResolvedValue(new Date(NOW.getTime() - 1 * DAY_MS));
+
+      await resyncKnownAccounts(storage as never, simplefin as never);
+
+      expect(simplefin.fetchAccounts).toHaveBeenNthCalledWith(1, ACCESS_URL, syncFloor);
+    });
+
+    it('produces zero backfill requests even with a long-dormant cursor', async () => {
+      storage.getOldestFetchedAt.mockResolvedValue(new Date(NOW.getTime() - 400 * DAY_MS));
+
+      await resyncKnownAccounts(storage as never, simplefin as never);
+
+      expect(simplefin.fetchAccounts).toHaveBeenCalledTimes(1); // normal sync only, no chunks
+    });
+
+    it('re-anchors the cursor to now after a successful recovery sync', async () => {
+      storage.getOldestFetchedAt.mockResolvedValue(new Date(NOW.getTime() - 400 * DAY_MS));
+
+      await resyncKnownAccounts(storage as never, simplefin as never);
+
+      expect(storage.saveOldestFetchedAt).toHaveBeenCalledWith(NOW);
+    });
+
+    it('does not force the Sync Floor for a healthy connection with no needs-reauth accounts', async () => {
+      storage.getAccounts.mockResolvedValue([known]); // no syncStatus at all
+      storage.getLastSyncedAt.mockResolvedValue(new Date(NOW.getTime() - 1 * DAY_MS));
+
+      await resyncKnownAccounts(storage as never, simplefin as never);
+
+      const expectedStartDate = computeNormalSyncStartDate(new Date(NOW.getTime() - 1 * DAY_MS), NOW);
+      expect(expectedStartDate.getTime()).not.toBe(syncFloor.getTime());
+      expect(simplefin.fetchAccounts).toHaveBeenNthCalledWith(1, ACCESS_URL, expectedStartDate);
+    });
+
+    it('does not force the Sync Floor when only one of several accounts is stuck in needs-reauth', async () => {
+      // A per-account SimpleFIN error (`classifySyncStatus`) can leave a single account stuck in
+      // Needs Reauthentication while the rest of the connection stays healthy — that's not the
+      // connection-wide outage this recovery treatment exists for, and must not suppress real
+      // Dormant-Gap detection for the other, unrelated accounts indefinitely.
+      const otherAccount = { ...known, id: 'acc-2', syncStatus: { kind: 'ok' as const } };
+      storage.getAccounts.mockResolvedValue([
+        { ...known, syncStatus: { kind: 'needs-reauth' as const } },
+        otherAccount,
+      ]);
+      storage.getLastSyncedAt.mockResolvedValue(new Date(NOW.getTime() - 1 * DAY_MS));
+
+      await resyncKnownAccounts(storage as never, simplefin as never);
+
+      const expectedStartDate = computeNormalSyncStartDate(new Date(NOW.getTime() - 1 * DAY_MS), NOW);
+      expect(expectedStartDate.getTime()).not.toBe(syncFloor.getTime());
+      expect(simplefin.fetchAccounts).toHaveBeenNthCalledWith(1, ACCESS_URL, expectedStartDate);
+    });
+  });
 });
 
 describe('fetchNormalSyncWindow', () => {
