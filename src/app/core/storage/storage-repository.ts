@@ -6,6 +6,7 @@ import { CategorizationRule } from '../models/categorization-rule';
 import { Flow } from '../models/flow';
 import { Transaction } from '../models/transaction';
 import { Transfer } from '../models/transfer';
+import { initialBackfillCursor } from '../sync/sync-window';
 
 interface StreamsDb extends DBSchema {
   accounts: {
@@ -62,6 +63,28 @@ async function migrateFlowIdField(
   }
 }
 
+/**
+ * v13 migration helper: pre-#92, `simplefinOldestFetchedAt` only ever moved backward and was
+ * never re-anchored, so an install that hit that runaway-drift bug can have a cursor sitting
+ * years in the past. Resets it to the Sync Floor, once, so #92/#93's now-bounded logic doesn't
+ * mistake the stale corrupted value for a genuine Dormant Gap and chase it (ADR-0013). A cursor
+ * that isn't actually drifted past the Floor — a healthy account, or one with a real in-progress
+ * Dormant Gap that's already being chunked correctly — is left untouched.
+ */
+async function resetDriftedBackfillCursor(
+  transaction: IDBPTransaction<StreamsDb, ArrayLike<StoreNames<StreamsDb>>, 'versionchange'>,
+  now: Date,
+): Promise<void> {
+  const store = transaction.objectStore('settings');
+  const row = await store.get(OLDEST_FETCHED_AT_KEY);
+  if (!row) return;
+
+  const syncFloor = initialBackfillCursor(now);
+  if (new Date(row.value).getTime() < syncFloor.getTime()) {
+    await store.put({ key: OLDEST_FETCHED_AT_KEY, value: syncFloor.toISOString() });
+  }
+}
+
 const ACCESS_URL_KEY = 'simplefinAccessUrl';
 const LAST_SYNCED_AT_KEY = 'simplefinLastSyncedAt';
 const OLDEST_FETCHED_AT_KEY = 'simplefinOldestFetchedAt';
@@ -72,7 +95,7 @@ export class StorageRepository {
   private readonly dbPromise: Promise<IDBPDatabase<StreamsDb>>;
 
   constructor() {
-    this.dbPromise = openDB<StreamsDb>('streams', 12, {
+    this.dbPromise = openDB<StreamsDb>('streams', 13, {
       async upgrade(db, oldVersion, _newVersion, transaction) {
         if (oldVersion < 1) {
           db.createObjectStore('accounts', { keyPath: 'id' });
@@ -129,6 +152,13 @@ export class StorageRepository {
         if (oldVersion < 12) {
           await migrateFlowIdField(transaction, 'transactions', 'matchedFlowId', 'matchedTarget');
           await migrateFlowIdField(transaction, 'categorizationRules', 'flowId', 'target');
+        }
+        // v13: repairs a `simplefinOldestFetchedAt` already dragged past the Sync Floor by the
+        // pre-#92 runaway-drift bug — a one-time reset to the Floor, conditional on the stored
+        // cursor actually being drifted, so #92/#93's now-bounded resync logic doesn't mistake
+        // the stale corrupted value for a genuine Dormant Gap and chase it (ADR-0013, #94).
+        if (oldVersion < 13) {
+          await resetDriftedBackfillCursor(transaction, new Date());
         }
       },
     });

@@ -408,7 +408,7 @@ describe('StorageRepository', () => {
     it('reports the current database version alongside the dumped stores', async () => {
       const { dbVersion } = await repo.exportAll();
 
-      expect(dbVersion).toBe(12);
+      expect(dbVersion).toBe(13);
     });
 
     it('importAll replaces the contents of every named store, leaving stores absent from the bundle untouched', async () => {
@@ -545,5 +545,85 @@ describe('v12 migration', () => {
       ]),
     );
     expect(rules).toEqual([{ matchText: 'coffee', target: { kind: 'flow', id: 'flow-coffee' } }]);
+  });
+});
+
+describe('v13 migration', () => {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  afterEach(async () => {
+    await resetDb();
+  });
+
+  /** Opens the raw v12 database directly (bypassing StorageRepository) to seed a pre-migration cursor. */
+  async function seedV12Database(oldestFetchedAt?: string): Promise<void> {
+    await new Promise<void>((resolve, reject) => {
+      const req = indexedDB.open('streams', 12);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        db.createObjectStore('accounts', { keyPath: 'id' });
+        const transactions = db.createObjectStore('transactions', { keyPath: 'id' });
+        transactions.createIndex('accountId', 'accountId');
+        db.createObjectStore('settings', { keyPath: 'key' });
+        db.createObjectStore('categorizationRules', { keyPath: 'matchText' });
+        const flows = db.createObjectStore('flows', { keyPath: 'id' });
+        flows.createIndex('accountId', 'accountId');
+        db.createObjectStore('transfers', { keyPath: 'id' });
+      };
+      req.onsuccess = () => {
+        const db = req.result;
+        if (oldestFetchedAt === undefined) {
+          db.close();
+          resolve();
+          return;
+        }
+        const tx = db.transaction('settings', 'readwrite');
+        tx.objectStore('settings').put({ key: 'simplefinOldestFetchedAt', value: oldestFetchedAt });
+        tx.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+        tx.onerror = () => reject(tx.error);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  it('resets a cursor drifted beyond the Sync Floor to the Sync Floor', async () => {
+    const beforeMigration = new Date();
+    await seedV12Database(new Date(beforeMigration.getTime() - 400 * DAY_MS).toISOString());
+
+    const repo = new StorageRepository();
+    const cursor = await repo.getOldestFetchedAt();
+    await repo.close();
+    const afterMigration = new Date();
+
+    // The migration computes "now" at the moment it runs, somewhere between beforeMigration and
+    // afterMigration — assert the reset cursor lands within the Sync Floor for that whole window
+    // rather than pinning an exact timestamp.
+    expect(cursor).toBeDefined();
+    expect(cursor!.getTime()).toBeGreaterThanOrEqual(beforeMigration.getTime() - 40 * DAY_MS);
+    expect(cursor!.getTime()).toBeLessThanOrEqual(afterMigration.getTime() - 40 * DAY_MS);
+  });
+
+  it('leaves a cursor within the Sync Floor untouched', async () => {
+    const withinFloor = new Date(Date.now() - 10 * DAY_MS);
+    await seedV12Database(withinFloor.toISOString());
+
+    const repo = new StorageRepository();
+    const cursor = await repo.getOldestFetchedAt();
+    await repo.close();
+
+    expect(cursor).toEqual(withinFloor);
+  });
+
+  it('leaves accounts with no stored cursor untouched', async () => {
+    await seedV12Database(undefined);
+
+    const repo = new StorageRepository();
+    const cursor = await repo.getOldestFetchedAt();
+    await repo.close();
+
+    expect(cursor).toBeUndefined();
   });
 });
