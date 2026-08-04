@@ -56,6 +56,14 @@ _Avoid_: Broken connection, expired token (the protocol doesn't distinguish expi
 An Account whose most recent SimpleFIN sync reported a transient, non-blocking problem (an `act.failed`/`act.missingdata` error code, or an unrecognized one) — informational, no user action implied, expected to clear on a later sync. Distinct from Needs Reauthentication, which is blocking and actionable.
 _Avoid_: Warning (ambiguous with other in-app warnings), sync error (too close to the blocking case)
 
+**Sync Floor**:
+The oldest date any sync will ever reach when there's no established gap to close: 40 days back from now. Applies uniformly to a brand-new Account's first sync and to the SimpleFIN connection's first sync after recovering from Needs Reauthentication — neither case has continuous prior coverage to backfill toward, so both simply start syncing from the Floor forward rather than reaching further into history.
+_Avoid_: lookback window, history limit, backfill cap
+
+**Dormant Gap**:
+The span of missing Transactions left behind when a still-valid SimpleFIN connection goes unsynced for a stretch (e.g. the app wasn't opened) — as opposed to a broken connection, which is Needs Reauthentication instead. Closed by backfilling one 40-day chunk at a time, on each manual resync, until the chunk boundary reaches back to where continuous coverage already existed — bounded by the actual gap, never open-ended. Only the manual "Re-sync" action closes a Dormant Gap; the unattended daily auto-resync never does, to protect the SimpleFIN connection's request quota.
+_Avoid_: sync lag, missing history, backfill (reserve for the mechanism name, not the thing being closed)
+
 ### Alerts
 
 **Tolerance**:

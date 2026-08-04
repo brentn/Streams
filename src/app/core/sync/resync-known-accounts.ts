@@ -1,7 +1,7 @@
 import { categorizeTransactions } from '../categorization/categorization';
 import { SimpleFinAdapter, SimpleFinAuthError, SyncedAccount } from '../simplefin/simplefin-adapter';
 import { StorageRepository } from '../storage/storage-repository';
-import { computeBackfillChunks, computeNormalSyncStartDate, initialBackfillCursor } from './sync-window';
+import { computeBackfillChunks, computeNormalSyncStartDate, hasDormantGap, initialBackfillCursor } from './sync-window';
 
 export interface ReconcileResult {
   /** Accounts SimpleFIN returned with no local counterpart — still need the connect flow's sign-confirmation step, so they're handed back rather than persisted. */
@@ -53,6 +53,10 @@ export interface NormalSyncResult {
   synced: SyncedAccount[];
   /** The backfill cursor as of this call — freshly bootstrapped if this connection never had one. */
   cursor: Date;
+  /** Where this call's normal sync itself started — the near edge of any Dormant Gap. */
+  normalSyncStartDate: Date;
+  /** Captured once so every date computed from "now" in this sync agrees, even across awaits. */
+  now: Date;
 }
 
 /** Bootstraps the backfill cursor (`getOldestFetchedAt`) the first time it's ever read for a connection: an existing connection predating this cursor, and a brand-new one, both realistically have no more than `MAX_SYNC_LOOKBACK_DAYS` of history fetched so far (the old code's rolling window never accumulated more), so both bootstrap to the same ~40-day-ago estimate. */
@@ -79,26 +83,56 @@ export async function fetchNormalSyncWindow(
     storage.getLastSyncedAt(),
     bootstrapCursorIfNeeded(storage, now),
   ]);
-  const synced = await simplefin.fetchAccounts(accessUrl, computeNormalSyncStartDate(lastSyncedAt, now));
+  const normalSyncStartDate = computeNormalSyncStartDate(lastSyncedAt, now);
+  const synced = await simplefin.fetchAccounts(accessUrl, normalSyncStartDate);
 
-  return { synced, cursor };
+  return { synced, cursor, normalSyncStartDate, now };
 }
 
 /**
- * Walks the backfill cursor further into the past, one chunk at a time, persisting it after
- * each chunk succeeds — so a chunk failure partway through still keeps the progress made by the
- * chunks before it (see `computeBackfillChunks`'s resumability contract).
+ * Closes a Dormant Gap — the span between `cursor` (where continuous coverage already existed)
+ * and `normalSyncStartDate` (the near edge, where this resync's normal sync itself picks back
+ * up) — one 40-day chunk at a time, walking forward from `cursor` and persisting each chunk's
+ * `endDate` as the new cursor as it succeeds, so a chunk failure partway through still keeps the
+ * progress made by the chunks before it, and a gap too wide for one resync's cap keeps closing
+ * further on every subsequent manual resync rather than restarting. Two cases never spend a
+ * request: `cursor` already at or past `normalSyncStartDate` (no gap at all), and this being an
+ * unattended auto-resync (`allowBackfill` false) — a real gap is left for a future manual resync
+ * to close instead, protecting SimpleFIN Bridge's request quota (ADR-0004).
+ *
+ * Whenever there's no gap left to close after this call — either there never was one, or these
+ * chunks just closed it — the cursor is re-anchored forward to `now`. Without this, a cursor
+ * that's merely old (because nothing has needed to move it, not because the connection went
+ * dormant) looks identical to a genuine gap once enough wall-clock time passes, which is what let
+ * a healthy connection's cursor drift into recomputing a "gap" against it on every resync
+ * (ADR-0013). Re-anchoring costs nothing extra — it never fetches — so it runs even when
+ * `allowBackfill` is false; only spending a request on an unclosed gap is gated by it.
  */
-async function runDormantGapBackfill(
+async function reconcileBackfillCursor(
   storage: StorageRepository,
   simplefin: SimpleFinAdapter,
   accessUrl: string,
-  cursor: Date,
+  { cursor, normalSyncStartDate, now }: NormalSyncResult,
+  allowBackfill: boolean,
 ): Promise<void> {
-  for (const chunk of computeBackfillChunks(cursor, new Date())) {
+  if (!hasDormantGap(cursor, normalSyncStartDate)) {
+    await storage.saveOldestFetchedAt(now);
+    return;
+  }
+  if (!allowBackfill) return;
+
+  const chunks = computeBackfillChunks(cursor, normalSyncStartDate);
+  for (const chunk of chunks) {
     const synced = await simplefin.fetchAccounts(accessUrl, chunk.startDate, chunk.endDate);
     await reconcileSyncedAccounts(storage, synced);
-    await storage.saveOldestFetchedAt(chunk.startDate);
+    await storage.saveOldestFetchedAt(chunk.endDate);
+  }
+
+  const lastChunk = chunks[chunks.length - 1];
+  const gapFullyClosed =
+    lastChunk !== undefined && lastChunk.endDate.getTime() === normalSyncStartDate.getTime();
+  if (gapFullyClosed) {
+    await storage.saveOldestFetchedAt(now);
   }
 }
 
@@ -118,10 +152,12 @@ async function markAllAccountsNeedsReauth(storage: StorageRepository): Promise<v
  * connect flow's sign-confirmation step for; an account SimpleFIN returns that isn't stored
  * locally is skipped, since there's no flow here to confirm its sign.
  *
- * `allowBackfill` gates whether a dormant-gap backfill may run after the normal sync window.
- * Manual "Re-sync" (the default) allows it; unattended daily auto-resync
- * (`SyncCoordinator.triggerAutoResyncIfDue`) passes false so it never chunks on its own, since
- * each chunk is another request against SimpleFIN Bridge's ~24/day quota (ADR-0004).
+ * `allowBackfill` gates whether a Dormant Gap backfill may spend requests closing a real gap
+ * after the normal sync window. Manual "Re-sync" (the default) allows it; unattended daily
+ * auto-resync (`SyncCoordinator.triggerAutoResyncIfDue`) passes false so it never chunks on its
+ * own, since each chunk is another request against SimpleFIN Bridge's ~24/day quota (ADR-0004).
+ * It does not gate re-anchoring the cursor when there's no gap to begin with — see
+ * `reconcileBackfillCursor`.
  *
  * A connection-wide auth failure (`SimpleFinAuthError`, from an HTTP 403) is caught here and
  * fanned onto every stored Account as Needs Reauthentication rather than rethrown — that's
@@ -139,12 +175,9 @@ export async function resyncKnownAccounts(
   }
 
   try {
-    const { synced, cursor } = await fetchNormalSyncWindow(storage, simplefin, accessUrl);
-    await reconcileSyncedAccounts(storage, synced);
-
-    if (allowBackfill) {
-      await runDormantGapBackfill(storage, simplefin, accessUrl, cursor);
-    }
+    const normalSync = await fetchNormalSyncWindow(storage, simplefin, accessUrl);
+    await reconcileSyncedAccounts(storage, normalSync.synced);
+    await reconcileBackfillCursor(storage, simplefin, accessUrl, normalSync, allowBackfill);
   } catch (err) {
     if (err instanceof SimpleFinAuthError) {
       await markAllAccountsNeedsReauth(storage);

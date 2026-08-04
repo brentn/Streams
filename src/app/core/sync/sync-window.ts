@@ -43,31 +43,41 @@ export function initialBackfillCursor(now: Date): Date {
   return lookbackCeiling(now);
 }
 
-/**
- * Walks backward from `cursor` (the oldest date already fetched for this connection) in
- * `MAX_SYNC_LOOKBACK_DAYS`-sized chunks, each overlapping the previous by a day so no
- * transaction sits exactly on a chunk boundary. Only produces chunks once the gap between
- * `cursor` and `now` exceeds the normal-sync ceiling — otherwise a plain normal sync already
- * covers it. Produces only as many chunks as needed to close that gap (not always the full
- * cap), so a cursor that's just barely past the ceiling costs one request, not five — capped
- * at `MAX_BACKFILL_CHUNKS_PER_RESYNC` regardless, to bound a single resync's request count and
- * protect SimpleFIN Bridge's ~24 requests/day quota (ADR-0004). Callers persist the cursor
- * after each chunk succeeds, so a gap wider than one resync's cap can close keeps closing
- * further on every subsequent manual resync rather than restarting.
- */
-export function computeBackfillChunks(cursor: Date, now: Date): SyncWindow[] {
-  const excessMs = now.getTime() - cursor.getTime() - CHUNK_MS;
-  if (excessMs <= 0) return [];
+/** Whether a Dormant Gap exists between `cursor` (where continuous coverage already existed) and `normalSyncStartDate` (the near edge, wherever this resync's own normal sync starts) — the shared test `computeBackfillChunks` and its callers use to decide whether there's anything to close. */
+export function hasDormantGap(cursor: Date, normalSyncStartDate: Date): boolean {
+  return cursor.getTime() < normalSyncStartDate.getTime();
+}
 
-  const chunksNeeded = Math.min(MAX_BACKFILL_CHUNKS_PER_RESYNC, Math.ceil(excessMs / CHUNK_MS));
+/**
+ * Walks forward from `cursor` (the far edge of a Dormant Gap — the point where continuous
+ * coverage already existed before the gap opened) toward `normalSyncStartDate` (the near edge,
+ * wherever this resync's own normal sync starts) in `MAX_SYNC_LOOKBACK_DAYS`-sized chunks, each
+ * overlapping the previous by a day so no transaction sits exactly on a chunk boundary. Produces
+ * chunks only while `cursor` is still older than `normalSyncStartDate` — otherwise there's no
+ * gap, a plain normal sync already covers it. The final chunk is clipped to land exactly on
+ * `normalSyncStartDate` rather than overshooting past it. Capped at
+ * `MAX_BACKFILL_CHUNKS_PER_RESYNC` regardless, to bound a single resync's request count and
+ * protect SimpleFIN Bridge's ~24 requests/day quota (ADR-0004).
+ *
+ * Callers persist each chunk's `endDate` as the new cursor, so a gap wider than one resync's cap
+ * can close keeps closing further — forward, from wherever the last call left off — on every
+ * subsequent manual resync, rather than restarting from `cursor`'s original position (which would
+ * just re-cover the same slice nearest `normalSyncStartDate` every time) or overshooting past
+ * where the real gap began.
+ */
+export function computeBackfillChunks(cursor: Date, normalSyncStartDate: Date): SyncWindow[] {
+  if (!hasDormantGap(cursor, normalSyncStartDate)) return [];
 
   const chunks: SyncWindow[] = [];
   let boundary = cursor;
-  for (let i = 0; i < chunksNeeded; i++) {
-    const endDate = new Date(boundary.getTime() + BACKFILL_CHUNK_OVERLAP_DAYS * DAY_MS);
-    const startDate = new Date(endDate.getTime() - CHUNK_MS);
+  for (let i = 0; i < MAX_BACKFILL_CHUNKS_PER_RESYNC; i++) {
+    const startDate = new Date(boundary.getTime() - BACKFILL_CHUNK_OVERLAP_DAYS * DAY_MS);
+    const rawEndDate = new Date(startDate.getTime() + CHUNK_MS);
+    const reachedNearEdge = rawEndDate.getTime() >= normalSyncStartDate.getTime();
+    const endDate = reachedNearEdge ? normalSyncStartDate : rawEndDate;
     chunks.push({ startDate, endDate });
-    boundary = startDate;
+    if (reachedNearEdge) break;
+    boundary = endDate;
   }
   return chunks;
 }
