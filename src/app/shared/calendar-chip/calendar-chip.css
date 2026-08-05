@@ -57,22 +57,3 @@ button.calendar-chip:hover {
   pointer-events: none;
   border: none;
 }
-
-/* Absolutely positioned so it doesn't shift the chip's own position when it appears/disappears
-   alongside the native picker opening and closing. */
-.today {
-  position: absolute;
-  left: calc(100% + 0.5rem);
-  top: 50%;
-  transform: translateY(-50%);
-  font: inherit;
-  font-weight: 600;
-  font-size: var(--text-eyebrow);
-  color: var(--color-accent);
-  background: transparent;
-  border: 1px solid var(--color-accent);
-  border-radius: 999px;
-  padding: 0.2rem 0.6rem;
-  cursor: pointer;
-  white-space: nowrap;
-}
