@@ -140,39 +140,24 @@ describe('AccountStream', () => {
     expect(component['dayOffset']()).toBe(SCRUB_MIN_DAYS);
   });
 
-  it('reports isAtToday and jumps back to today from any scrub position', () => {
+  it('sets the day offset from a date picked in the calendar chip modal', () => {
     const fixture = TestBed.createComponent(AccountStream);
     const component = fixture.componentInstance;
+    const picked = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
 
-    expect(component['isAtToday']()).toBe(true);
+    component['onDateSelected'](picked);
 
-    component['dayOffset'].set(-30);
-    expect(component['isAtToday']()).toBe(false);
-
-    component['jumpToToday']();
-    expect(component['dayOffset']()).toBe(0);
-    expect(component['isAtToday']()).toBe(true);
+    expect(component['dayOffset']()).toBe(10);
   });
 
-  it('renders the Today button only when scrubbed away from today, and hides it again after jumping back', async () => {
+  it('clamps a picked date within the scrub bounds', () => {
     const fixture = TestBed.createComponent(AccountStream);
-    fixture.componentRef.setInput('id', 'acc-1');
     const component = fixture.componentInstance;
-    await component['load']('acc-1');
-    fixture.detectChanges();
+    const farFuture = new Date(Date.now() + (SCRUB_MAX_DAYS + 50) * 24 * 60 * 60 * 1000);
 
-    expect(fixture.nativeElement.querySelector('.today')).toBeNull();
+    component['onDateSelected'](farFuture);
 
-    component['dayOffset'].set(-10);
-    fixture.detectChanges();
-    const todayButton = fixture.nativeElement.querySelector('.today') as HTMLButtonElement | null;
-    expect(todayButton).toBeTruthy();
-
-    todayButton!.click();
-    fixture.detectChanges();
-
-    expect(component['dayOffset']()).toBe(0);
-    expect(fixture.nativeElement.querySelector('.today')).toBeNull();
+    expect(component['dayOffset']()).toBe(SCRUB_MAX_DAYS);
   });
 
   it('re-syncs by fetching accounts and re-loading from storage', async () => {

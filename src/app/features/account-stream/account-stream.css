@@ -106,23 +106,6 @@ h1 {
   width: 100%;
 }
 
-.today {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  font: inherit;
-  font-weight: 600;
-  font-size: var(--text-eyebrow);
-  color: var(--color-accent);
-  background: transparent;
-  border: 1px solid var(--color-accent);
-  border-radius: 999px;
-  padding: 0.2rem 0.6rem;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
 .chart {
   width: 100%;
   touch-action: none;

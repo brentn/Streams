@@ -30,10 +30,7 @@
     <div class="card">
       <div class="rhythm">
         <div class="chip-row">
-          <app-calendar-chip #calendarChip class="chip" [date]="selectedDate()" tabindex="-1" />
-          @if (!isAtToday()) {
-            <button type="button" class="today" (click)="jumpToToday()">Today</button>
-          }
+          <app-calendar-chip class="chip" [date]="selectedDate()" (dateSelected)="onDateSelected($event)" />
         </div>
 
         <div

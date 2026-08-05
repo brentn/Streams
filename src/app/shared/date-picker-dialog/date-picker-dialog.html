@@ -1,0 +1,20 @@
+<div class="dialog">
+  <h2>Go to date</h2>
+
+  <label>
+    Date
+    <input
+      type="date"
+      [min]="minValue"
+      [max]="maxValue"
+      [value]="dateInputValue(pendingDate())"
+      (input)="onDateInput($any($event.target).value)"
+    />
+  </label>
+
+  <div class="form-actions">
+    <button type="button" class="primary" (click)="go()">Go</button>
+    <button type="button" (click)="useToday()">Today</button>
+    <button type="button" (click)="cancel()">Cancel</button>
+  </div>
+</div>

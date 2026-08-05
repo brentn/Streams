@@ -11,10 +11,7 @@
     <p class="empty">No accounts yet.</p>
   } @else {
     <div class="chip">
-      <app-calendar-chip #calendarChip [date]="selectedDate()" tabindex="-1" />
-      @if (!isAtToday()) {
-        <button type="button" class="today" (click)="jumpToToday()">Today</button>
-      }
+      <app-calendar-chip [date]="selectedDate()" (dateSelected)="onDateSelected($event)" />
     </div>
 
     <div

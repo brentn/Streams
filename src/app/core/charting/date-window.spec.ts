@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addDays,
   boundaryXFor,
   buildWindowDates,
   clampDayOffset,
+  dayOffsetFor,
   diffDays,
   fullScrubRangeDates,
   HALF_WINDOW_DAYS,
@@ -64,6 +66,21 @@ describe('selectedDateFor', () => {
   it('adds the offset in whole days', () => {
     expect(diffDays(selectedDateFor(10), selectedDateFor(0))).toBe(10);
     expect(diffDays(selectedDateFor(-5), selectedDateFor(0))).toBe(-5);
+  });
+});
+
+describe('dayOffsetFor', () => {
+  it('is the inverse of selectedDateFor for an in-range date', () => {
+    expect(dayOffsetFor(selectedDateFor(10))).toBe(10);
+    expect(dayOffsetFor(selectedDateFor(-5))).toBe(-5);
+  });
+
+  it('clamps a date beyond the scrub bounds', () => {
+    const farFuture = addDays(selectedDateFor(0), SCRUB_MAX_DAYS + 50);
+    const farPast = addDays(selectedDateFor(0), SCRUB_MIN_DAYS - 50);
+
+    expect(dayOffsetFor(farFuture)).toBe(SCRUB_MAX_DAYS);
+    expect(dayOffsetFor(farPast)).toBe(SCRUB_MIN_DAYS);
   });
 });
 

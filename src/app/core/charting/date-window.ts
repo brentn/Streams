@@ -50,6 +50,11 @@ export function selectedDateFor(dayOffset: number): Date {
   return addDays(normalizeDay(new Date()), dayOffset);
 }
 
+/** The inverse of `selectedDateFor`: the clamped day offset an arbitrary date sits at, relative to today. */
+export function dayOffsetFor(date: Date): number {
+  return clampDayOffset(diffDays(date, new Date()));
+}
+
 /** A band's x-position (within a window built by `buildWindowDates`) for the actual/projected boundary at `balanceDate`. */
 export function boundaryXFor(balanceDate: Date, selectedDate: Date): number {
   return HALF_WINDOW_DAYS + diffDays(balanceDate, selectedDate);

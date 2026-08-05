@@ -55,32 +55,3 @@ li button {
   padding: 0.15rem 0.5rem;
   color: var(--color-ink-secondary);
 }
-
-.form-actions {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 1rem;
-}
-
-.form-actions .primary {
-  font: inherit;
-  font-size: var(--text-body);
-  font-weight: 600;
-  cursor: pointer;
-  color: var(--color-page);
-  background: var(--color-accent);
-  border: none;
-  border-radius: 0.375rem;
-  padding: 0.5rem 1rem;
-}
-
-.form-actions button:not(.primary) {
-  font: inherit;
-  font-size: var(--text-body);
-  cursor: pointer;
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: 0.375rem;
-  padding: 0.5rem 1rem;
-  color: var(--color-ink-secondary);
-}

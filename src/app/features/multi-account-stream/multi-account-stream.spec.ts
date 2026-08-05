@@ -185,38 +185,24 @@ describe('MultiAccountStream', () => {
     expect(laneEls[2].classList.contains('total-lane')).toBe(true);
   });
 
-  it('reports isAtToday and jumps back to today from any scrub position', () => {
+  it('sets the day offset from a date picked in the calendar chip modal', () => {
     const fixture = TestBed.createComponent(MultiAccountStream);
     const component = fixture.componentInstance;
+    const picked = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
 
-    expect(component['isAtToday']()).toBe(true);
+    component['onDateSelected'](picked);
 
-    component['dayOffset'].set(-30);
-    expect(component['isAtToday']()).toBe(false);
-
-    component['jumpToToday']();
-    expect(component['dayOffset']()).toBe(0);
-    expect(component['isAtToday']()).toBe(true);
+    expect(component['dayOffset']()).toBe(10);
   });
 
-  it('renders the Today button only when scrubbed away from today, and hides it again after jumping back', async () => {
+  it('clamps a picked date within the scrub bounds', () => {
     const fixture = TestBed.createComponent(MultiAccountStream);
     const component = fixture.componentInstance;
-    await component['load']();
-    fixture.detectChanges();
+    const farFuture = new Date(Date.now() + (SCRUB_MAX_DAYS + 50) * 24 * 60 * 60 * 1000);
 
-    expect(fixture.nativeElement.querySelector('.today')).toBeNull();
+    component['onDateSelected'](farFuture);
 
-    component['dayOffset'].set(-10);
-    fixture.detectChanges();
-    const todayButton = fixture.nativeElement.querySelector('.today') as HTMLButtonElement | null;
-    expect(todayButton).toBeTruthy();
-
-    todayButton!.click();
-    fixture.detectChanges();
-
-    expect(component['dayOffset']()).toBe(0);
-    expect(fixture.nativeElement.querySelector('.today')).toBeNull();
+    expect(component['dayOffset']()).toBe(SCRUB_MAX_DAYS);
   });
 
   it("shifts each lane's actual/projected boundary within the window as the scrub position moves, rather than staying fixed at the window center", async () => {

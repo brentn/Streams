@@ -30,6 +30,7 @@ import {
   boundaryXFor,
   buildWindowDates,
   clampDayOffset,
+  dayOffsetFor,
   selectedDateFor,
   WINDOW_DAYS,
 } from '../../core/charting/date-window';
@@ -99,10 +100,6 @@ export class AccountStream {
   protected readonly banner = computed(() => bannerPresentation(this.bannerState()));
 
   protected readonly selectedDate = computed(() => selectedDateFor(this.dayOffset()));
-  protected readonly isAtToday = computed(() => this.dayOffset() === 0);
-
-  /** Catches focus when the Today button disappears out from under it on click. `read: ElementRef` because `#calendarChip` on a component tag otherwise resolves to the component instance, not its native element. */
-  private readonly calendarChip = viewChild('calendarChip', { read: ElementRef<HTMLElement> });
 
   /** Set for a recurring/budget tributary's drill-in panel — null for none open. A one-time Flow/Transfer skips the panel entirely and opens its edit modal directly (see #55's resolution comment). */
   protected readonly openTributary = signal<Tributary | null>(null);
@@ -383,9 +380,8 @@ export class AccountStream {
     this.dayOffset.update((offset) => clampDayOffset(offset + delta));
   }
 
-  protected jumpToToday(): void {
-    this.dayOffset.set(0);
-    this.calendarChip()?.nativeElement.focus();
+  protected onDateSelected(date: Date): void {
+    this.dayOffset.set(dayOffsetFor(date));
   }
 
   protected async resync(): Promise<void> {
