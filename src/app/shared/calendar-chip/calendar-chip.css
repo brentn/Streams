@@ -18,11 +18,8 @@
   font: inherit;
 }
 
-button.calendar-chip {
-  cursor: pointer;
-}
-
-button.calendar-chip:hover {
+.chip-group:has(.picker-input:hover) .calendar-chip,
+.chip-group:has(.picker-input:focus) .calendar-chip {
   border-color: var(--color-accent);
 }
 
@@ -47,13 +44,15 @@ button.calendar-chip:hover {
 }
 
 /* Not display:none — showPicker() requires the element to be rendered. Overlaid on the chip
-   itself so the browser's calendar popover anchors right where the chip visually sits. */
+   itself so the browser's calendar popover anchors right where the chip visually sits, and
+   deliberately NOT pointer-events:none — a real, directly-tappable input is what makes iOS
+   open its native picker at all (see the component doc comment). */
 .picker-input {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   opacity: 0;
-  pointer-events: none;
   border: none;
+  cursor: pointer;
 }

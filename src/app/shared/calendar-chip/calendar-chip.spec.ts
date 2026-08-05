@@ -40,10 +40,16 @@ describe('CalendarChip', () => {
     expect(fixture.nativeElement.querySelector('.year').textContent).toBe('2020');
   });
 
-  it('renders as a clickable button rather than inert markup', () => {
+  it('renders the chip as a plain visual, with a real, directly-focusable date input overlaid on it', () => {
     const { fixture } = createComponent(new Date(2026, 6, 4));
 
-    expect(fixture.nativeElement.querySelector('button.calendar-chip')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('button.calendar-chip')).toBeNull();
+    expect(fixture.nativeElement.querySelector('div.calendar-chip')).toBeTruthy();
+    const input = fixture.nativeElement.querySelector('input[type="date"]') as HTMLInputElement;
+    expect(input).toBeTruthy();
+    // Deliberately not tabindex="-1"/pointer-events:none — a real click/tap must land on the
+    // input itself for iOS Safari to open its native picker (see the component doc comment).
+    expect(input.getAttribute('tabindex')).toBeNull();
   });
 
   it("binds the hidden date input to the current scrub position, not always to today", () => {
@@ -61,25 +67,25 @@ describe('CalendarChip', () => {
     expect(input.max).toBe(dateInputValue(addDays(TODAY, SCRUB_MAX_DAYS)));
   });
 
-  it('opens the native picker on the hidden input when the chip is clicked', () => {
+  it('calls showPicker() when the input itself is clicked directly', () => {
     const { fixture } = createComponent(TODAY);
     const input = fixture.nativeElement.querySelector('input[type="date"]') as HTMLInputElement;
     const showPicker = vi.fn();
     input.showPicker = showPicker;
 
-    fixture.nativeElement.querySelector('button.calendar-chip').click();
+    input.click();
 
     expect(showPicker).toHaveBeenCalled();
   });
 
-  it('falls back to focusing the input when showPicker is unsupported', () => {
+  it('falls back to focusing the input when showPicker is unsupported (e.g. iOS Safari)', () => {
     const { fixture } = createComponent(TODAY);
     const input = fixture.nativeElement.querySelector('input[type="date"]') as HTMLInputElement;
     input.showPicker = undefined as unknown as () => void;
     const focus = vi.fn();
     input.focus = focus;
 
-    fixture.nativeElement.querySelector('button.calendar-chip').click();
+    input.click();
 
     expect(focus).toHaveBeenCalled();
   });
@@ -93,7 +99,7 @@ describe('CalendarChip', () => {
     const focus = vi.fn();
     input.focus = focus;
 
-    fixture.nativeElement.querySelector('button.calendar-chip').click();
+    input.click();
 
     expect(focus).toHaveBeenCalled();
   });
