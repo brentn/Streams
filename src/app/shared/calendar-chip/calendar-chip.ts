@@ -53,6 +53,15 @@ export class CalendarChip {
   }
 
   protected onInputChange(value: string): void {
+    // Clearing the native input (its own "X"/clear control) fires change with an empty string,
+    // which parseDateInput can't turn into a real Date — keep the current date instead of
+    // propagating NaN. Angular's [value] binding won't re-touch the DOM if the bound date hasn't
+    // changed, so reset it directly or the input stays visually blank despite nothing changing.
+    if (!value) {
+      const input = this.dateInput()?.nativeElement;
+      if (input) input.value = dateInputValue(this.date());
+      return;
+    }
     this.dateSelected.emit(parseDateInput(value));
   }
 }

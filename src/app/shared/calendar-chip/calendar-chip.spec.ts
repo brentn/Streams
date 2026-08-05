@@ -110,6 +110,19 @@ describe('CalendarChip', () => {
     expect(emitted).toEqual([addDays(TODAY, 10)]);
   });
 
+  it('keeps the current date instead of emitting when the input is cleared, and resets its displayed value', () => {
+    const { component, fixture } = createComponent(addDays(TODAY, 20));
+    const input = fixture.nativeElement.querySelector('input[type="date"]') as HTMLInputElement;
+    const emitted: Date[] = [];
+    component.dateSelected.subscribe((date) => emitted.push(date));
+
+    input.value = '';
+    input.dispatchEvent(new Event('change'));
+
+    expect(emitted).toEqual([]);
+    expect(input.value).toBe(dateInputValue(addDays(TODAY, 20)));
+  });
+
   describe('interactive: false (a read-only date badge, e.g. an Outstanding tile)', () => {
     it('renders no button and no hidden input', () => {
       const { fixture } = createComponent(new Date(2026, 6, 4), false);
