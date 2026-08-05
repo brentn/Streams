@@ -18,6 +18,10 @@ import { dateInputValue, parseDateInput } from '../date-input';
  * `outstanding-flow-row` embeds this chip as a plain read-only date badge inside its own clickable
  * tile, so it opts out — a clickable picker nested in there would fire on top of (and be confused
  * with) the tile's click.
+ *
+ * `bare` strips this chip's own border/background so it can sit inside another element's chip
+ * chrome (e.g. `outstanding-flow-row`'s tile, which draws its own border around the date and the
+ * Flow name together) without doubling up the border.
  */
 @Component({
   selector: 'app-calendar-chip',
@@ -27,6 +31,7 @@ import { dateInputValue, parseDateInput } from '../date-input';
 export class CalendarChip {
   readonly date = input.required<Date>();
   readonly interactive = input(true);
+  readonly bare = input(false);
   readonly dateSelected = output<Date>();
 
   protected readonly month = computed(() =>

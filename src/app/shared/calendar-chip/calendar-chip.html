@@ -1,5 +1,5 @@
 <div class="chip-group">
-  <div class="calendar-chip">
+  <div class="calendar-chip" [class.bare]="bare()">
     <span class="month">{{ month() }}</span>
     <span class="day">{{ day() }}</span>
     @if (showYear()) {

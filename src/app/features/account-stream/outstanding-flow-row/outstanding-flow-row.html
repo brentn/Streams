@@ -4,7 +4,7 @@
     <ul class="strip">
       @for (tile of tiles(); track tile.flowId) {
         <li class="tile" (click)="onTileClick(tile)">
-          <app-calendar-chip [date]="tile.occurrenceDate" [interactive]="false" />
+          <app-calendar-chip [date]="tile.occurrenceDate" [interactive]="false" [bare]="true" />
           <span class="name">{{ tile.name }}</span>
         </li>
       }

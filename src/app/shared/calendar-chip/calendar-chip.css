@@ -23,6 +23,13 @@
   border-color: var(--color-accent);
 }
 
+.calendar-chip.bare {
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
 .month {
   font-size: var(--text-eyebrow);
   font-weight: 600;
