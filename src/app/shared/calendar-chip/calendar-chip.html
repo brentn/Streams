@@ -17,9 +17,13 @@
       [max]="maxValue()"
       [value]="dateInputValue(date())"
       (change)="onInputChange($any($event.target).value)"
+      (focus)="pickerOpen.set(true)"
+      (blur)="pickerOpen.set(false)"
     />
 
-    <button type="button" class="today" (click)="goToToday()">Today</button>
+    @if (pickerOpen()) {
+      <button type="button" class="today" (mousedown)="$event.preventDefault(); goToToday()">Today</button>
+    }
   </div>
 } @else {
   <div class="calendar-chip">

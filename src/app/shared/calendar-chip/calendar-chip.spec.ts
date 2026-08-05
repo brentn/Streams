@@ -110,22 +110,42 @@ describe('CalendarChip', () => {
     expect(emitted).toEqual([addDays(TODAY, 10)]);
   });
 
-  it('always renders a Today button, and emits today\'s date immediately when clicked', () => {
-    const { component, fixture } = createComponent(addDays(TODAY, 20));
-    const emitted: Date[] = [];
-    component.dateSelected.subscribe((date) => emitted.push(date));
+  describe('Today button (only shown while the native picker is open)', () => {
+    it('is not rendered normally', () => {
+      const { fixture } = createComponent(addDays(TODAY, 20));
 
-    const todayButton = fixture.nativeElement.querySelector('.today') as HTMLButtonElement;
-    expect(todayButton).toBeTruthy();
-    todayButton.click();
+      expect(fixture.nativeElement.querySelector('.today')).toBeNull();
+    });
 
-    expect(emitted).toEqual([TODAY]);
-  });
+    it('appears once the hidden input gains focus (the picker opening), and disappears once it blurs (the picker closing)', () => {
+      const { fixture } = createComponent(TODAY);
+      const input = fixture.nativeElement.querySelector('input[type="date"]') as HTMLInputElement;
 
-  it('renders the Today button even when already at today', () => {
-    const { fixture } = createComponent(TODAY);
+      input.dispatchEvent(new Event('focus'));
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.today')).toBeTruthy();
 
-    expect(fixture.nativeElement.querySelector('.today')).toBeTruthy();
+      input.dispatchEvent(new Event('blur'));
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.today')).toBeNull();
+    });
+
+    it("emits today's date and blurs the hidden input (closing the native picker) when clicked", () => {
+      const { component, fixture } = createComponent(addDays(TODAY, 20));
+      const input = fixture.nativeElement.querySelector('input[type="date"]') as HTMLInputElement;
+      const blur = vi.fn();
+      input.blur = blur;
+      const emitted: Date[] = [];
+      component.dateSelected.subscribe((date) => emitted.push(date));
+
+      input.dispatchEvent(new Event('focus'));
+      fixture.detectChanges();
+      const todayButton = fixture.nativeElement.querySelector('.today') as HTMLButtonElement;
+      todayButton.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+
+      expect(emitted).toEqual([TODAY]);
+      expect(blur).toHaveBeenCalled();
+    });
   });
 
   describe('interactive: false (a read-only date badge, e.g. an Outstanding tile)', () => {

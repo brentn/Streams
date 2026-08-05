@@ -1,13 +1,19 @@
-import { Component, computed, ElementRef, input, output, viewChild } from '@angular/core';
+import { Component, computed, ElementRef, input, output, signal, viewChild } from '@angular/core';
 import { addDays, normalizeDay, SCRUB_MAX_DAYS, SCRUB_MIN_DAYS } from '../../core/charting/date-window';
 import { dateInputValue, parseDateInput } from '../date-input';
 
 /**
  * The chip triggers a hidden native date input's own browser picker directly (via showPicker())
  * rather than a custom modal — one click shows the calendar with no intermediate step. The Today
- * button lives here too (always visible, not just when scrubbed away — see the #98 follow-up
- * discussion) since it's a fast path browsers don't uniformly bake into their native picker UI,
- * and centralizing it here avoids re-duplicating it between account-stream and multi-account-stream.
+ * button lives here too, since it's a fast path browsers don't uniformly bake into their native
+ * picker UI, and centralizing it here avoids re-duplicating it between account-stream and
+ * multi-account-stream — but it only shows up while the picker is open, not all the time.
+ *
+ * There's no cross-browser event for "the native date-picker popup opened/closed", so `pickerOpen`
+ * is a proxy driven by the hidden input's own focus state instead: showPicker() focuses it when
+ * the popup opens, and it blurs when the popup is dismissed. The Today button uses (mousedown)
+ * with preventDefault rather than (click) — a plain click would blur the input first (moving
+ * focus to the button), hiding the button via `pickerOpen` before its own click event ever fires.
  *
  * `interactive` defaults to true for those two scrubber views; `outstanding-flow-row` embeds this
  * chip as a plain read-only date badge inside its own clickable tile, so it opts out — a clickable
@@ -22,6 +28,8 @@ export class CalendarChip {
   readonly date = input.required<Date>();
   readonly interactive = input(true);
   readonly dateSelected = output<Date>();
+
+  protected readonly pickerOpen = signal(false);
 
   private readonly dateInput = viewChild('dateInput', { read: ElementRef<HTMLInputElement> });
 
@@ -60,5 +68,6 @@ export class CalendarChip {
 
   protected goToToday(): void {
     this.dateSelected.emit(normalizeDay(new Date()));
+    this.dateInput()?.nativeElement.blur();
   }
 }
