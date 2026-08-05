@@ -12,6 +12,7 @@ import { CurrencyPipe } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { Account } from '../../core/models/account';
 import { Flow } from '../../core/models/flow';
+import { SkippedOccurrence } from '../../core/models/skipped-occurrence';
 import { Transaction } from '../../core/models/transaction';
 import { Transfer } from '../../core/models/transfer';
 import {
@@ -81,6 +82,7 @@ export class MultiAccountStream {
   private readonly transactionsByAccount = signal<Map<string, Transaction[]>>(new Map());
   private readonly flowsByAccount = signal<Map<string, Flow[]>>(new Map());
   private readonly transfersByAccount = signal<Map<string, Transfer[]>>(new Map());
+  private readonly skippedOccurrences = signal<SkippedOccurrence[]>([]);
   protected readonly dayOffset = signal(0);
   protected readonly isSyncing = this.syncCoordinator.isSyncing;
   protected readonly operationError = this.syncCoordinator.operationError;
@@ -104,11 +106,15 @@ export class MultiAccountStream {
     const today = new Date();
     const flowsByAccount = this.flowsByAccount();
     const transactionsByAccount = this.transactionsByAccount();
+    const skippedOccurrences = this.skippedOccurrences();
     const result = new Map<string, Flow[]>();
     for (const account of this.accounts()) {
       const flows = flowsByAccount.get(account.id) ?? [];
       const transactions = transactionsByAccount.get(account.id) ?? [];
-      result.set(account.id, withOutstandingOccurrences(flows, transactions, account, today));
+      result.set(
+        account.id,
+        withOutstandingOccurrences(flows, transactions, account, today, skippedOccurrences),
+      );
     }
     return result;
   });
@@ -242,6 +248,7 @@ export class MultiAccountStream {
       ]),
     );
     this.transfersByAccount.set(new Map(transferEntries));
+    this.skippedOccurrences.set(await this.storage.getSkippedOccurrences());
   }
 
   protected shiftDay(delta: number): void {

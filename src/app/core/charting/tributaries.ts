@@ -1,5 +1,6 @@
 import { Account } from '../models/account';
 import { AmountChange, BudgetFlow, BudgetPeriod, Flow, FlowDirection, RecurringFlow } from '../models/flow';
+import { SkippedOccurrence } from '../models/skipped-occurrence';
 import { Transaction } from '../models/transaction';
 import { Transfer } from '../models/transfer';
 import { amountAtDate } from '../projection/amount-timeline';
@@ -230,8 +231,8 @@ export function buildUncategorizedTributaries(
  * exclusion runs regardless of whether today is in the visible window; the stand-in itself is
  * omitted when today falls outside the `selectedDate`-centered visible window, same as any other
  * Tributary would be. Both resolve themselves automatically on the next render once
- * `outstandingAlert` clears (including via its 14-day grace period expiring) — no manual dismissal
- * needed.
+ * `outstandingAlert` clears — via its 14-day grace period expiring, or via a manual dismissal
+ * recorded in `skippedOccurrences` (ADR-0014).
  */
 export function withOutstandingTributaries(
   tributaries: Tributary[],
@@ -240,11 +241,12 @@ export function withOutstandingTributaries(
   account: Pick<Account, 'balanceDate'>,
   today: Date,
   selectedDate: Date,
+  skippedOccurrences: SkippedOccurrence[] = [],
 ): Tributary[] {
   const alertsByFlowId = new Map<string, { flow: RecurringFlow; alert: OutstandingAlert }>();
   for (const flow of flows) {
     if (flow.kind !== 'recurring') continue;
-    const alert = outstandingAlert(flow, transactions, account, today);
+    const alert = outstandingAlert(flow, transactions, account, today, skippedOccurrences);
     if (alert) alertsByFlowId.set(flow.id, { flow, alert });
   }
   if (alertsByFlowId.size === 0) return tributaries;

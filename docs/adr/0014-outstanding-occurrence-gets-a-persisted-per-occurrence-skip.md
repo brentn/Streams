@@ -1,0 +1,21 @@
+# A skipped Outstanding occurrence is persisted and suppressed everywhere, breaking with ADR-0012's pure-function precedent
+
+Every existing Outstanding exit is automatic: a Transaction matches, or 14 days pass and `outstandingAlert` (ADR-0012) reverts it on its own. Neither covers the case where an occurrence is never going to be matched — a cancelled payment, a Flow that turned out to be wrong, a one-off the user knows isn't coming — and the user wants it gone now rather than waiting out the grace period with a stale "Pending" stand-in sitting in the chart and skewing the balance/Dry-Floor projection for up to two weeks.
+
+We're adding a **Skipped Occurrence**: a persisted `{flowId, occurrenceDate}` record, stored in its own `StorageRepository` object store (`skippedOccurrences`, schema v14) alongside the existing `CategorizationRule`-style upsert/get methods. `outstandingAlert` takes the current set of Skipped Occurrences as an input and returns `null` for a matching pair, so the suppression cascades automatically through every consumer already built on top of it — `withOutstandingOccurrences` (the balance/Dry-Floor projection) and `withOutstandingTributaries` (the chart's "Pending" stand-in) — with no separate skip-check needed in either. The Skip is scoped to the exact `occurrenceDate` it was recorded against, not the Flow as a whole: a later occurrence of the same recurring Flow goes Outstanding normally when its own time comes.
+
+This ticket is domain + storage only — no UI trigger yet. `account-stream.ts`/`multi-account-stream.ts` load the stored Skipped Occurrences and thread them through, but nothing in the product surface writes one yet.
+
+## Considered Options
+
+- **Leave ADR-0012's precedent standing and wait out the 14-day grace period** — rejected: doesn't solve the actual problem (an occurrence that's never going to resolve on its own), just shortens how long the user has to look at it.
+- **A dismiss action that deletes/mutates the Flow or Transaction** — rejected: conflates "this occurrence didn't happen" with "this Flow is wrong" or "this Transaction is miscategorized" — different domain concepts with their own edit/delete flows already.
+- **Scope the persisted record to the whole Flow** (a single `skipped: boolean` on `Flow`, closer to ADR-0012's originally-rejected "persisted flag on the Flow record") — rejected: would silently suppress every *future* occurrence too, not just the one the user actually meant to dismiss. The acceptance bar is "this specific missed payment isn't coming," not "stop tracking this Flow's Outstanding status forever."
+- **Auto-expire a Skip after some period, mirroring the 14-day grace window** — rejected: a Skip is a deliberate statement about one specific occurrence, not a temporary suppression; it has no reason to time out once made.
+
+## Consequences
+
+- `StorageRepository`'s schema bumps to v14, adding the `skippedOccurrences` store — purely additive (a new store, no existing shape changes), so no cursor-rewrite migration is needed, unlike v12/v13.
+- `outstandingAlert`, `withOutstandingOccurrences`, and `withOutstandingTributaries` all gain a `skippedOccurrences` parameter (defaulted to `[]`, matching this codebase's existing optional-collection convention — e.g. `balanceAtDate`'s `transfers`) so every existing call site keeps compiling; the two feature components load the stored set and pass it through.
+- ADR-0012's "persisted flag on the Flow record" rejection is explicitly overturned by this decision, not silently contradicted — see that ADR's Considered Options for the note. The distinction that keeps both ADRs coherent: ADR-0012 rejected a flag that would need "its own dismiss/cleanup machinery nothing else here has"; this ADR adds exactly that machinery, deliberately, once a real product need for manual dismissal existed — and scopes it to a single occurrence rather than the whole Flow, so it doesn't inherit the blanket-suppression problem a Flow-level flag would have.
+- No UI writes a Skipped Occurrence yet. A future ticket adds the trigger (most likely from the "Pending" stand-in's own `TributaryPanel` drill-in, since that's already the click target for an Outstanding occurrence) and, if warranted then, an un-skip affordance — neither is needed for this ticket's storage-and-projection scope.

@@ -35,6 +35,7 @@ describe('MultiAccountStream', () => {
     getTransactionsForAccount: ReturnType<typeof vi.fn>;
     getFlowsForAccount: ReturnType<typeof vi.fn>;
     getTransfersForAccount: ReturnType<typeof vi.fn>;
+    getSkippedOccurrences: ReturnType<typeof vi.fn>;
     getAccessUrl: ReturnType<typeof vi.fn>;
     upsertAccount: ReturnType<typeof vi.fn>;
     upsertTransactions: ReturnType<typeof vi.fn>;
@@ -53,6 +54,7 @@ describe('MultiAccountStream', () => {
       getTransactionsForAccount: vi.fn().mockResolvedValue([]),
       getFlowsForAccount: vi.fn().mockResolvedValue([]),
       getTransfersForAccount: vi.fn().mockResolvedValue([]),
+      getSkippedOccurrences: vi.fn().mockResolvedValue([]),
       getAccessUrl: vi.fn(),
       upsertAccount: vi.fn(),
       upsertTransactions: vi.fn(),

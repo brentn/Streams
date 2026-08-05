@@ -4,6 +4,7 @@ import { normalizeMatchText } from '../categorization/categorization';
 import { Account } from '../models/account';
 import { CategorizationRule } from '../models/categorization-rule';
 import { Flow } from '../models/flow';
+import { SkippedOccurrence } from '../models/skipped-occurrence';
 import { Transaction } from '../models/transaction';
 import { Transfer } from '../models/transfer';
 import { initialBackfillCursor } from '../sync/sync-window';
@@ -30,6 +31,10 @@ interface StreamsDb extends DBSchema {
   categorizationRules: {
     key: string;
     value: CategorizationRule;
+  };
+  skippedOccurrences: {
+    key: [string, Date];
+    value: SkippedOccurrence;
   };
   settings: {
     key: string;
@@ -95,7 +100,7 @@ export class StorageRepository {
   private readonly dbPromise: Promise<IDBPDatabase<StreamsDb>>;
 
   constructor() {
-    this.dbPromise = openDB<StreamsDb>('streams', 13, {
+    this.dbPromise = openDB<StreamsDb>('streams', 14, {
       async upgrade(db, oldVersion, _newVersion, transaction) {
         if (oldVersion < 1) {
           db.createObjectStore('accounts', { keyPath: 'id' });
@@ -159,6 +164,13 @@ export class StorageRepository {
         // the stale corrupted value for a genuine Dormant Gap and chase it (ADR-0013, #94).
         if (oldVersion < 13) {
           await resetDriftedBackfillCursor(transaction, new Date());
+        }
+        // v14: new skippedOccurrences store, keyed on the `[flowId, occurrenceDate]` pair itself —
+        // recording that a Flow's occurrence at that exact date should never be treated as
+        // Outstanding (ADR-0014). A later occurrence of the same Flow is a different key, so it's
+        // unaffected; upserting the same pair again overwrites in place, same as CategorizationRule.
+        if (oldVersion < 14) {
+          db.createObjectStore('skippedOccurrences', { keyPath: ['flowId', 'occurrenceDate'] });
         }
       },
     });
@@ -272,6 +284,17 @@ export class StorageRepository {
   async deleteCategorizationRule(matchText: string): Promise<void> {
     const db = await this.dbPromise;
     await db.delete('categorizationRules', normalizeMatchText(matchText));
+  }
+
+  /** Keyed on `[flowId, occurrenceDate]`, so skipping the same occurrence twice overwrites in place rather than duplicating. */
+  async upsertSkippedOccurrence(occurrence: SkippedOccurrence): Promise<void> {
+    const db = await this.dbPromise;
+    await db.put('skippedOccurrences', occurrence);
+  }
+
+  async getSkippedOccurrences(): Promise<SkippedOccurrence[]> {
+    const db = await this.dbPromise;
+    return db.getAll('skippedOccurrences');
   }
 
   async close(): Promise<void> {

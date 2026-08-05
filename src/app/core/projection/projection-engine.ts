@@ -8,6 +8,7 @@ import {
   Tolerance,
   signedFlowAmount,
 } from '../models/flow';
+import { SkippedOccurrence } from '../models/skipped-occurrence';
 import { Transaction } from '../models/transaction';
 import { Transfer } from '../models/transfer';
 import { amountAtDate } from './amount-timeline';
@@ -323,15 +324,19 @@ export interface OutstandingAlert {
  * with no Transaction matched to the Flow in `(previousOccurrence, today]` (or `(epoch, today]`
  * for a Flow's first-ever occurrence). Only the single latest occurrence is ever evaluated — a
  * Flow already Outstanding doesn't accumulate further. Returns null for a budget-kind Flow (no
- * occurrence timeline), when no occurrence has happened yet, or once the occurrence is more than
- * `OUTSTANDING_GRACE_PERIOD_DAYS` days overdue — past that bound it reverts fully to normal, per
- * ADR-0012's Consequences.
+ * occurrence timeline), when no occurrence has happened yet, once the occurrence is more than
+ * `OUTSTANDING_GRACE_PERIOD_DAYS` days overdue (per ADR-0012's Consequences), or when the
+ * occurrence's exact `(flowId, occurrenceDate)` pair appears in `skippedOccurrences` — a
+ * user-dismissed occurrence (ADR-0014) reverts to normal the same as an expired one, but stays
+ * that way regardless of how much time passes. A later occurrence of the same Flow is a different
+ * pair, so it isn't affected by an earlier one's skip.
  */
 export function outstandingAlert(
   flow: Flow,
   transactions: Transaction[],
   account: Pick<Account, 'balanceDate'>,
   today: Date,
+  skippedOccurrences: SkippedOccurrence[] = [],
 ): OutstandingAlert | null {
   if (flow.kind !== 'recurring') return null;
 
@@ -342,6 +347,11 @@ export function outstandingAlert(
 
   const daysOverdue = (startOfDay(today).getTime() - startOfDay(occurrence).getTime()) / MS_PER_DAY;
   if (daysOverdue > OUTSTANDING_GRACE_PERIOD_DAYS) return null;
+
+  const isSkipped = skippedOccurrences.some(
+    (s) => s.flowId === flow.id && s.occurrenceDate.getTime() === occurrence.getTime(),
+  );
+  if (isSkipped) return null;
 
   // Day-inclusive of today's calendar date, matching `actualFlowMagnitude`'s own end-of-day
   // boundary handling — a match posted later today (after whatever time-of-day `today` itself
@@ -365,18 +375,21 @@ export function outstandingAlert(
  * dated `today` and appended to `flows`. Restores the missing amount to the forward projection
  * (`balanceAtDate`/`balanceSeries`/`runningDryAlert`/`totalBalanceSeries`) that would otherwise
  * silently drop it the moment `balanceDate` passes the missed occurrence — see ADR-0012. Resolves
- * itself automatically on the next call once a Transaction matches, `balanceDate` moves again, or
- * the occurrence passes `outstandingAlert`'s 14-day grace period.
+ * itself automatically on the next call once a Transaction matches, `balanceDate` moves again, the
+ * occurrence passes `outstandingAlert`'s 14-day grace period, or it's recorded in
+ * `skippedOccurrences` (ADR-0014) — a skip removes the expected amount from the projection just
+ * like a normal resolution would.
  */
 export function withOutstandingOccurrences(
   flows: Flow[],
   transactions: Transaction[],
   account: Pick<Account, 'balanceDate'>,
   today: Date,
+  skippedOccurrences: SkippedOccurrence[] = [],
 ): Flow[] {
   const synthetic: RecurringFlow[] = [];
   for (const flow of flows) {
-    const alert = outstandingAlert(flow, transactions, account, today);
+    const alert = outstandingAlert(flow, transactions, account, today, skippedOccurrences);
     if (!alert) continue;
     synthetic.push({
       id: `${flow.id}-outstanding`,

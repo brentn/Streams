@@ -15,6 +15,7 @@ import { deleteFlowCascade } from '../../core/categorization/delete-flow-cascade
 import { deleteTransferCascade } from '../../core/categorization/delete-transfer-cascade';
 import { Account } from '../../core/models/account';
 import { BudgetFlow, Flow, isOneTimeFlow } from '../../core/models/flow';
+import { SkippedOccurrence } from '../../core/models/skipped-occurrence';
 import { Transaction } from '../../core/models/transaction';
 import { Transfer } from '../../core/models/transfer';
 import {
@@ -84,6 +85,7 @@ export class AccountStream {
   protected readonly transactions = signal<Transaction[]>([]);
   protected readonly flows = signal<Flow[]>([]);
   protected readonly transfers = signal<Transfer[]>([]);
+  protected readonly skippedOccurrences = signal<SkippedOccurrence[]>([]);
   protected readonly dayOffset = signal(0);
   protected readonly isSyncing = this.syncCoordinator.isSyncing;
   protected readonly operationError = this.syncCoordinator.operationError;
@@ -110,7 +112,13 @@ export class AccountStream {
   protected readonly effectiveFlows = computed(() => {
     const account = this.account();
     return account
-      ? withOutstandingOccurrences(this.flows(), this.transactions(), account, new Date())
+      ? withOutstandingOccurrences(
+          this.flows(),
+          this.transactions(),
+          account,
+          new Date(),
+          this.skippedOccurrences(),
+        )
       : this.flows();
   });
 
@@ -192,6 +200,7 @@ export class AccountStream {
       account,
       new Date(),
       this.selectedDate(),
+      this.skippedOccurrences(),
     );
   });
 
@@ -228,6 +237,7 @@ export class AccountStream {
     this.transactions.set(account ? await this.storage.getTransactionsForAccount(id) : []);
     this.flows.set(account ? await this.storage.getFlowsForAccount(id) : []);
     this.transfers.set(account ? await this.storage.getTransfersForAccount(id) : []);
+    this.skippedOccurrences.set(account ? await this.storage.getSkippedOccurrences() : []);
   }
 
   protected async reloadFlows(): Promise<void> {

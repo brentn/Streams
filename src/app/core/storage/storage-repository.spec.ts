@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Account } from '../models/account';
 import { CategorizationRule } from '../models/categorization-rule';
 import { BudgetFlow, RecurringFlow } from '../models/flow';
+import { SkippedOccurrence } from '../models/skipped-occurrence';
 import { Transaction } from '../models/transaction';
 import { Transfer } from '../models/transfer';
 import { StorageRepository } from './storage-repository';
@@ -372,6 +373,36 @@ describe('StorageRepository', () => {
     expect(await repo.getCategorizationRules()).toEqual([]);
   });
 
+  it('upserts and retrieves Skipped Occurrences', async () => {
+    const occurrence: SkippedOccurrence = { flowId: 'flow-1', occurrenceDate: new Date('2026-07-31') };
+
+    await repo.upsertSkippedOccurrence(occurrence);
+
+    expect(await repo.getSkippedOccurrences()).toEqual([occurrence]);
+  });
+
+  it('upserting the same (flowId, occurrenceDate) pair again overwrites in place rather than duplicating', async () => {
+    const occurrence: SkippedOccurrence = { flowId: 'flow-1', occurrenceDate: new Date('2026-07-31') };
+
+    await repo.upsertSkippedOccurrence(occurrence);
+    await repo.upsertSkippedOccurrence(occurrence);
+
+    expect(await repo.getSkippedOccurrences()).toEqual([occurrence]);
+  });
+
+  it('treats a different occurrenceDate on the same Flow as a distinct Skipped Occurrence', async () => {
+    const first: SkippedOccurrence = { flowId: 'flow-1', occurrenceDate: new Date('2026-07-31') };
+    const second: SkippedOccurrence = { flowId: 'flow-1', occurrenceDate: new Date('2026-08-07') };
+
+    await repo.upsertSkippedOccurrence(first);
+    await repo.upsertSkippedOccurrence(second);
+
+    const stored = await repo.getSkippedOccurrences();
+    expect(stored).toHaveLength(2);
+    expect(stored).toContainEqual(first);
+    expect(stored).toContainEqual(second);
+  });
+
   describe('exportAll / importAll', () => {
     it('exports every object store currently in the schema, keyed by store name', async () => {
       const account: Account = {
@@ -394,6 +425,7 @@ describe('StorageRepository', () => {
           'categorizationRules',
           'flows',
           'settings',
+          'skippedOccurrences',
           'transactions',
           'transfers',
         ].sort(),
@@ -408,7 +440,7 @@ describe('StorageRepository', () => {
     it('reports the current database version alongside the dumped stores', async () => {
       const { dbVersion } = await repo.exportAll();
 
-      expect(dbVersion).toBe(13);
+      expect(dbVersion).toBe(14);
     });
 
     it('importAll replaces the contents of every named store, leaving stores absent from the bundle untouched', async () => {

@@ -677,6 +677,33 @@ describe('outstandingAlert (ADR-0012)', () => {
     const synced = { ...account, balanceDate: today };
     expect(outstandingAlert(flow, [], synced, today)).toBeNull();
   });
+
+  describe('skippedOccurrences (ADR-0014)', () => {
+    it('returns null for an occurrence matching a skipped (flowId, occurrenceDate) pair', () => {
+      const flow = recurringFlow({ amount: 100, direction: 'out' });
+      const today = new Date('2026-08-01T12:00:00Z');
+      const synced = { ...account, balanceDate: new Date('2026-08-01T12:00:00Z') };
+      const skipped = [{ flowId: flow.id, occurrenceDate: new Date(2026, 6, 31) }];
+      expect(outstandingAlert(flow, [], synced, today, skipped)).toBeNull();
+    });
+
+    it('ignores a skip recorded against a different Flow', () => {
+      const flow = recurringFlow({ amount: 100, direction: 'out' });
+      const today = new Date('2026-08-01T12:00:00Z');
+      const synced = { ...account, balanceDate: new Date('2026-08-01T12:00:00Z') };
+      const skipped = [{ flowId: 'other-flow', occurrenceDate: new Date(2026, 6, 31) }];
+      expect(outstandingAlert(flow, [], synced, today, skipped)).not.toBeNull();
+    });
+
+    it("ignores a skip recorded against a different occurrence date on the same Flow — it's scoped to the exact date", () => {
+      const flow = recurringFlow({ amount: 100, direction: 'out' });
+      const today = new Date('2026-08-01T12:00:00Z');
+      const synced = { ...account, balanceDate: new Date('2026-08-01T12:00:00Z') };
+      // A prior, earlier occurrence of the same Flow was skipped — the most recent one (07-31) wasn't.
+      const skipped = [{ flowId: flow.id, occurrenceDate: new Date(2026, 6, 24) }];
+      expect(outstandingAlert(flow, [], synced, today, skipped)).not.toBeNull();
+    });
+  });
 });
 
 describe('withOutstandingOccurrences (ADR-0012)', () => {
@@ -732,6 +759,18 @@ describe('withOutstandingOccurrences (ADR-0012)', () => {
     const today = new Date(2026, 6, 16); // 15 days after the 07-01 occurrence
     const synced = { ...account, balanceDate: today };
     expect(withOutstandingOccurrences([flow], [], synced, today)).toEqual([flow]);
+  });
+
+  it('removes the missing amount from the projection once the occurrence is skipped (ADR-0014)', () => {
+    const flow = recurringFlow({ amount: 100, direction: 'out' });
+    const today = new Date('2026-08-01T15:00:00Z');
+    const synced = { ...account, balance: 1000, balanceDate: new Date('2026-08-01T08:00:00Z') };
+    const skipped = [{ flowId: flow.id, occurrenceDate: new Date(2026, 6, 31) }];
+
+    expect(withOutstandingOccurrences([flow], [], synced, today, skipped)).toEqual([flow]);
+    expect(balanceAtDate(synced, [], today, withOutstandingOccurrences([flow], [], synced, today, skipped))).toBe(
+      1000, // no synthetic entry added, so the missed occurrence's amount doesn't land in the projection
+    );
   });
 });
 

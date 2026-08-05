@@ -339,6 +339,44 @@ describe('withOutstandingTributaries (#88)', () => {
     expect(result.some((t) => t.label.startsWith('Pending:'))).toBe(false);
   });
 
+  it('treats a skipped occurrence (ADR-0014) as not Outstanding at all — no "Pending" stand-in, the real Tributary renders normally', () => {
+    const selectedDate = today;
+    const tributaries = buildTributaries([flow], [], accounts, 'acc-1', selectedDate);
+    const skipped = [{ flowId: 'flow-1', occurrenceDate: d('2026-07-31') }];
+
+    const result = withOutstandingTributaries(
+      tributaries,
+      [flow],
+      [],
+      outstandingAccount,
+      today,
+      selectedDate,
+      skipped,
+    );
+
+    expect(result).toEqual(tributaries);
+    expect(result.some((t) => t.label.startsWith('Pending:'))).toBe(false);
+  });
+
+  it('leaves a later, unrelated occurrence of the same Flow unaffected by an earlier skip', () => {
+    const selectedDate = today;
+    const tributaries = buildTributaries([flow], [], accounts, 'acc-1', selectedDate);
+    // Skips an earlier occurrence than the one currently Outstanding (07-31).
+    const skipped = [{ flowId: 'flow-1', occurrenceDate: d('2026-07-24') }];
+
+    const result = withOutstandingTributaries(
+      tributaries,
+      [flow],
+      [],
+      outstandingAccount,
+      today,
+      selectedDate,
+      skipped,
+    );
+
+    expect(result.some((t) => t.label === 'Pending: Paycheck')).toBe(true);
+  });
+
   it('never marks or stands in for a budget-kind Flow — Outstanding has no occurrence timeline for it', () => {
     const budget: Flow = {
       id: 'budget-1',
