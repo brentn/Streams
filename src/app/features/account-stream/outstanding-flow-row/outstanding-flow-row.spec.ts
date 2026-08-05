@@ -98,6 +98,16 @@ describe('OutstandingFlowRow', () => {
     expect(tiles[0].textContent).toContain('Rent');
   });
 
+  it('renders the tile\'s calendar chip as a non-interactive badge, not a clickable picker', async () => {
+    const rent = onceFlow('f1', 'Rent', 'out', daysAgo(3));
+    const fixture = await createComponent([rent]);
+
+    const tile = fixture.nativeElement.querySelector('.tile');
+    expect(tile.querySelector('button.calendar-chip')).toBeNull();
+    expect(tile.querySelector('input[type="date"]')).toBeNull();
+    expect(tile.querySelector('.today')).toBeNull();
+  });
+
   it('includes an Outstanding income Flow, not just expense Flows', async () => {
     const paycheck = onceFlow('f1', 'Paycheck', 'in', daysAgo(3));
     const fixture = await createComponent([paycheck]);

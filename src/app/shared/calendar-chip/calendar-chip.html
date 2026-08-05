@@ -1,7 +1,32 @@
-<button type="button" class="calendar-chip" (click)="openDatePicker()">
-  <span class="month">{{ month() }}</span>
-  <span class="day">{{ day() }}</span>
-  @if (showYear()) {
-    <span class="year">{{ year() }}</span>
-  }
-</button>
+@if (interactive()) {
+  <div class="chip-group">
+    <button type="button" class="calendar-chip" (click)="openPicker()">
+      <span class="month">{{ month() }}</span>
+      <span class="day">{{ day() }}</span>
+      @if (showYear()) {
+        <span class="year">{{ year() }}</span>
+      }
+    </button>
+
+    <input
+      #dateInput
+      type="date"
+      class="picker-input"
+      tabindex="-1"
+      [min]="minValue()"
+      [max]="maxValue()"
+      [value]="dateInputValue(date())"
+      (change)="onInputChange($any($event.target).value)"
+    />
+
+    <button type="button" class="today" (click)="goToToday()">Today</button>
+  </div>
+} @else {
+  <div class="calendar-chip">
+    <span class="month">{{ month() }}</span>
+    <span class="day">{{ day() }}</span>
+    @if (showYear()) {
+      <span class="year">{{ year() }}</span>
+    }
+  </div>
+}
