@@ -21,14 +21,14 @@ export interface OutstandingFlowTile {
 }
 
 /**
- * One calendar-style tile per currently-Outstanding recurring-kind Flow on this Account (either
- * direction), oldest missed occurrence first — see CONTEXT.md's Outstanding entry, ADR-0012, and
- * #95's skip-aware `outstandingAlert`. Renders nothing when nothing is Outstanding, the same
- * conditional-rendering pattern as the dry-alert banner. Clicking a tile opens
- * `ResolveOutstandingDialog` (#97) to assign a matching Transaction or skip the occurrence; either
- * resolution is persisted here (mirroring `TransactionReview`/`TributaryPanel`'s own
- * dialog-closes-with-a-result-then-caller-persists split), and `changed` tells the parent to
- * reload so the tile disappears.
+ * A single full-width "Outstanding Transactions" strip holding one calendar-style tile per
+ * currently-Outstanding recurring-kind Flow on this Account (either direction), oldest missed
+ * occurrence first — see CONTEXT.md's Outstanding entry, ADR-0012, and #95's skip-aware
+ * `outstandingAlert`. Renders nothing when nothing is Outstanding, the same conditional-rendering
+ * pattern as the dry-alert banner. Clicking a tile opens `ResolveOutstandingDialog` (#97) to
+ * assign a matching Transaction or skip the occurrence; either resolution is persisted here
+ * (mirroring `TransactionReview`/`TributaryPanel`'s own dialog-closes-with-a-result-then-caller-
+ * persists split), and `changed` tells the parent to reload so the tile disappears.
  */
 @Component({
   selector: 'app-outstanding-flow-row',

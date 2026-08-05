@@ -82,6 +82,13 @@ describe('OutstandingFlowRow', () => {
     expect(fixture.nativeElement.querySelector('.outstanding-row')).toBeNull();
   });
 
+  it('titles the strip "Outstanding Transactions"', async () => {
+    const rent = onceFlow('f1', 'Rent', 'out', daysAgo(3));
+    const fixture = await createComponent([rent]);
+
+    expect(fixture.nativeElement.querySelector('h2')?.textContent).toBe('Outstanding Transactions');
+  });
+
   it('renders a tile for a currently-Outstanding recurring Flow, showing its due date and name', async () => {
     const rent = onceFlow('f1', 'Rent', 'out', daysAgo(3));
     const fixture = await createComponent([rent]);

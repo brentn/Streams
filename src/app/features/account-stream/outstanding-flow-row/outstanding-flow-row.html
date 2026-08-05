@@ -1,10 +1,13 @@
 @if (tiles().length > 0) {
-  <ul class="outstanding-row">
-    @for (tile of tiles(); track tile.flowId) {
-      <li class="tile" (click)="onTileClick(tile)">
-        <app-calendar-chip [date]="tile.occurrenceDate" />
-        <span class="name">{{ tile.name }}</span>
-      </li>
-    }
-  </ul>
+  <section class="outstanding-row">
+    <h2>Outstanding Transactions</h2>
+    <ul class="strip">
+      @for (tile of tiles(); track tile.flowId) {
+        <li class="tile" (click)="onTileClick(tile)">
+          <app-calendar-chip [date]="tile.occurrenceDate" />
+          <span class="name">{{ tile.name }}</span>
+        </li>
+      }
+    </ul>
+  </section>
 }
