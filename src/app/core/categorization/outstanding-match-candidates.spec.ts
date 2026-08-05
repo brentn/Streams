@@ -51,6 +51,13 @@ describe('rankMatchCandidates', () => {
     expect(candidates[0].transaction.id).toBe('t1');
   });
 
+  it('does not crash on a Categorization Rule left with no target by an old schema/migration', () => {
+    const malformed = { matchText: 'landlord llc' } as unknown as CategorizationRule;
+    const candidate = txn('t1', -1200, occurrenceDate, 'LANDLORD LLC AUTOPAY');
+
+    expect(() => rankMatchCandidates(rent, occurrenceDate, 1200, [candidate], [malformed])).not.toThrow();
+  });
+
   it('ignores a Categorization Rule that targets a different Flow', () => {
     const rules: CategorizationRule[] = [{ matchText: 'landlord llc', target: { kind: 'flow', id: 'flow-other' } }];
     const unrelatedRuleMatch = txn('t1', -1200, occurrenceDate, 'LANDLORD LLC AUTOPAY');

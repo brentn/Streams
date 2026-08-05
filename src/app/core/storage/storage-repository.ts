@@ -100,7 +100,7 @@ export class StorageRepository {
   private readonly dbPromise: Promise<IDBPDatabase<StreamsDb>>;
 
   constructor() {
-    this.dbPromise = openDB<StreamsDb>('streams', 14, {
+    this.dbPromise = openDB<StreamsDb>('streams', 15, {
       async upgrade(db, oldVersion, _newVersion, transaction) {
         if (oldVersion < 1) {
           db.createObjectStore('accounts', { keyPath: 'id' });
@@ -170,6 +170,16 @@ export class StorageRepository {
         // Outstanding (ADR-0014). A later occurrence of the same Flow is a different key, so it's
         // unaffected; upserting the same pair again overwrites in place, same as CategorizationRule.
         if (oldVersion < 14) {
+          db.createObjectStore('skippedOccurrences', { keyPath: ['flowId', 'occurrenceDate'] });
+        }
+        // v15: repairs an install that already reports version 14 without the `skippedOccurrences`
+        // store actually existing — e.g. a versionchange transaction interrupted after v14's
+        // version bump landed but before this callback's own createObjectStore call ran. Since
+        // IndexedDB only re-runs `upgrade` when the requested version exceeds the stored one, a
+        // install stuck this way would otherwise never get another chance at v14's step above.
+        // Guarded by existence rather than `oldVersion < 14` so a genuinely fresh v14 upgrade
+        // (which already created it two lines up) doesn't try to create it twice.
+        if (oldVersion < 15 && !db.objectStoreNames.contains('skippedOccurrences')) {
           db.createObjectStore('skippedOccurrences', { keyPath: ['flowId', 'occurrenceDate'] });
         }
       },

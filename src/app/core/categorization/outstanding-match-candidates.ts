@@ -76,7 +76,10 @@ export function rankMatchCandidates(
   categorizationRules: CategorizationRule[],
 ): MatchCandidate[] {
   const ruleMatchTexts = categorizationRules
-    .filter((rule) => rule.target.kind === 'flow' && rule.target.id === flow.id)
+    // Optional chaining guards a rule left behind with no `target` by an old schema/migration —
+    // this scans every stored rule on every tile click, a far more exposed path than the rarer
+    // call sites that assume well-formed data.
+    .filter((rule) => rule.target?.kind === 'flow' && rule.target.id === flow.id)
     .map((rule) => rule.matchText);
 
   return transactions

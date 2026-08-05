@@ -440,7 +440,7 @@ describe('StorageRepository', () => {
     it('reports the current database version alongside the dumped stores', async () => {
       const { dbVersion } = await repo.exportAll();
 
-      expect(dbVersion).toBe(14);
+      expect(dbVersion).toBe(15);
     });
 
     it('importAll replaces the contents of every named store, leaving stores absent from the bundle untouched', async () => {
@@ -657,5 +657,51 @@ describe('v13 migration', () => {
     await repo.close();
 
     expect(cursor).toBeUndefined();
+  });
+});
+
+describe('v15 migration', () => {
+  afterEach(async () => {
+    await resetDb();
+  });
+
+  /**
+   * Opens a raw v14 database directly (bypassing StorageRepository) without creating the
+   * `skippedOccurrences` store — reproducing an install that already reports version 14 but
+   * never actually got the store, as if a prior versionchange transaction had been interrupted
+   * partway through v14's own upgrade step.
+   */
+  async function seedV14DatabaseMissingSkippedOccurrences(): Promise<void> {
+    await new Promise<void>((resolve, reject) => {
+      const req = indexedDB.open('streams', 14);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        db.createObjectStore('accounts', { keyPath: 'id' });
+        const transactions = db.createObjectStore('transactions', { keyPath: 'id' });
+        transactions.createIndex('accountId', 'accountId');
+        db.createObjectStore('settings', { keyPath: 'key' });
+        db.createObjectStore('categorizationRules', { keyPath: 'matchText' });
+        const flows = db.createObjectStore('flows', { keyPath: 'id' });
+        flows.createIndex('accountId', 'accountId');
+        db.createObjectStore('transfers', { keyPath: 'id' });
+      };
+      req.onsuccess = () => {
+        req.result.close();
+        resolve();
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  it('creates the missing skippedOccurrences store on an install stuck reporting v14 without it', async () => {
+    await seedV14DatabaseMissingSkippedOccurrences();
+
+    const repo = new StorageRepository();
+    const occurrence: SkippedOccurrence = { flowId: 'flow-1', occurrenceDate: new Date('2026-07-01') };
+    await repo.upsertSkippedOccurrence(occurrence);
+    const stored = await repo.getSkippedOccurrences();
+    await repo.close();
+
+    expect(stored).toEqual([occurrence]);
   });
 });
