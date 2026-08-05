@@ -69,6 +69,13 @@
       </div>
     </div>
 
+    <app-outstanding-flow-row
+      [flows]="flows()"
+      [transactions]="transactions()"
+      [account]="account"
+      [skippedOccurrences]="skippedOccurrences()"
+    />
+
     <app-transaction-review
       #transactionReview
       [class.highlighted]="isUncategorizedHighlighted()"

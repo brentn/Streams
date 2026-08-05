@@ -1,0 +1,10 @@
+@if (tiles().length > 0) {
+  <ul class="outstanding-row">
+    @for (tile of tiles(); track tile.flowId) {
+      <li class="tile">
+        <app-calendar-chip [date]="tile.occurrenceDate" />
+        <span class="name">{{ tile.name }}</span>
+      </li>
+    }
+  </ul>
+}

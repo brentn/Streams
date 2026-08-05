@@ -454,6 +454,78 @@ describe('AccountStream', () => {
     });
   });
 
+  describe('Outstanding Flow tile row (#96)', () => {
+    it('renders no tile row when there are no Outstanding Flows', async () => {
+      const fixture = TestBed.createComponent(AccountStream);
+      fixture.componentRef.setInput('id', 'acc-1');
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.outstanding-row')).toBeNull();
+    });
+
+    it('renders a tile for a currently-Outstanding Flow beneath the chart card', async () => {
+      const now = Date.now();
+      const lateFlow: RecurringFlow = {
+        id: 'flow-late',
+        accountId: 'acc-1',
+        name: 'Rent',
+        direction: 'out',
+        kind: 'recurring',
+        amount: 200,
+        cadence: { period: 'once', date: new Date(now - 2 * 60 * 60 * 1000) },
+      };
+      storage.getFlowsForAccount.mockResolvedValue([lateFlow]);
+
+      const fixture = TestBed.createComponent(AccountStream);
+      fixture.componentRef.setInput('id', 'acc-1');
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+      fixture.detectChanges();
+
+      const tiles = fixture.nativeElement.querySelectorAll('.tile');
+      expect(tiles.length).toBe(1);
+      expect(tiles[0].textContent).toContain('Rent');
+    });
+
+    it('stops rendering the tile once a Transaction matches the occurrence', async () => {
+      const now = Date.now();
+      const lateFlow: RecurringFlow = {
+        id: 'flow-late',
+        accountId: 'acc-1',
+        name: 'Rent',
+        direction: 'out',
+        kind: 'recurring',
+        amount: 200,
+        cadence: { period: 'once', date: new Date(now - 2 * 60 * 60 * 1000) },
+      };
+      storage.getFlowsForAccount.mockResolvedValue([lateFlow]);
+
+      const fixture = TestBed.createComponent(AccountStream);
+      fixture.componentRef.setInput('id', 'acc-1');
+      const component = fixture.componentInstance;
+      await component['load']('acc-1');
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelectorAll('.tile').length).toBe(1);
+
+      storage.getTransactionsForAccount.mockResolvedValue([
+        {
+          id: 'txn-1',
+          accountId: 'acc-1',
+          date: new Date(now - 60 * 60 * 1000),
+          amount: -200,
+          description: 'RENT CO',
+          matchedTarget: { kind: 'flow', id: 'flow-late' },
+        },
+      ]);
+      await component['reloadTransactions']();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.outstanding-row')).toBeNull();
+    });
+  });
+
   describe('Budgets list', () => {
     const groceriesBudget: BudgetFlow = {
       id: 'budget-groceries',

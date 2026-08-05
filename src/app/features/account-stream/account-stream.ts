@@ -50,6 +50,7 @@ import { StatusBanner } from '../../shared/status-banner/status-banner';
 import { StreamBand } from '../../shared/stream-band/stream-band';
 import { BudgetList } from './budget-list/budget-list';
 import { FlowFormDialog, FlowFormDialogResult } from './flow-form-dialog/flow-form-dialog';
+import { OutstandingFlowRow } from './outstanding-flow-row/outstanding-flow-row';
 import { TransferFormDialog, TransferFormDialogResult } from './transfer-form-dialog/transfer-form-dialog';
 import { TransactionReview } from './transaction-review/transaction-review';
 import { TributaryPanel } from './tributary-panel/tributary-panel';
@@ -66,6 +67,7 @@ import { TributaryPanel } from './tributary-panel/tributary-panel';
     StreamBand,
     TransactionReview,
     BudgetList,
+    OutstandingFlowRow,
     TributaryPanel,
   ],
   templateUrl: './account-stream.html',
