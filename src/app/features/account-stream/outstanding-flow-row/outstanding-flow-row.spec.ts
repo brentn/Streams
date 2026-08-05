@@ -1,10 +1,14 @@
+import { Dialog } from '@angular/cdk/dialog';
 import { TestBed } from '@angular/core/testing';
-import { describe, expect, it } from 'vitest';
+import { Subject } from 'rxjs';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Account } from '../../../core/models/account';
 import { Flow, RecurringFlow } from '../../../core/models/flow';
 import { SkippedOccurrence } from '../../../core/models/skipped-occurrence';
 import { Transaction } from '../../../core/models/transaction';
+import { StorageRepository } from '../../../core/storage/storage-repository';
 import { OutstandingFlowRow } from './outstanding-flow-row';
+import { ResolveOutstandingDialog, ResolveOutstandingDialogResult } from './resolve-outstanding-dialog/resolve-outstanding-dialog';
 
 const account: Account = {
   id: 'acc-1',
@@ -32,12 +36,36 @@ function onceFlow(id: string, name: string, direction: 'in' | 'out', occurrence:
 }
 
 describe('OutstandingFlowRow', () => {
+  let storage: {
+    getCategorizationRules: ReturnType<typeof vi.fn>;
+    upsertCategorizationRule: ReturnType<typeof vi.fn>;
+    upsertTransactions: ReturnType<typeof vi.fn>;
+    upsertSkippedOccurrence: ReturnType<typeof vi.fn>;
+  };
+  let dialog: { open: ReturnType<typeof vi.fn> };
+
+  beforeEach(() => {
+    storage = {
+      getCategorizationRules: vi.fn().mockResolvedValue([]),
+      upsertCategorizationRule: vi.fn().mockResolvedValue(undefined),
+      upsertTransactions: vi.fn().mockResolvedValue(undefined),
+      upsertSkippedOccurrence: vi.fn().mockResolvedValue(undefined),
+    };
+    dialog = { open: vi.fn().mockReturnValue({ closed: new Subject<ResolveOutstandingDialogResult | undefined>() }) };
+  });
+
   async function createComponent(
     flows: Flow[] = [],
     transactions: Transaction[] = [],
     skippedOccurrences: SkippedOccurrence[] = [],
   ) {
-    await TestBed.configureTestingModule({ imports: [OutstandingFlowRow] }).compileComponents();
+    await TestBed.configureTestingModule({
+      imports: [OutstandingFlowRow],
+      providers: [
+        { provide: StorageRepository, useValue: storage },
+        { provide: Dialog, useValue: dialog },
+      ],
+    }).compileComponents();
     const fixture = TestBed.createComponent(OutstandingFlowRow);
     fixture.componentRef.setInput('flows', flows);
     fixture.componentRef.setInput('transactions', transactions);
@@ -119,5 +147,90 @@ describe('OutstandingFlowRow', () => {
       (el) => (el as HTMLElement).textContent,
     );
     expect(names).toEqual(['Older', 'Recent']);
+  });
+
+  describe('clicking a tile (#97)', () => {
+    it('opens ResolveOutstandingDialog with the Flow, occurrence, amount, transactions, and Categorization Rules', async () => {
+      const rent = onceFlow('f1', 'Rent', 'out', daysAgo(3));
+      const rules = [{ matchText: 'rent payment', target: { kind: 'flow' as const, id: 'f1' } }];
+      storage.getCategorizationRules.mockResolvedValue(rules);
+      dialog.open.mockReturnValue({ closed: new Subject<ResolveOutstandingDialogResult | undefined>() });
+      const fixture = await createComponent([rent]);
+
+      const tile = fixture.nativeElement.querySelector('.tile') as HTMLElement;
+      tile.click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(dialog.open).toHaveBeenCalledWith(ResolveOutstandingDialog, {
+        data: {
+          flow: rent,
+          occurrenceDate: daysAgo(3),
+          amount: 100,
+          transactions: [],
+          categorizationRules: rules,
+        },
+      });
+    });
+
+    it('persists an assign result via applyAssignment and emits changed', async () => {
+      const rent = onceFlow('f1', 'Rent', 'out', daysAgo(3));
+      const fixture = await createComponent([rent]);
+      const component = fixture.componentInstance;
+      const changed = vi.fn();
+      component.changed.subscribe(changed);
+      const closed = new Subject<ResolveOutstandingDialogResult | undefined>();
+      dialog.open.mockReturnValue({ closed });
+
+      (fixture.nativeElement.querySelector('.tile') as HTMLElement).click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      closed.next({ kind: 'assign', matchText: 'rent payment', target: { kind: 'flow', id: 'f1' } });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(storage.upsertCategorizationRule).toHaveBeenCalledWith({
+        matchText: 'rent payment',
+        target: { kind: 'flow', id: 'f1' },
+      });
+      expect(changed).toHaveBeenCalled();
+    });
+
+    it('persists a skip result via storage and emits changed', async () => {
+      const rent = onceFlow('f1', 'Rent', 'out', daysAgo(3));
+      const fixture = await createComponent([rent]);
+      const component = fixture.componentInstance;
+      const changed = vi.fn();
+      component.changed.subscribe(changed);
+      const closed = new Subject<ResolveOutstandingDialogResult | undefined>();
+      dialog.open.mockReturnValue({ closed });
+
+      (fixture.nativeElement.querySelector('.tile') as HTMLElement).click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      closed.next({ kind: 'skip', flowId: 'f1', occurrenceDate: daysAgo(3) });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(storage.upsertSkippedOccurrence).toHaveBeenCalledWith({ flowId: 'f1', occurrenceDate: daysAgo(3) });
+      expect(changed).toHaveBeenCalled();
+    });
+
+    it('does nothing when the dialog closes with no result', async () => {
+      const rent = onceFlow('f1', 'Rent', 'out', daysAgo(3));
+      const fixture = await createComponent([rent]);
+      const component = fixture.componentInstance;
+      const changed = vi.fn();
+      component.changed.subscribe(changed);
+      const closed = new Subject<ResolveOutstandingDialogResult | undefined>();
+      dialog.open.mockReturnValue({ closed });
+
+      (fixture.nativeElement.querySelector('.tile') as HTMLElement).click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      closed.next(undefined);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(storage.upsertCategorizationRule).not.toHaveBeenCalled();
+      expect(storage.upsertSkippedOccurrence).not.toHaveBeenCalled();
+      expect(changed).not.toHaveBeenCalled();
+    });
   });
 });

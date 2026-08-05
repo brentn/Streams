@@ -1,0 +1,114 @@
+@import '../../../../shared/styles/dialog.css';
+
+.flow-summary,
+.txn-summary {
+  margin: 0 0 1rem;
+  color: var(--color-ink-secondary);
+  font-size: var(--text-body);
+}
+
+.no-candidates {
+  margin: 0 0 1rem;
+  color: var(--color-ink-muted);
+  font-size: var(--text-body);
+}
+
+.candidates {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  max-height: var(--list-max-height);
+  overflow-y: auto;
+}
+
+.candidate {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+.candidate:hover {
+  border-color: var(--color-accent);
+}
+
+.candidate .description {
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--color-ink-primary);
+}
+
+.candidate .meta {
+  font-size: var(--text-eyebrow);
+  color: var(--color-ink-secondary);
+}
+
+.form-error {
+  margin: 0 0 0.75rem;
+  color: var(--color-critical);
+  font-size: var(--text-body);
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: var(--text-body);
+  color: var(--color-ink-secondary);
+}
+
+input {
+  font: inherit;
+  font-size: var(--text-body);
+  color: var(--color-ink-primary);
+  background: var(--color-page);
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  padding: 0.4rem 0.6rem;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.form-actions button[type='submit'] {
+  font: inherit;
+  font-size: var(--text-body);
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--color-page);
+  background: var(--color-accent);
+  border: none;
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+}
+
+.form-actions button[type='button'] {
+  font: inherit;
+  font-size: var(--text-body);
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+  color: var(--color-ink-secondary);
+}
+
+.form-actions button.skip {
+  color: var(--color-critical);
+  border-color: color-mix(in srgb, var(--color-critical) 35%, transparent);
+}

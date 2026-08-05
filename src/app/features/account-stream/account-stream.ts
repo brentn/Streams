@@ -254,9 +254,18 @@ export class AccountStream {
     this.transactions.set(await this.storage.getTransactionsForAccount(this.id()));
   }
 
+  protected async reloadSkippedOccurrences(): Promise<void> {
+    this.skippedOccurrences.set(await this.storage.getSkippedOccurrences());
+  }
+
   /** A Transaction assignment can also create a Flow inline (AssignFlowDialog), and the drill-in panel can edit either kind, so reload everything mutable. */
   protected async reloadAll(): Promise<void> {
     await Promise.all([this.reloadFlows(), this.reloadTransfers(), this.reloadTransactions()]);
+  }
+
+  /** Resolving an Outstanding tile (#97) either re-categorizes a Transaction or persists a Skip — never creates a Flow/Transfer, so only these two need refreshing. */
+  protected async reloadOutstanding(): Promise<void> {
+    await Promise.all([this.reloadTransactions(), this.reloadSkippedOccurrences()]);
   }
 
   protected openAddFlow(): void {

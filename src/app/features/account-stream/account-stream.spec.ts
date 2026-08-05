@@ -12,6 +12,7 @@ import { SimpleFinAdapter } from '../../core/simplefin/simplefin-adapter';
 import { StorageRepository } from '../../core/storage/storage-repository';
 import { AccountStream } from './account-stream';
 import { FlowFormDialog, FlowFormDialogResult } from './flow-form-dialog/flow-form-dialog';
+import { ResolveOutstandingDialogResult } from './outstanding-flow-row/resolve-outstanding-dialog/resolve-outstanding-dialog';
 import { TransferFormDialog, TransferFormDialogResult } from './transfer-form-dialog/transfer-form-dialog';
 
 // balanceDate is always "tomorrow" relative to test run time, so today's
@@ -38,6 +39,8 @@ describe('AccountStream', () => {
     upsertAccount: ReturnType<typeof vi.fn>;
     upsertTransactions: ReturnType<typeof vi.fn>;
     getCategorizationRules: ReturnType<typeof vi.fn>;
+    upsertCategorizationRule: ReturnType<typeof vi.fn>;
+    upsertSkippedOccurrence: ReturnType<typeof vi.fn>;
     saveLastSyncedAt: ReturnType<typeof vi.fn>;
     getLastSyncedAt: ReturnType<typeof vi.fn>;
     getOldestFetchedAt: ReturnType<typeof vi.fn>;
@@ -63,6 +66,8 @@ describe('AccountStream', () => {
       upsertAccount: vi.fn(),
       upsertTransactions: vi.fn(),
       getCategorizationRules: vi.fn().mockResolvedValue([]),
+      upsertCategorizationRule: vi.fn().mockResolvedValue(undefined),
+      upsertSkippedOccurrence: vi.fn().mockResolvedValue(undefined),
       saveLastSyncedAt: vi.fn(),
       getLastSyncedAt: vi.fn().mockResolvedValue(undefined),
       getOldestFetchedAt: vi.fn().mockResolvedValue(new Date('2026-07-20T12:00:00Z')),
@@ -523,6 +528,85 @@ describe('AccountStream', () => {
       fixture.detectChanges();
 
       expect(fixture.nativeElement.querySelector('.outstanding-row')).toBeNull();
+    });
+
+    describe('resolving a tile (#97)', () => {
+      const now = Date.now();
+      const occurrenceDate = new Date(now - 2 * 60 * 60 * 1000);
+      const lateFlow: RecurringFlow = {
+        id: 'flow-late',
+        accountId: 'acc-1',
+        name: 'Rent',
+        direction: 'out',
+        kind: 'recurring',
+        amount: 200,
+        cadence: { period: 'once', date: occurrenceDate },
+      };
+
+      it('persists a skip and reloads so the tile disappears, without a manual reload', async () => {
+        storage.getFlowsForAccount.mockResolvedValue([lateFlow]);
+
+        const fixture = TestBed.createComponent(AccountStream);
+        fixture.componentRef.setInput('id', 'acc-1');
+        const component = fixture.componentInstance;
+        await component['load']('acc-1');
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelectorAll('.tile').length).toBe(1);
+
+        // Set only once the initial render is confirmed, so it doesn't matter how many times
+        // `load` already ran during setup (the id-effect re-runs it once more on the first
+        // `detectChanges`, alongside our own explicit call above).
+        storage.getSkippedOccurrences.mockResolvedValue([{ flowId: 'flow-late', occurrenceDate }]);
+
+        const closed = new Subject<ResolveOutstandingDialogResult | undefined>();
+        dialog.open.mockReturnValue({ closed });
+        (fixture.nativeElement.querySelector('.tile') as HTMLElement).click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        closed.next({ kind: 'skip', flowId: 'flow-late', occurrenceDate });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        fixture.detectChanges();
+
+        expect(storage.upsertSkippedOccurrence).toHaveBeenCalledWith({ flowId: 'flow-late', occurrenceDate });
+        expect(fixture.nativeElement.querySelector('.outstanding-row')).toBeNull();
+      });
+
+      it('persists an assigned match and reloads Transactions so the tile disappears, without a manual reload', async () => {
+        storage.getFlowsForAccount.mockResolvedValue([lateFlow]);
+
+        const fixture = TestBed.createComponent(AccountStream);
+        fixture.componentRef.setInput('id', 'acc-1');
+        const component = fixture.componentInstance;
+        await component['load']('acc-1');
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelectorAll('.tile').length).toBe(1);
+
+        const matched: Transaction = {
+          id: 'txn-1',
+          accountId: 'acc-1',
+          date: occurrenceDate,
+          amount: -200,
+          description: 'RENT CO',
+          matchedTarget: { kind: 'flow', id: 'flow-late' },
+        };
+        // Set only once the initial render is confirmed — see the skip test's comment above.
+        storage.getTransactionsForAccount.mockResolvedValue([matched]);
+
+        const closed = new Subject<ResolveOutstandingDialogResult | undefined>();
+        dialog.open.mockReturnValue({ closed });
+        (fixture.nativeElement.querySelector('.tile') as HTMLElement).click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        closed.next({ kind: 'assign', matchText: 'rent co', target: { kind: 'flow', id: 'flow-late' } });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        fixture.detectChanges();
+
+        expect(storage.upsertCategorizationRule).toHaveBeenCalledWith({
+          matchText: 'rent co',
+          target: { kind: 'flow', id: 'flow-late' },
+        });
+        expect(fixture.nativeElement.querySelector('.outstanding-row')).toBeNull();
+      });
     });
   });
 

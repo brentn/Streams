@@ -1,0 +1,52 @@
+<div class="dialog">
+  <h2>{{ data.flow.name }}</h2>
+  <p class="flow-summary">{{ data.amount | currency }} · Due {{ data.occurrenceDate | date: 'mediumDate' }}</p>
+
+  @if (!selectedTransaction()) {
+    @if (candidates().length > 0) {
+      <ul class="candidates">
+        @for (candidate of candidates(); track candidate.transaction.id) {
+          <li class="candidate" (click)="selectCandidate(candidate.transaction)">
+            <span class="description">{{ candidate.transaction.description }}</span>
+            <span class="meta">
+              {{ candidate.transaction.date | date: 'mediumDate' }} ·
+              {{ candidate.transaction.amount | currency }}
+            </span>
+          </li>
+        }
+      </ul>
+    } @else {
+      <p class="no-candidates">No Transactions to suggest yet.</p>
+    }
+
+    <div class="form-actions">
+      <button type="button" class="skip" (click)="skip()">Skip this occurrence</button>
+      <button type="button" (click)="cancel()">Cancel</button>
+    </div>
+  } @else {
+    <p class="txn-summary">
+      {{ selectedTransaction()!.description }} · {{ selectedTransaction()!.date | date: 'mediumDate' }} ·
+      {{ selectedTransaction()!.amount | currency }}
+    </p>
+
+    @if (formError(); as error) {
+      <p class="form-error">{{ error }}</p>
+    }
+
+    <form (submit)="confirmAssign($event)">
+      <label>
+        Match text
+        <input
+          type="text"
+          [value]="matchText()"
+          (input)="matchText.set($any($event.target).value)"
+        />
+      </label>
+
+      <div class="form-actions">
+        <button type="submit">Save</button>
+        <button type="button" (click)="backToCandidates()">Back</button>
+      </div>
+    </form>
+  }
+</div>
