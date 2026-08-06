@@ -76,6 +76,28 @@ describe('StreamBand', () => {
     fixture.detectChanges();
   }
 
+  /**
+   * Resolves a `.band-fill` polygon's `fill="url(#...)"` back to its `<linearGradient>` in
+   * `<defs>` — the hue/opacity now live on that gradient's `.gradient-stop` children, not on the
+   * polygon itself (see stream-band.ts's `hueRuns`).
+   */
+  function gradientFor(
+    fixture: ReturnType<typeof TestBed.createComponent<StreamBand>>,
+    fill: Element,
+  ): Element {
+    const url = fill.getAttribute('fill') ?? '';
+    const id = url.replace(/^url\(#/, '').replace(/\)$/, '');
+    const gradient: Element | null = fixture.nativeElement.querySelector(`[id="${id}"]`);
+    if (!gradient) throw new Error(`gradientFor(): no gradient with id "${id}"`);
+    return gradient;
+  }
+
+  function stopOpacities(gradient: Element): number[] {
+    return Array.from(gradient.querySelectorAll<HTMLElement>('.gradient-stop')).map((el) =>
+      Number(el.style.stopOpacity),
+    );
+  }
+
   it('emits the source Tributary when its line id is clicked', async () => {
     const { component } = await createComponent([flowTributary]);
     const emitted = vi.fn();
@@ -430,8 +452,8 @@ describe('StreamBand', () => {
     });
   });
 
-  describe('color encoding (#77 — Signed Balance color ribbon)', () => {
-    it('merges consecutive same-balance days into one seamless flat-filled band polygon, never the old width-based segments or a per-day seam', async () => {
+  describe('color encoding (#77 — Signed Balance color ribbon; #100 — smooth per-hue-run gradients)', () => {
+    it('renders a run of same-hue days as one gradient-filled band polygon, never the old width-based segments', async () => {
       const flatPoints: BandPoint[] = [point(0, 100), point(1, 100), point(2, 100)];
       const { fixture } = await createComponent([], 2, { points: flatPoints, boundaryX: 10 });
 
@@ -439,12 +461,45 @@ describe('StreamBand', () => {
       expect(fixture.nativeElement.querySelectorAll('.band-fill').length).toBe(1);
     });
 
-    it('renders two adjacent days with genuinely different balances as two separate, distinctly-edged polygons (#99)', async () => {
+    it(
+      'renders same-hue days with differing balances as one gradient-filled polygon carrying each ' +
+        "day's own distinct opacity as a stop, not separate per-day polygons — the smooth-gradient " +
+        'replacement (#100) for the old flat per-day fill',
+      async () => {
+        const rampingPoints: BandPoint[] = [point(0, 0), point(1, 2500), point(2, 5000)];
+        const { fixture } = await createComponent([], 3, { points: rampingPoints, boundaryX: 10 });
+
+        const fills: SVGPolygonElement[] = Array.from(fixture.nativeElement.querySelectorAll('.band-fill'));
+        expect(fills).toHaveLength(1);
+
+        const opacities = stopOpacities(gradientFor(fixture, fills[0]));
+        expect(opacities).toHaveLength(3);
+        expect(new Set(opacities).size).toBe(3); // three genuinely distinct per-day opacities
+      },
+    );
+
+    it('renders two adjacent days with genuinely different hues as two separate, distinctly-edged polygons', async () => {
       const differingPoints: BandPoint[] = [point(0, 1000), point(1, -1000), point(2, -1000)];
       const { fixture } = await createComponent([], 2, { points: differingPoints, boundaryX: 10 });
 
       expect(fixture.nativeElement.querySelectorAll('.band-fill').length).toBe(2);
     });
+
+    it(
+      "gives two StreamBand instances non-colliding gradient ids, so one lane's gradient defs " +
+        "can't silently paint another lane's polygon (#100) — both an account lane and the " +
+        'multi-account Total lane render at once through this shared component',
+      async () => {
+        const points: BandPoint[] = [point(0, 1000), point(1, 1000)];
+        const { fixture: fixtureA } = await createComponent([], 2, { points, boundaryX: 10 });
+        const { fixture: fixtureB } = await createComponent([], 2, { points, boundaryX: 10 });
+
+        const fillA: SVGPolygonElement = fixtureA.nativeElement.querySelector('.band-fill');
+        const fillB: SVGPolygonElement = fixtureB.nativeElement.querySelector('.band-fill');
+
+        expect(fillA.getAttribute('fill')).not.toBe(fillB.getAttribute('fill'));
+      },
+    );
 
     it('renders the positive (blue) hue for a positive Signed Balance on an Asset account', async () => {
       const { fixture } = await createComponent([], 2, {
@@ -454,8 +509,10 @@ describe('StreamBand', () => {
       });
 
       const fill: SVGPolygonElement = fixture.nativeElement.querySelector('.band-fill');
-      expect(fill.classList.contains('positive')).toBe(true);
-      expect(fill.classList.contains('negative')).toBe(false);
+      const stops = gradientFor(fixture, fill).querySelectorAll('.gradient-stop');
+      expect(stops.length).toBeGreaterThan(0);
+      expect(Array.from(stops).every((s) => s.classList.contains('positive'))).toBe(true);
+      expect(Array.from(stops).some((s) => s.classList.contains('negative'))).toBe(false);
     });
 
     it('renders the negative (brown) hue for a negative Signed Balance on an Asset account', async () => {
@@ -466,8 +523,9 @@ describe('StreamBand', () => {
       });
 
       const fill: SVGPolygonElement = fixture.nativeElement.querySelector('.band-fill');
-      expect(fill.classList.contains('negative')).toBe(true);
-      expect(fill.classList.contains('positive')).toBe(false);
+      const stops = gradientFor(fixture, fill).querySelectorAll('.gradient-stop');
+      expect(Array.from(stops).every((s) => s.classList.contains('negative'))).toBe(true);
+      expect(Array.from(stops).some((s) => s.classList.contains('positive'))).toBe(false);
     });
 
     it('reads a Liability account through Signed Balance — a negative raw balance (as expected) renders positive', async () => {
@@ -478,7 +536,8 @@ describe('StreamBand', () => {
       });
 
       const fill: SVGPolygonElement = fixture.nativeElement.querySelector('.band-fill');
-      expect(fill.classList.contains('positive')).toBe(true);
+      const stops = gradientFor(fixture, fill).querySelectorAll('.gradient-stop');
+      expect(Array.from(stops).every((s) => s.classList.contains('positive'))).toBe(true);
     });
 
     it('reads a Liability account whose raw balance is opposite of expected (positive) as the negative hue', async () => {
@@ -489,24 +548,26 @@ describe('StreamBand', () => {
       });
 
       const fill: SVGPolygonElement = fixture.nativeElement.querySelector('.band-fill');
-      expect(fill.classList.contains('negative')).toBe(true);
+      const stops = gradientFor(fixture, fill).querySelectorAll('.gradient-stop');
+      expect(Array.from(stops).every((s) => s.classList.contains('negative'))).toBe(true);
     });
 
-    it("ramps a segment's fill-opacity linearly with |Signed Balance| against the flat $5000 domain, clamped past it", async () => {
+    it("ramps a gradient stop's opacity linearly with |Signed Balance| against the flat $5000 domain, clamped past it", async () => {
       const { fixture } = await createComponent([], 4, {
         points: [point(0, 0), point(1, 2500), point(2, 5000), point(3, 50000)],
         boundaryX: 10,
         expectedSign: 1,
       });
 
+      // every point is >= 0 (positive hue), so the whole series is one run/gradient/polygon.
       const fills: SVGPolygonElement[] = Array.from(fixture.nativeElement.querySelectorAll('.band-fill'));
-      const opacities = fills.map((el) => Number(el.style.fillOpacity));
+      expect(fills).toHaveLength(1);
+      const opacities = stopOpacities(gradientFor(fixture, fills[0]));
 
       expect(opacities[0]).toBeCloseTo(0.05); // balance 0
       expect(opacities[1]).toBeCloseTo(0.525); // balance 2500 -> halfway
       expect(opacities[2]).toBeCloseTo(1.0); // balance 5000 -> full
-      // note: segment i is colored by point i (the leading point) — the last point (50000)
-      // never leads a segment here, so clamping is exercised via balance 5000 already at the ceiling.
+      expect(opacities[3]).toBeCloseTo(1.0); // balance 50000 -> clamped
     });
 
     it('renders exactly one white backing rect sized to the constant band', async () => {
@@ -537,17 +598,18 @@ describe('StreamBand', () => {
   });
 
   describe("Total lane's own color palette/domain (#79)", () => {
-    it("defaults to the 'account' palette — no .total class on a plain color-encoded band", async () => {
+    it("defaults to the 'account' palette — no .total class on a plain color-encoded band's gradient stops", async () => {
       const { fixture } = await createComponent([], 2, {
         points: [point(0, 1000), point(1, 1000)],
         boundaryX: 10,
       });
 
       const fill: SVGPolygonElement = fixture.nativeElement.querySelector('.band-fill');
-      expect(fill.classList.contains('total')).toBe(false);
+      const stops = gradientFor(fixture, fill).querySelectorAll('.gradient-stop');
+      expect(Array.from(stops).some((s) => s.classList.contains('total'))).toBe(false);
     });
 
-    it("marks every band-fill polygon with .total when colorPalette is 'total'", async () => {
+    it("marks every gradient stop with .total when colorPalette is 'total'", async () => {
       const { fixture } = await createComponent([], 4, {
         points: [point(0, 1000), point(1, -1000), point(2, 500), point(3, -500)],
         boundaryX: 10,
@@ -555,9 +617,9 @@ describe('StreamBand', () => {
         colorDomain: 1000,
       });
 
-      const fills: SVGPolygonElement[] = Array.from(fixture.nativeElement.querySelectorAll('.band-fill'));
-      expect(fills.length).toBeGreaterThan(0);
-      expect(fills.every((el) => el.classList.contains('total'))).toBe(true);
+      const stops: NodeListOf<HTMLElement> = fixture.nativeElement.querySelectorAll('.gradient-stop');
+      expect(stops.length).toBeGreaterThan(0);
+      expect(Array.from(stops).every((el) => el.classList.contains('total'))).toBe(true);
     });
 
     it('reaches full opacity at 80% of colorDomain for the total palette, not 100% — and clamps identically past it, merging into one polygon', async () => {
@@ -571,11 +633,12 @@ describe('StreamBand', () => {
 
       const fills: SVGPolygonElement[] = Array.from(fixture.nativeElement.querySelectorAll('.band-fill'));
       // balance 800 (80% of the 1000 domain) and 1000 (past it, clamped) both reach the same full
-      // opacity, so their two segments merge (#99) into one polygon rather than two identically-
-      // colored ones — point 2 (400) never leads a segment in a 3-point series, so the sub-ceiling
-      // ramp is covered by balance-color.spec.ts instead.
+      // opacity and share a hue, so their two segments merge into one gradient-filled polygon
+      // (#100) rather than two identically-colored ones — point 2 (400) never leads a segment in
+      // a 3-point series, so the sub-ceiling ramp is covered by balance-color.spec.ts instead.
       expect(fills).toHaveLength(1);
-      expect(Number(fills[0].style.fillOpacity)).toBeCloseTo(1.0);
+      const opacities = stopOpacities(gradientFor(fixture, fills[0]));
+      expect(opacities[0]).toBeCloseTo(1.0);
     });
 
     it("carries over the account palette's raised 0.2 negative floor, unlike its shared positive one", async () => {
@@ -588,13 +651,14 @@ describe('StreamBand', () => {
       });
 
       const fill: SVGPolygonElement = fixture.nativeElement.querySelector('.band-fill');
-      expect(fill.classList.contains('negative')).toBe(true);
-      expect(Number(fill.style.fillOpacity)).toBeCloseTo(0.2);
+      const stops = gradientFor(fixture, fill).querySelectorAll('.gradient-stop');
+      expect(Array.from(stops).every((s) => s.classList.contains('negative'))).toBe(true);
+      expect(stopOpacities(gradientFor(fixture, fill))[0]).toBeCloseTo(0.2);
     });
   });
 
   describe('projected-region overlay (replaces the old opacity-based marker)', () => {
-    it('renders no band-fill polygon with reduced opacity for the projected phase — magnitude opacity is untouched by phase', async () => {
+    it('renders no band-fill polygon or gradient stop with reduced opacity for the projected phase — magnitude opacity is untouched by phase', async () => {
       const { fixture } = await createComponent([], 3, {
         points: [point(0, 5000), point(1, 5000), point(2, 5000)],
         boundaryX: 1,
@@ -602,10 +666,12 @@ describe('StreamBand', () => {
       });
 
       const fills: SVGPolygonElement[] = Array.from(fixture.nativeElement.querySelectorAll('.band-fill'));
-      // every segment ramps purely by its own balance — none carry a `.projected` class/opacity dip anymore.
+      // every day ramps purely by its own balance — none carry a `.projected` class/opacity dip anymore.
       expect(fills.every((el) => !el.classList.contains('projected'))).toBe(true);
       for (const fill of fills) {
-        expect(Number(fill.style.fillOpacity)).toBeCloseTo(1.0); // flat $5000 balance throughout -> ceiling, unaffected by boundaryX
+        for (const opacity of stopOpacities(gradientFor(fixture, fill))) {
+          expect(opacity).toBeCloseTo(1.0); // flat $5000 balance throughout -> ceiling, unaffected by boundaryX
+        }
       }
     });
 

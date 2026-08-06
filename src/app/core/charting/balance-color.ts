@@ -94,10 +94,10 @@ export interface BalancePointSegment {
 }
 
 /**
- * One flat-filled polygon per consecutive point pair, colored by the segment's own leading
- * balance — every day gets its own exact hue/opacity rather than a handful of fixed range
- * buckets, but as a flat fill (not an SVG `<linearGradient>`'s interpolation between stops); see
- * `StreamBand`'s `colorSegments` and ADR-0009.
+ * One segment per consecutive point pair, colored by the segment's own leading balance — every
+ * day gets its own exact hue/opacity rather than a handful of fixed range buckets. The raw
+ * per-day building block `hueRunsByPoint` groups into gradient runs for `StreamBand`; see
+ * ADR-0009.
  */
 export function segmentsByPoint(
   points: BandPoint[],
@@ -112,31 +112,49 @@ export function segmentsByPoint(
   return segments;
 }
 
-export interface MergedBalanceSegment {
-  points: BandPoint[];
-  hue: BalanceHue;
+/** One day's exact opacity at its real x-position, along a `HueRun`'s gradient. */
+export interface GradientStop {
+  x: number;
   opacity: number;
 }
 
+export interface HueRun {
+  points: BandPoint[];
+  hue: BalanceHue;
+  stops: GradientStop[];
+}
+
 /**
- * Collapses consecutive same-hue/same-opacity segments from `segmentsByPoint` into one polygon
- * run, composed on top of its per-day output rather than changing it — adjacent day polygons
- * share an exactly coincident edge (constant thickness, consecutive integer x-coordinates, no
- * gap/overlap), so even identically-colored neighbors get an independently anti-aliased seam
- * between them; `shape-rendering: crispEdges` alone isn't reliable across browsers (e.g. Safari).
- * Plain `===` on hue/opacity is safe here: opacity is a pure deterministic function of a day's
- * Signed Balance, so equal balances produce bit-identical floats. See `StreamBand`'s
- * `colorSegments` and ADR-0009.
+ * Groups consecutive same-*hue* segments from `segmentsByPoint` into one run — unlike the
+ * superseded `mergeAdjacentSegments`, this is same-hue only, not same-hue-*and*-same-opacity:
+ * every day keeps its own exact opacity rather than being flattened to a shared value, carried as
+ * a `GradientStop` at that day's real x-position. `StreamBand` paints each run as a single
+ * `<linearGradient>`-filled polygon whose stops interpolate continuously between days, so unlike
+ * a flat per-day fill, two adjacent days can differ in opacity with no internal polygon edge
+ * between them at all — only a genuine hue flip still produces a separate shape. Validated in the
+ * `smooth` variant of the `prototype/gradient-stream-fill` throwaway branch. See ADR-0009.
  */
-export function mergeAdjacentSegments(segments: BalancePointSegment[]): MergedBalanceSegment[] {
-  const merged: MergedBalanceSegment[] = [];
+export function hueRunsByPoint(
+  points: BandPoint[],
+  expectedSign: Sign,
+  curve: ColorCurve = ACCOUNT_COLOR_CURVE,
+): HueRun[] {
+  const segments = segmentsByPoint(points, expectedSign, curve);
+  if (segments.length === 0) return [];
+
+  const runs: BalancePointSegment[][] = [];
   for (const segment of segments) {
-    const last = merged[merged.length - 1];
-    if (last && last.hue === segment.hue && last.opacity === segment.opacity) {
-      last.points.push(segment.points[1]);
-    } else {
-      merged.push({ points: [...segment.points], hue: segment.hue, opacity: segment.opacity });
-    }
+    const last = runs[runs.length - 1];
+    if (last && last[0].hue === segment.hue) last.push(segment);
+    else runs.push([segment]);
   }
-  return merged;
+
+  return runs.map((run) => {
+    const leadingStops = run.map((segment) => ({ x: segment.points[0].x, opacity: segment.opacity }));
+    const lastSegment = run[run.length - 1];
+    const trailingOpacity = balanceColorSegment(lastSegment.points[1].balance, expectedSign, curve).opacity;
+    const stops = [...leadingStops, { x: lastSegment.points[1].x, opacity: trailingOpacity }];
+    const runPoints = run.map((segment) => segment.points[0]).concat(lastSegment.points[1]);
+    return { points: runPoints, hue: run[0].hue, stops };
+  });
 }

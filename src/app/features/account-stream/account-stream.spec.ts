@@ -1004,9 +1004,11 @@ describe('AccountStream', () => {
       fixture.detectChanges();
 
       const fills = fixture.nativeElement.querySelectorAll('.band-fill');
+      const stops: NodeListOf<Element> = fixture.nativeElement.querySelectorAll('.gradient-stop');
       expect(fixture.nativeElement.querySelectorAll('.segment').length).toBe(0);
       expect(fills.length).toBeGreaterThan(0);
-      expect(Array.from(fills as NodeListOf<Element>).every((el) => el.classList.contains('positive'))).toBe(true);
+      expect(stops.length).toBeGreaterThan(0);
+      expect(Array.from(stops).every((el) => el.classList.contains('positive'))).toBe(true);
     });
 
     it('renders the same positive (blue) hue for a Liability account whose balance is normal (negative), via Signed Balance rather than raw balance', async () => {
@@ -1019,8 +1021,10 @@ describe('AccountStream', () => {
       fixture.detectChanges();
 
       const fills = fixture.nativeElement.querySelectorAll('.band-fill');
+      const stops: NodeListOf<Element> = fixture.nativeElement.querySelectorAll('.gradient-stop');
       expect(fills.length).toBeGreaterThan(0);
-      expect(Array.from(fills as NodeListOf<Element>).every((el) => el.classList.contains('positive'))).toBe(true);
+      expect(stops.length).toBeGreaterThan(0);
+      expect(Array.from(stops).every((el) => el.classList.contains('positive'))).toBe(true);
     });
 
     it('renders the negative (brown) hue for a Liability account whose raw balance is positive (opposite of expected)', async () => {
@@ -1033,8 +1037,10 @@ describe('AccountStream', () => {
       fixture.detectChanges();
 
       const fills = fixture.nativeElement.querySelectorAll('.band-fill');
+      const stops: NodeListOf<Element> = fixture.nativeElement.querySelectorAll('.gradient-stop');
       expect(fills.length).toBeGreaterThan(0);
-      expect(Array.from(fills as NodeListOf<Element>).every((el) => el.classList.contains('negative'))).toBe(true);
+      expect(stops.length).toBeGreaterThan(0);
+      expect(Array.from(stops).every((el) => el.classList.contains('negative'))).toBe(true);
     });
   });
 });

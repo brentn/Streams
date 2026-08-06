@@ -1,12 +1,7 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, computed, input, output, signal } from '@angular/core';
 import { Sign } from '../../core/models/account';
-import {
-  ACCOUNT_COLOR_CURVE,
-  mergeAdjacentSegments,
-  segmentsByPoint,
-  totalColorCurve,
-} from '../../core/charting/balance-color';
+import { ACCOUNT_COLOR_CURVE, hueRunsByPoint, totalColorCurve } from '../../core/charting/balance-color';
 import { BandPoint } from '../../core/charting/band-segments';
 import { magnitudeScale, ribbonPoints } from '../../core/charting/ribbon';
 import { buildTributaryArrows } from '../../core/charting/tributary-arrows';
@@ -26,9 +21,11 @@ const CONSTANT_HALF_THICKNESS_FRACTION = 0.7;
 const GROUP_LIST_CLEARANCE = '1.75rem';
 
 /**
- * One constant-width, Signed-Balance color-encoded band (ADR-0009): each day renders as a solid
- * flat-filled polygon, hue by `positive`/`negative` and opacity ramped by `|Signed Balance|`
- * against a curve's domain (`colorPalette`/`colorDomain`; see `balance-color.ts`). The
+ * One constant-width, Signed-Balance color-encoded band (ADR-0009): rendered as one
+ * `<linearGradient>`-filled polygon per run of consecutive same-hue days, hue by
+ * `positive`/`negative` and each day's own opacity ramped by `|Signed Balance|` against a curve's
+ * domain (`colorPalette`/`colorDomain`; see `balance-color.ts`) carried as that day's gradient
+ * stop, so the fill interpolates smoothly rather than stepping day to day. The
  * actual/projected split is marked by a separate diagonal-hatch overlay (`projectedOverlay`)
  * rather than a second opacity multiplier on the fill, so magnitude and phase read as distinct
  * signals instead of compounding into one (validated in the `prototype/projected-indicator`
@@ -77,21 +74,45 @@ export class StreamBand {
   );
 
   /**
-   * One flat-filled polygon per run of consecutive same-hue/same-opacity days: each day still
-   * gets its own exact hue/opacity from Signed Balance (see `segmentsByPoint`), independent of
-   * actual/projected phase (see `projectedOverlay`), but identically-colored neighbors merge
-   * (`mergeAdjacentSegments`) into one seamless shape instead of sharing a coincident,
-   * independently anti-aliased edge — see ADR-0009's addendum (#99).
+   * Namespaces this instance's `<linearGradient>` ids (`hueRuns`) — multiple `StreamBand`s render
+   * on the same page at once (one per account lane, plus the multi-account view's Total lane), so
+   * a bare per-run index would collide across instances: SVG `id`s are global to the document, and
+   * a colliding id makes every `url(#...)` reference resolve to whichever element defined that id
+   * first, silently painting one lane's polygons with another lane's gradient.
    */
-  protected readonly colorSegments = computed(() => {
+  private readonly instanceId = crypto.randomUUID();
+
+  /**
+   * One gradient-filled polygon per run of consecutive same-hue days (ADR-0009): each day still
+   * gets its own exact opacity from Signed Balance (`hueRunsByPoint`), independent of
+   * actual/projected phase (see `projectedOverlay`), but carried as a `<linearGradient>` stop at
+   * that day's real x-position rather than a flat per-day fill — colors interpolate continuously
+   * between days, so within a run there is no polygon-to-polygon edge left to anti-alias at all.
+   * Only a genuine hue flip still produces a separate polygon — see ADR-0009's addendum (#100),
+   * superseding #99's same-hue-*and*-same-opacity merge, which still left same-hue/differing-
+   * opacity neighbors as separately-edged polygons.
+   */
+  protected readonly hueRuns = computed(() => {
     const half = this.constantHalfThickness();
+    const centerY = this.centerY();
     const curve = this.colorCurve();
-    const segments = segmentsByPoint(this.points(), this.expectedSign(), curve);
-    return mergeAdjacentSegments(segments).map((segment) => ({
-      hue: segment.hue,
-      opacity: segment.opacity,
-      polygon: ribbonPoints(segment.points, this.centerY(), () => half),
-    }));
+    const runs = hueRunsByPoint(this.points(), this.expectedSign(), curve);
+    return runs.map((run, index) => {
+      const x1 = run.stops[0].x;
+      const x2 = run.stops[run.stops.length - 1].x;
+      const span = x2 - x1 || 1;
+      return {
+        id: `band-gradient-${this.instanceId}-${index}`,
+        hue: run.hue,
+        x1,
+        x2,
+        stops: run.stops.map((stop) => ({
+          offsetPercent: `${(((stop.x - x1) / span) * 100).toFixed(2)}%`,
+          opacity: stop.opacity,
+        })),
+        polygon: ribbonPoints(run.points, centerY, () => half),
+      };
+    });
   });
 
   /**

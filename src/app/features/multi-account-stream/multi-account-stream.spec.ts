@@ -368,8 +368,10 @@ describe('MultiAccountStream', () => {
       const laneEls = fixture.nativeElement.querySelectorAll('.lanes > .lane:not(.total-lane)');
       for (const laneEl of laneEls as NodeListOf<Element>) {
         const fills = laneEl.querySelectorAll('.band-fill');
+        const stops = laneEl.querySelectorAll('.gradient-stop');
         expect(fills.length).toBeGreaterThan(0);
-        expect(Array.from(fills).every((el) => el.classList.contains('positive'))).toBe(true);
+        expect(stops.length).toBeGreaterThan(0);
+        expect(Array.from(stops).every((el) => el.classList.contains('positive'))).toBe(true);
       }
     });
 
@@ -382,8 +384,10 @@ describe('MultiAccountStream', () => {
 
       const laneEl = fixture.nativeElement.querySelector('.lanes > .lane:not(.total-lane)')!;
       const fills = laneEl.querySelectorAll('.band-fill');
+      const stops: NodeListOf<Element> = laneEl.querySelectorAll('.gradient-stop');
       expect(fills.length).toBeGreaterThan(0);
-      expect(Array.from(fills as NodeListOf<Element>).every((el) => el.classList.contains('negative'))).toBe(true);
+      expect(stops.length).toBeGreaterThan(0);
+      expect(Array.from(stops).every((el) => el.classList.contains('negative'))).toBe(true);
     });
 
   });
@@ -397,18 +401,21 @@ describe('MultiAccountStream', () => {
 
       const totalLaneEl = fixture.nativeElement.querySelector('.lanes > .lane.total-lane')!;
       const fills = totalLaneEl.querySelectorAll('.band-fill');
+      const stops: NodeListOf<Element> = totalLaneEl.querySelectorAll('.gradient-stop');
       expect(fills.length).toBeGreaterThan(0);
-      expect(Array.from(fills as NodeListOf<Element>).every((el) => el.classList.contains('total'))).toBe(true);
+      expect(stops.length).toBeGreaterThan(0);
+      expect(Array.from(stops).every((el) => el.classList.contains('total'))).toBe(true);
     });
 
     it('renders green (positive) for a net-positive Total and red (negative) for a net-negative one', async () => {
       const positiveFixture = TestBed.createComponent(MultiAccountStream);
       await positiveFixture.componentInstance['load']();
       positiveFixture.detectChanges();
-      const positiveFills = positiveFixture.nativeElement.querySelectorAll('.lane.total-lane .band-fill');
-      expect(Array.from(positiveFills as NodeListOf<Element>).every((el) => el.classList.contains('positive'))).toBe(
-        true,
+      const positiveStops: NodeListOf<Element> = positiveFixture.nativeElement.querySelectorAll(
+        '.lane.total-lane .gradient-stop',
       );
+      expect(positiveStops.length).toBeGreaterThan(0);
+      expect(Array.from(positiveStops).every((el) => el.classList.contains('positive'))).toBe(true);
 
       storage.getAccounts.mockResolvedValue([
         { ...checking, balance: 100 },
@@ -417,10 +424,11 @@ describe('MultiAccountStream', () => {
       const negativeFixture = TestBed.createComponent(MultiAccountStream);
       await negativeFixture.componentInstance['load']();
       negativeFixture.detectChanges();
-      const negativeFills = negativeFixture.nativeElement.querySelectorAll('.lane.total-lane .band-fill');
-      expect(Array.from(negativeFills as NodeListOf<Element>).every((el) => el.classList.contains('negative'))).toBe(
-        true,
+      const negativeStops: NodeListOf<Element> = negativeFixture.nativeElement.querySelectorAll(
+        '.lane.total-lane .gradient-stop',
       );
+      expect(negativeStops.length).toBeGreaterThan(0);
+      expect(Array.from(negativeStops).every((el) => el.classList.contains('negative'))).toBe(true);
     });
 
     it("computes totalColorDomain across the full -365..+180 scrubbable range, not just the visible 60-day window", async () => {
