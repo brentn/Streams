@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
   BALANCE_COLOR_DOMAIN,
+  BalanceHue,
+  BalancePointSegment,
   balanceColorSegment,
+  mergeAdjacentSegments,
   segmentsByPoint,
   signedBalance,
   TOTAL_OPACITY_CEILING_RATIO,
   totalColorCurve,
 } from './balance-color';
+import { BandPoint } from './band-segments';
 
 describe('signedBalance', () => {
   it('leaves an Asset balance (expectedSign 1) unchanged', () => {
@@ -128,5 +132,95 @@ describe('segmentsByPoint', () => {
     expect(segments[0].hue).toBe('positive');
     expect(segments[1].points).toEqual([points[1], points[2]]);
     expect(segments[1].hue).toBe('negative');
+  });
+});
+
+describe('mergeAdjacentSegments', () => {
+  const p0: BandPoint = { x: 0, balance: 100 };
+  const p1: BandPoint = { x: 1, balance: 100 };
+  const p2: BandPoint = { x: 2, balance: 100 };
+  const p3: BandPoint = { x: 3, balance: 100 };
+
+  function segment(points: [BandPoint, BandPoint], hue: BalanceHue, opacity: number): BalancePointSegment {
+    return { points, hue, opacity };
+  }
+
+  it('returns no segments for empty input', () => {
+    expect(mergeAdjacentSegments([])).toEqual([]);
+  });
+
+  it('passes a single segment through unchanged', () => {
+    const merged = mergeAdjacentSegments([segment([p0, p1], 'positive', 0.5)]);
+
+    expect(merged).toEqual([{ points: [p0, p1], hue: 'positive', opacity: 0.5 }]);
+  });
+
+  it('merges 3+ consecutive same-hue/same-opacity segments into one run spanning every point', () => {
+    const segments = [
+      segment([p0, p1], 'positive', 0.5),
+      segment([p1, p2], 'positive', 0.5),
+      segment([p2, p3], 'positive', 0.5),
+    ];
+
+    const merged = mergeAdjacentSegments(segments);
+
+    expect(merged).toEqual([{ points: [p0, p1, p2, p3], hue: 'positive', opacity: 0.5 }]);
+  });
+
+  it('does not merge across a hue change, even with identical opacity', () => {
+    const segments = [segment([p0, p1], 'positive', 0.5), segment([p1, p2], 'negative', 0.5)];
+
+    const merged = mergeAdjacentSegments(segments);
+
+    expect(merged).toEqual([
+      { points: [p0, p1], hue: 'positive', opacity: 0.5 },
+      { points: [p1, p2], hue: 'negative', opacity: 0.5 },
+    ]);
+  });
+
+  it('does not merge across an opacity change, even with identical hue', () => {
+    const segments = [segment([p0, p1], 'positive', 0.5), segment([p1, p2], 'positive', 0.8)];
+
+    const merged = mergeAdjacentSegments(segments);
+
+    expect(merged).toEqual([
+      { points: [p0, p1], hue: 'positive', opacity: 0.5 },
+      { points: [p1, p2], hue: 'positive', opacity: 0.8 },
+    ]);
+  });
+
+  it('resumes a fresh group after a color-change break, rather than merging back into the earlier run', () => {
+    const segments = [
+      segment([p0, p1], 'positive', 0.5),
+      segment([p1, p2], 'negative', 0.5),
+      segment([p2, p3], 'positive', 0.5),
+    ];
+
+    const merged = mergeAdjacentSegments(segments);
+
+    expect(merged).toEqual([
+      { points: [p0, p1], hue: 'positive', opacity: 0.5 },
+      { points: [p1, p2], hue: 'negative', opacity: 0.5 },
+      { points: [p2, p3], hue: 'positive', opacity: 0.5 },
+    ]);
+  });
+
+  it('composes with the real segmentsByPoint end-to-end: same-colored consecutive segments merge, a differing one starts a new run', () => {
+    // segmentsByPoint colors each segment by its own leading point, so points[1] (also 1000)
+    // repeats points[0]'s color and merges; points[2]'s -1000 differs and starts a new run.
+    const points: BandPoint[] = [
+      { x: 0, balance: 1000 },
+      { x: 1, balance: 1000 },
+      { x: 2, balance: -1000 },
+      { x: 3, balance: -1000 },
+    ];
+
+    const merged = mergeAdjacentSegments(segmentsByPoint(points, 1));
+
+    expect(merged).toHaveLength(2);
+    expect(merged[0].points).toEqual([points[0], points[1], points[2]]);
+    expect(merged[0].hue).toBe('positive');
+    expect(merged[1].points).toEqual([points[2], points[3]]);
+    expect(merged[1].hue).toBe('negative');
   });
 });

@@ -22,11 +22,15 @@
 }
 
 /*
- * One flat-filled polygon per day (see `segmentsByPoint`/`colorSegments`). Left at default
- * anti-aliasing, each polygon's independently-blended edge shows a hairline seam against its
- * neighbor — `crispEdges` turns off anti-aliasing entirely, so exactly-abutting polygons meet
- * with no blended edge pixel to show a seam. Hue is a solid fill (no white-RGB mixing);
- * `fill-opacity` (set inline, per segment) carries the Signed-Balance-driven ramp.
+ * One flat-filled polygon per run of consecutive same-hue/same-opacity days (see
+ * `mergeAdjacentSegments`/`colorSegments`, #99) — the primary fix for the seam that used to show
+ * between identically-colored adjacent days, since a merged run has no coincident internal edge
+ * left to anti-alias at all. `crispEdges` is kept as a secondary hint for the edges that remain,
+ * between genuinely different-colored days: even a real color-change edge sits on an exactly
+ * coincident, consecutive-integer-x boundary (constant thickness, no gap/overlap), so a
+ * default-anti-aliased edge there can still show a hairline mismatch — `crispEdges` alone isn't
+ * reliable across every browser (e.g. Safari), but costs nothing to keep. Hue is a solid fill (no
+ * white-RGB mixing); `fill-opacity` (set inline, per run) carries the Signed-Balance-driven ramp.
  */
 .band-fill {
   shape-rendering: crispEdges;

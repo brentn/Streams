@@ -1,7 +1,12 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, computed, input, output, signal } from '@angular/core';
 import { Sign } from '../../core/models/account';
-import { ACCOUNT_COLOR_CURVE, segmentsByPoint, totalColorCurve } from '../../core/charting/balance-color';
+import {
+  ACCOUNT_COLOR_CURVE,
+  mergeAdjacentSegments,
+  segmentsByPoint,
+  totalColorCurve,
+} from '../../core/charting/balance-color';
 import { BandPoint } from '../../core/charting/band-segments';
 import { magnitudeScale, ribbonPoints } from '../../core/charting/ribbon';
 import { buildTributaryArrows } from '../../core/charting/tributary-arrows';
@@ -72,14 +77,17 @@ export class StreamBand {
   );
 
   /**
-   * One flat-filled polygon per consecutive point pair, colored by its own Signed Balance (see
-   * `segmentsByPoint`) — each day gets its own exact hue/opacity, independent of actual/projected
-   * phase (see `projectedOverlay`).
+   * One flat-filled polygon per run of consecutive same-hue/same-opacity days: each day still
+   * gets its own exact hue/opacity from Signed Balance (see `segmentsByPoint`), independent of
+   * actual/projected phase (see `projectedOverlay`), but identically-colored neighbors merge
+   * (`mergeAdjacentSegments`) into one seamless shape instead of sharing a coincident,
+   * independently anti-aliased edge — see ADR-0009's addendum (#99).
    */
   protected readonly colorSegments = computed(() => {
     const half = this.constantHalfThickness();
     const curve = this.colorCurve();
-    return segmentsByPoint(this.points(), this.expectedSign(), curve).map((segment) => ({
+    const segments = segmentsByPoint(this.points(), this.expectedSign(), curve);
+    return mergeAdjacentSegments(segments).map((segment) => ({
       hue: segment.hue,
       opacity: segment.opacity,
       polygon: ribbonPoints(segment.points, this.centerY(), () => half),

@@ -431,12 +431,19 @@ describe('StreamBand', () => {
   });
 
   describe('color encoding (#77 — Signed Balance color ribbon)', () => {
-    it('renders one flat-filled band polygon per consecutive day, never the old width-based segments', async () => {
+    it('merges consecutive same-balance days into one seamless flat-filled band polygon, never the old width-based segments or a per-day seam', async () => {
       const flatPoints: BandPoint[] = [point(0, 100), point(1, 100), point(2, 100)];
       const { fixture } = await createComponent([], 2, { points: flatPoints, boundaryX: 10 });
 
       expect(fixture.nativeElement.querySelectorAll('.segment').length).toBe(0);
-      expect(fixture.nativeElement.querySelectorAll('.band-fill').length).toBe(flatPoints.length - 1);
+      expect(fixture.nativeElement.querySelectorAll('.band-fill').length).toBe(1);
+    });
+
+    it('renders two adjacent days with genuinely different balances as two separate, distinctly-edged polygons (#99)', async () => {
+      const differingPoints: BandPoint[] = [point(0, 1000), point(1, -1000), point(2, -1000)];
+      const { fixture } = await createComponent([], 2, { points: differingPoints, boundaryX: 10 });
+
+      expect(fixture.nativeElement.querySelectorAll('.band-fill').length).toBe(2);
     });
 
     it('renders the positive (blue) hue for a positive Signed Balance on an Asset account', async () => {
@@ -553,7 +560,7 @@ describe('StreamBand', () => {
       expect(fills.every((el) => el.classList.contains('total'))).toBe(true);
     });
 
-    it('reaches full opacity at 80% of colorDomain for the total palette, not 100%', async () => {
+    it('reaches full opacity at 80% of colorDomain for the total palette, not 100% — and clamps identically past it, merging into one polygon', async () => {
       const { fixture } = await createComponent([], 3, {
         points: [point(0, 800), point(1, 1000), point(2, 400)],
         boundaryX: 10,
@@ -563,11 +570,12 @@ describe('StreamBand', () => {
       });
 
       const fills: SVGPolygonElement[] = Array.from(fixture.nativeElement.querySelectorAll('.band-fill'));
-      const opacities = fills.map((el) => Number(el.style.fillOpacity));
-      expect(opacities[0]).toBeCloseTo(1.0); // 800 is already at 80% of the 1000 domain
-      expect(opacities[1]).toBeCloseTo(1.0); // past it, clamped
-      // note: segment i is colored by point i (the leading point); point 2 (400) never leads a
-      // segment in a 3-point series, so the sub-ceiling ramp is covered by balance-color.spec.ts.
+      // balance 800 (80% of the 1000 domain) and 1000 (past it, clamped) both reach the same full
+      // opacity, so their two segments merge (#99) into one polygon rather than two identically-
+      // colored ones — point 2 (400) never leads a segment in a 3-point series, so the sub-ceiling
+      // ramp is covered by balance-color.spec.ts instead.
+      expect(fills).toHaveLength(1);
+      expect(Number(fills[0].style.fillOpacity)).toBeCloseTo(1.0);
     });
 
     it("carries over the account palette's raised 0.2 negative floor, unlike its shared positive one", async () => {

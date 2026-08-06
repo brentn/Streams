@@ -111,3 +111,32 @@ export function segmentsByPoint(
   }
   return segments;
 }
+
+export interface MergedBalanceSegment {
+  points: BandPoint[];
+  hue: BalanceHue;
+  opacity: number;
+}
+
+/**
+ * Collapses consecutive same-hue/same-opacity segments from `segmentsByPoint` into one polygon
+ * run, composed on top of its per-day output rather than changing it — adjacent day polygons
+ * share an exactly coincident edge (constant thickness, consecutive integer x-coordinates, no
+ * gap/overlap), so even identically-colored neighbors get an independently anti-aliased seam
+ * between them; `shape-rendering: crispEdges` alone isn't reliable across browsers (e.g. Safari).
+ * Plain `===` on hue/opacity is safe here: opacity is a pure deterministic function of a day's
+ * Signed Balance, so equal balances produce bit-identical floats. See `StreamBand`'s
+ * `colorSegments` and ADR-0009.
+ */
+export function mergeAdjacentSegments(segments: BalancePointSegment[]): MergedBalanceSegment[] {
+  const merged: MergedBalanceSegment[] = [];
+  for (const segment of segments) {
+    const last = merged[merged.length - 1];
+    if (last && last.hue === segment.hue && last.opacity === segment.opacity) {
+      last.points.push(segment.points[1]);
+    } else {
+      merged.push({ points: [...segment.points], hue: segment.hue, opacity: segment.opacity });
+    }
+  }
+  return merged;
+}
