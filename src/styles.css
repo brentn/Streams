@@ -104,3 +104,17 @@ body {
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
+
+/* iOS Safari auto-zooms the page on focus of any text input/select/textarea whose
+   computed font-size is under 16px, and doesn't reliably zoom back out — that's the
+   "page is stuck at ~110%" bug. Component styles set inputs at --text-body (14px);
+   !important is needed here because Angular's emulated encapsulation gives those
+   component-scoped rules an attribute selector, which otherwise outranks a plain
+   global one. Scoped to touch devices so the desktop 14px look is unaffected. */
+@media (hover: none) and (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
