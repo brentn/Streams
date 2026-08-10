@@ -26,7 +26,11 @@ import {
 } from '../../core/charting/date-window';
 import { laneHeightsFor, NARROW_BREAKPOINT_PX } from '../../core/charting/lane-heights';
 import { bannerPresentation, connectionBannerState } from '../../core/sync/sync-presentation';
-import { reloadOnSyncComplete, SyncCoordinator } from '../../core/sync/sync-coordinator';
+import {
+  reloadOnSyncComplete,
+  runSyncActionAndReload,
+  SyncCoordinator,
+} from '../../core/sync/sync-coordinator';
 import { StorageRepository } from '../../core/storage/storage-repository';
 import { CalendarChip } from '../../shared/calendar-chip/calendar-chip';
 import { DragScrub } from '../../shared/drag-scrub/drag-scrub.directive';
@@ -246,14 +250,19 @@ export class MultiAccountStream {
   }
 
   protected async resync(): Promise<void> {
-    await this.syncCoordinator.resync();
-    await this.load();
+    await runSyncActionAndReload(
+      () => this.syncCoordinator.resync(),
+      () => this.load(),
+    );
   }
 
   /** The banner's action button follows whichever state is showing (see `bannerPresentation`) — Reauthorize additionally opens the SimpleFIN Bridge to re-link and, per `SyncCoordinator.reauthorize`, keeps retrying on this tab's own return until it clears; a plain Retry just resyncs once. */
   protected onBannerAction(): void {
     if (this.bannerState().kind === 'needs-reauth') {
-      void this.syncCoordinator.reauthorize().then(() => this.load());
+      void runSyncActionAndReload(
+        () => this.syncCoordinator.reauthorize(),
+        () => this.load(),
+      );
     } else {
       void this.resync();
     }

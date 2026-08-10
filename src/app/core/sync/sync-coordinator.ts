@@ -73,7 +73,9 @@ export class SyncCoordinator {
    * The manual "Re-sync" button — always runs, bypassing the daily throttle. `allowBackfill`
    * defaults to true for that manual case; `triggerAutoResyncIfDue` passes false so unattended
    * daily auto-resync never chunks a dormant-gap backfill on its own (see
-   * `resyncKnownAccounts`'s `allowBackfill` parameter).
+   * `resyncKnownAccounts`'s `allowBackfill` parameter). Also doubles as `reauthorize`'s retry: on
+   * success, if a Reauthorize is pending, checks whether every Account has cleared Needs
+   * Reauthentication and, if so, stops listening for this tab's return (see `reauthPending`).
    */
   async resync(allowBackfill = true): Promise<void> {
     this.isSyncing.set(true);
@@ -125,4 +127,17 @@ export function reloadOnSyncComplete(syncCoordinator: SyncCoordinator, load: () 
     }
     wasSyncing = syncing;
   });
+}
+
+/**
+ * Runs a `SyncCoordinator` action (`resync` or `reauthorize`) and then reloads via `load` — the
+ * shape both the plain Retry and the Reauthorize banner action need, shared here instead of
+ * copy-pasted per view.
+ */
+export async function runSyncActionAndReload(
+  action: () => Promise<void>,
+  load: () => Promise<void>,
+): Promise<void> {
+  await action();
+  await load();
 }
