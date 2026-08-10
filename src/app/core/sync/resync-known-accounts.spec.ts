@@ -94,7 +94,7 @@ describe('resyncKnownAccounts', () => {
     );
   });
 
-  it('preserves the locally-owned name and institutionName for a known account', async () => {
+  it('preserves the locally-owned name and institutionName for a known account, while refreshing simplefinName/simplefinInstitutionName', async () => {
     simplefin.fetchAccounts.mockResolvedValue([
       { account: { ...known, name: 'SimpleFIN Name', institutionName: 'SimpleFIN Bank', balance: 999 }, transactions: [] },
     ]);
@@ -102,7 +102,13 @@ describe('resyncKnownAccounts', () => {
     await resyncKnownAccounts(storage as never, simplefin as never);
 
     expect(storage.upsertAccount).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'acc-1', name: 'Checking', institutionName: 'Bank' }),
+      expect.objectContaining({
+        id: 'acc-1',
+        name: 'Checking',
+        institutionName: 'Bank',
+        simplefinName: 'SimpleFIN Name',
+        simplefinInstitutionName: 'SimpleFIN Bank',
+      }),
     );
   });
 
@@ -451,6 +457,27 @@ describe('resyncKnownAccounts', () => {
       );
     });
 
+    it('re-keys via simplefinName even after a local rename, driven end-to-end through resyncKnownAccounts', async () => {
+      const renamed = {
+        ...known,
+        name: 'My Renamed Checking',
+        institutionName: 'My Nickname Bank',
+        simplefinName: known.name,
+        simplefinInstitutionName: known.institutionName,
+        syncStatus: { kind: 'needs-reauth' as const },
+      };
+      storage.getAccounts.mockResolvedValue([renamed]);
+      const reissued = { ...known, id: 'acc-reissued', balance: 999 }; // SimpleFIN still reports the raw, un-renamed name
+      simplefin.fetchAccounts.mockResolvedValue([{ account: reissued, transactions: [] }]);
+
+      await resyncKnownAccounts(storage as never, simplefin as never);
+
+      expect(storage.reidAccount).toHaveBeenCalledWith(
+        'acc-1',
+        expect.objectContaining({ id: 'acc-reissued', name: 'My Renamed Checking', institutionName: 'My Nickname Bank' }),
+      );
+    });
+
     it('never re-keys during an ordinary (non-recovery) resync, even with an id mismatch', async () => {
       storage.getAccounts.mockResolvedValue([known]); // healthy — no syncStatus at all
       const reissued = { ...known, id: 'acc-reissued', balance: 999 };
@@ -569,6 +596,8 @@ describe('reconcileSyncedAccounts', () => {
         dryFloor: 250,
         name: 'Checking',
         institutionName: 'Bank',
+        simplefinName: 'SimpleFIN Name',
+        simplefinInstitutionName: 'SimpleFIN Bank',
       }),
     );
   });
@@ -603,7 +632,9 @@ describe('reconcileOrphanedAccounts', () => {
     };
   });
 
-  it('re-keys an unambiguous match by name + institutionName, preserving the locally-owned fields', async () => {
+  // `needsReauthAccount` has no `simplefinName`/`simplefinInstitutionName` — this documents the
+  // fallback-to-`name` path for an account with no successful sync since that field shipped.
+  it('re-keys an unambiguous match by name + institutionName when simplefinName is not yet populated, preserving the locally-owned fields', async () => {
     await reconcileOrphanedAccounts(storage as never, [orphan]);
 
     expect(storage.reidAccount).toHaveBeenCalledWith(
@@ -617,6 +648,45 @@ describe('reconcileOrphanedAccounts', () => {
         dryFloor: known.dryFloor,
       }),
     );
+  });
+
+  it('matches via simplefinName/simplefinInstitutionName once populated, even though the account has since been locally renamed away from SimpleFIN’s raw values', async () => {
+    const renamed: Account = {
+      ...needsReauthAccount,
+      name: 'My Renamed Checking',
+      institutionName: 'My Nickname Bank',
+      simplefinName: known.name,
+      simplefinInstitutionName: known.institutionName,
+    };
+    storage.getAccounts.mockResolvedValue([renamed]);
+
+    await reconcileOrphanedAccounts(storage as never, [orphan]);
+
+    expect(storage.reidAccount).toHaveBeenCalledWith(
+      'acc-1',
+      expect.objectContaining({
+        id: 'acc-reissued',
+        name: 'My Renamed Checking', // local rename preserved
+        institutionName: 'My Nickname Bank', // local rename preserved
+        simplefinName: known.name, // refreshed to the orphan's raw name
+        simplefinInstitutionName: known.institutionName, // refreshed to the orphan's raw institution
+      }),
+    );
+  });
+
+  it('a populated simplefinName takes over matching outright — a coincidentally-matching local name does not also count (?? not ||)', async () => {
+    const renamedWithDifferentSimplefinName: Account = {
+      ...needsReauthAccount,
+      name: known.name, // coincidentally still equal to the orphan's raw name
+      institutionName: known.institutionName,
+      simplefinName: 'Some Other Institution’s Account', // but the tracked SimpleFIN identity disagrees
+      simplefinInstitutionName: 'Some Other Institution',
+    };
+    storage.getAccounts.mockResolvedValue([renamedWithDifferentSimplefinName]);
+
+    await reconcileOrphanedAccounts(storage as never, [orphan]);
+
+    expect(storage.reidAccount).not.toHaveBeenCalled();
   });
 
   it('upserts the orphaned account’s transactions through the current Categorization Rules', async () => {
@@ -767,5 +837,40 @@ describe('reconcileOrphanedAccounts, against real storage', () => {
     expect(transactions).toContainEqual(expect.objectContaining({ id: 'txn-old', accountId: 'acc-reissued' }));
     expect(transactions).toContainEqual(expect.objectContaining({ id: 'txn-new', accountId: 'acc-reissued' }));
     expect(await repo.getTransactionsForAccount('acc-1')).toEqual([]);
+  });
+
+  it('matches via a real persisted simplefinName after a local rename, keeping the rename and refreshing the tracked fields', async () => {
+    await repo.upsertAccount({
+      ...known,
+      name: 'My Renamed Checking',
+      institutionName: 'My Nickname Bank',
+      simplefinName: known.name,
+      simplefinInstitutionName: known.institutionName,
+      syncStatus: { kind: 'needs-reauth' },
+    });
+
+    await reconcileOrphanedAccounts(repo, [
+      {
+        account: {
+          id: 'acc-reissued',
+          name: known.name, // SimpleFIN still reports the raw, un-renamed name
+          institutionName: known.institutionName,
+          balance: 3098.77,
+          balanceDate: new Date('2026-08-10'),
+        },
+        transactions: [],
+      },
+    ]);
+
+    const accounts = await repo.getAccounts();
+    expect(accounts).toEqual([
+      expect.objectContaining({
+        id: 'acc-reissued',
+        name: 'My Renamed Checking', // local rename kept
+        institutionName: 'My Nickname Bank', // local rename kept
+        simplefinName: known.name, // refreshed
+        simplefinInstitutionName: known.institutionName, // refreshed
+      }),
+    ]);
   });
 });

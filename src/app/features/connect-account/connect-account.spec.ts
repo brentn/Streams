@@ -313,10 +313,22 @@ describe('ConnectAccount', () => {
         'https://user:pass@bridge.simplefin.org/simplefin',
       );
       expect(storage.upsertAccount).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'acc-1', expectedSign: 1, dryFloor: 0 }),
+        expect.objectContaining({
+          id: 'acc-1',
+          expectedSign: 1,
+          dryFloor: 0,
+          simplefinName: 'Checking',
+          simplefinInstitutionName: 'Bank',
+        }),
       );
       expect(storage.upsertAccount).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'acc-2', expectedSign: -1, dryFloor: 0 }),
+        expect.objectContaining({
+          id: 'acc-2',
+          expectedSign: -1,
+          dryFloor: 0,
+          simplefinName: 'Credit Card',
+          simplefinInstitutionName: 'Bank',
+        }),
       );
       expect(storage.upsertTransactions).toHaveBeenCalledWith([
         {

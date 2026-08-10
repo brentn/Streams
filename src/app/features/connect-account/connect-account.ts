@@ -109,7 +109,16 @@ export class ConnectAccount {
       const rules = await this.storage.getCategorizationRules();
       for (const { account, transactions } of this.pendingAccounts()) {
         const expectedSign = choices[account.id];
-        const withSign: Account = { ...account, expectedSign, dryFloor: 0 };
+        const withSign: Account = {
+          ...account,
+          expectedSign,
+          dryFloor: 0,
+          // Trivially equal to name/institutionName here, before any local rename can have
+          // happened — seeds the SimpleFIN-owned identity `reconcileOrphanedAccounts` matches on
+          // after a future relink (ADR-0016).
+          simplefinName: account.name,
+          simplefinInstitutionName: account.institutionName,
+        };
         await this.storage.upsertAccount(withSign);
         await this.storage.upsertTransactions(categorizeTransactions(transactions, rules));
       }

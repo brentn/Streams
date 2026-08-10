@@ -24,4 +24,16 @@ export interface Account {
   dryFloor: number;
   /** Undefined for an Account stored before this field existed, or one synced with no error data yet — treat as 'ok'. */
   syncStatus?: AccountSyncStatus;
+  /**
+   * SimpleFIN's own current name/institution for this Account, refreshed on every successful
+   * sync (`withLocalFieldsPreserved`) — distinct from `name`/`institutionName`, which are
+   * locally owned and only ever seeded from these at first-confirmation time. Lets a Needs
+   * Reauthentication recovery re-key (`reconcileOrphanedAccounts`) still find its match after a
+   * local rename, by falling back to these when the id-mismatched account's own `name`/
+   * `institutionName` no longer agree with what SimpleFIN currently reports (ADR-0016).
+   * Undefined for an Account stored before this field existed, or with no successful sync
+   * since — falls back to `name`/`institutionName`, i.e. today's pre-existing matching.
+   */
+  simplefinName?: string;
+  simplefinInstitutionName?: string;
 }

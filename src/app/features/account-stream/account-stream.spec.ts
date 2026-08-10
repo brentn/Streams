@@ -170,7 +170,11 @@ describe('AccountStream', () => {
 
     await component['resync']();
 
-    expect(storage.upsertAccount).toHaveBeenCalledWith(account);
+    expect(storage.upsertAccount).toHaveBeenCalledWith({
+      ...account,
+      simplefinName: account.name,
+      simplefinInstitutionName: account.institutionName,
+    });
     expect(component['isSyncing']()).toBe(false);
     expect(component['operationError']()).toBeNull();
   });

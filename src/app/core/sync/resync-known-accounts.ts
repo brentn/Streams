@@ -15,6 +15,12 @@ export interface ReconcileResult {
  * seed them only at first-confirmation time; after that, neither a resync nor a recovery re-key
  * may clobber a local rename). Shared by `reconcileSyncedAccounts` and `reconcileOrphanedAccounts`
  * so the same four fields can't drift apart between the two reconciliation paths.
+ *
+ * Also stamps `simplefinName`/`simplefinInstitutionName` fresh from `incoming` on every call —
+ * the opposite treatment from `name`/`institutionName`: these two are SimpleFIN-owned, not
+ * locally owned, so they're always refreshed to what SimpleFIN currently reports, never
+ * preserved from `previous`. `reconcileOrphanedAccounts` reads them back to keep matching a
+ * relinked account even after a local rename (ADR-0016).
  */
 function withLocalFieldsPreserved(incoming: Omit<Account, 'expectedSign' | 'dryFloor'>, previous: Account): Account {
   return {
@@ -23,6 +29,8 @@ function withLocalFieldsPreserved(incoming: Omit<Account, 'expectedSign' | 'dryF
     institutionName: previous.institutionName,
     expectedSign: previous.expectedSign,
     dryFloor: previous.dryFloor,
+    simplefinName: incoming.name,
+    simplefinInstitutionName: incoming.institutionName,
   };
 }
 
@@ -33,7 +41,9 @@ function withLocalFieldsPreserved(incoming: Omit<Account, 'expectedSign' | 'dryF
  * first-confirmation time, in the connect flow; after that a resync must never clobber a local
  * rename). Shared by resync (all synced accounts are expected to be known) and the
  * reauthentication flow (a mix of known accounts to resync in place and genuinely new ones,
- * returned as `newAccounts`, that still need sign confirmation).
+ * returned as `newAccounts`, that still need sign confirmation). Also refreshes
+ * `simplefinName`/`simplefinInstitutionName` on every call (see `withLocalFieldsPreserved`) — the
+ * opposite of `name`/`institutionName`, these two are SimpleFIN-owned and never preserved.
  *
  * Every synced Transaction is (re-)matched against the current Categorization Rules rather than
  * trusting a prior stored match — a manual correction always updates the matching rule (see
@@ -65,16 +75,19 @@ export async function reconcileSyncedAccounts(
  * Recovers accounts SimpleFIN reports under a new `id` that `reconcileSyncedAccounts` couldn't
  * match — `id` isn't durable across a bank-side relink even when the connection's Access URL
  * stays valid (issue #102's investigation: a fully-reauthorized connection can still hand back a
- * clean, error-free response for an account under an id Streams has never seen). Matches on exact
- * `name` **and** `institutionName` equality against Accounts still marked Needs Reauthentication
- * — both required, since the candidate pool during recovery is the user's entire account list
- * (ADR-0003's connection-wide fan-out), not a narrow subset, so `name` alone risks a false-
- * positive merge between two differently-institutioned accounts that happen to share a generic
- * name. Re-keys only when exactly one candidate matches, and removes it from the pool immediately
- * after, so a second orphaned account in the same resync can't also claim it. Deliberately narrow
- * (only ever runs during reauth recovery, never an ordinary resync) and conservative (an empty or
- * ambiguous match falls through to `orphaned`, i.e. today's existing "new account" treatment,
- * untouched, rather than risking a wrong merge).
+ * clean, error-free response for an account under an id Streams has never seen). Matches against
+ * Accounts still marked Needs Reauthentication on `simplefinName`/`simplefinInstitutionName`
+ * (SimpleFIN's own current identity, kept fresh by `withLocalFieldsPreserved` on every successful
+ * sync — ADR-0016), falling back to the locally-owned `name`/`institutionName` only when those
+ * tracked fields have never been populated (an Account with no successful sync since ADR-0016
+ * shipped). Both name and institution must match — the candidate pool during recovery is the
+ * user's entire account list (ADR-0003's connection-wide fan-out), not a narrow subset, so name
+ * alone risks a false-positive merge between two differently-institutioned accounts that happen
+ * to share a generic name. Re-keys only when exactly one candidate matches, and removes it from
+ * the pool immediately after, so a second orphaned account in the same resync can't also claim
+ * it. Deliberately narrow (only ever runs during reauth recovery, never an ordinary resync) and
+ * conservative (an empty or ambiguous match falls through to `orphaned`, i.e. today's existing
+ * "new account" treatment, untouched, rather than risking a wrong merge).
  */
 export async function reconcileOrphanedAccounts(
   storage: StorageRepository,
@@ -90,7 +103,8 @@ export async function reconcileOrphanedAccounts(
   for (const item of orphaned) {
     const candidates = needsReauthAccounts.filter(
       (account) =>
-        account.name === item.account.name && account.institutionName === item.account.institutionName,
+        (account.simplefinName ?? account.name) === item.account.name &&
+        (account.simplefinInstitutionName ?? account.institutionName) === item.account.institutionName,
     );
     if (candidates.length !== 1) continue;
     const [previous] = candidates;

@@ -100,7 +100,7 @@ export class StorageRepository {
   private readonly dbPromise: Promise<IDBPDatabase<StreamsDb>>;
 
   constructor() {
-    this.dbPromise = openDB<StreamsDb>('streams', 15, {
+    this.dbPromise = openDB<StreamsDb>('streams', 16, {
       async upgrade(db, oldVersion, _newVersion, transaction) {
         if (oldVersion < 1) {
           db.createObjectStore('accounts', { keyPath: 'id' });
@@ -182,6 +182,15 @@ export class StorageRepository {
         if (oldVersion < 15 && !db.objectStoreNames.contains('skippedOccurrences')) {
           db.createObjectStore('skippedOccurrences', { keyPath: ['flowId', 'occurrenceDate'] });
         }
+        // v16: Account gained `simplefinName`/`simplefinInstitutionName` — SimpleFIN's own current
+        // name/institution for this Account, refreshed on every successful sync, distinct from the
+        // user-editable `name`/`institutionName` (ADR-0016: the previously-deferred general fix
+        // from ADR-0015, now shipped because the "rare compound case" its deferral assumed turns
+        // out to recur on every local rename). No structural change, same reasoning as v10 —
+        // existing Accounts read back with both undefined until their next successful sync, which
+        // `reconcileOrphanedAccounts`'s `?? name`/`?? institutionName` fallback already treats as
+        // "not yet known, match on the locally-owned field instead" — i.e. today's pre-existing
+        // behavior, unaffected.
       },
     });
   }

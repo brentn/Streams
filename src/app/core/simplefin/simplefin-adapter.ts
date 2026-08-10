@@ -81,9 +81,12 @@ export function classifySyncStatus(accountId: string, errlist: SimpleFinError[])
  * SimpleFIN carries no asset/liability classifier, so a freshly synced account has no
  * `expectedSign` yet — that's user-set in the connect flow's sign-confirmation step. It
  * likewise knows nothing of Dry Floor, a Streams-only concept the user sets after connecting.
+ * `simplefinName`/`simplefinInstitutionName` are also excluded: they're derived at persistence
+ * time from this raw `name`/`institutionName` (see `withLocalFieldsPreserved`), never something
+ * the wire payload itself carries.
  */
 export interface SyncedAccount {
-  account: Omit<Account, 'expectedSign' | 'dryFloor'>;
+  account: Omit<Account, 'expectedSign' | 'dryFloor' | 'simplefinName' | 'simplefinInstitutionName'>;
   transactions: Transaction[];
 }
 
