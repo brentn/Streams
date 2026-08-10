@@ -403,6 +403,117 @@ describe('StorageRepository', () => {
     expect(stored).toContainEqual(second);
   });
 
+  describe('reidAccount', () => {
+    const oldAccount: Account = {
+      id: 'old-id',
+      name: 'Chequing',
+      institutionName: 'Coast Capital',
+      balance: 100,
+      balanceDate: new Date('2026-08-01'),
+      expectedSign: 1,
+      dryFloor: 0,
+    };
+    const newAccount: Account = { ...oldAccount, id: 'new-id', balance: 3098.77 };
+
+    it('re-keys the Account: old id gone, new id present with the given payload', async () => {
+      await repo.upsertAccount(oldAccount);
+
+      await repo.reidAccount('old-id', newAccount);
+
+      expect(await repo.getAccounts()).toEqual([newAccount]);
+    });
+
+    it('rewrites every Transaction.accountId that pointed at the old id, leaving unrelated ones untouched', async () => {
+      const own: Transaction = {
+        id: 'txn-1',
+        accountId: 'old-id',
+        date: new Date('2026-07-01'),
+        amount: -10,
+        description: 'Coffee',
+        matchedTarget: null,
+      };
+      const unrelated: Transaction = {
+        id: 'txn-2',
+        accountId: 'other-account',
+        date: new Date('2026-07-02'),
+        amount: -5,
+        description: 'Tea',
+        matchedTarget: null,
+      };
+      await repo.upsertAccount(oldAccount);
+      await repo.upsertTransactions([own, unrelated]);
+
+      await repo.reidAccount('old-id', newAccount);
+
+      expect(await repo.getTransactionsForAccount('new-id')).toEqual([{ ...own, accountId: 'new-id' }]);
+      expect(await repo.getTransactionsForAccount('other-account')).toEqual([unrelated]);
+    });
+
+    it('rewrites every Flow.accountId that pointed at the old id, leaving unrelated ones untouched', async () => {
+      const own: BudgetFlow = {
+        id: 'flow-1',
+        accountId: 'old-id',
+        name: 'Groceries',
+        direction: 'out',
+        kind: 'budget',
+        limit: 400,
+        period: 'month',
+      };
+      const unrelated: BudgetFlow = { ...own, id: 'flow-2', accountId: 'other-account' };
+      await repo.upsertAccount(oldAccount);
+      await repo.upsertFlow(own);
+      await repo.upsertFlow(unrelated);
+
+      await repo.reidAccount('old-id', newAccount);
+
+      expect(await repo.getFlowsForAccount('new-id')).toEqual([{ ...own, accountId: 'new-id' }]);
+      expect(await repo.getFlowsForAccount('other-account')).toEqual([unrelated]);
+    });
+
+    it('rewrites a Transfer referencing the old id on either side, leaving one between two other accounts untouched', async () => {
+      const outgoing: Transfer = {
+        id: 'transfer-1',
+        fromAccountId: 'old-id',
+        toAccountId: 'other-account',
+        amount: 200,
+        cadence: { period: 'once', date: new Date('2026-07-10') },
+      };
+      const incoming: Transfer = {
+        id: 'transfer-2',
+        fromAccountId: 'other-account',
+        toAccountId: 'old-id',
+        amount: 50,
+        cadence: { period: 'once', date: new Date('2026-07-11') },
+      };
+      const unrelated: Transfer = {
+        id: 'transfer-3',
+        fromAccountId: 'other-account',
+        toAccountId: 'another-account',
+        amount: 10,
+        cadence: { period: 'once', date: new Date('2026-07-12') },
+      };
+      await repo.upsertAccount(oldAccount);
+      await repo.upsertTransfer(outgoing);
+      await repo.upsertTransfer(incoming);
+      await repo.upsertTransfer(unrelated);
+
+      await repo.reidAccount('old-id', newAccount);
+
+      const transfers = await repo.getTransfers();
+      expect(transfers).toContainEqual({ ...outgoing, fromAccountId: 'new-id' });
+      expect(transfers).toContainEqual({ ...incoming, toAccountId: 'new-id' });
+      expect(transfers).toContainEqual(unrelated);
+    });
+
+    it('re-keys cleanly when the old account has no transactions, flows, or transfers at all', async () => {
+      await repo.upsertAccount(oldAccount);
+
+      await expect(repo.reidAccount('old-id', newAccount)).resolves.toBeUndefined();
+
+      expect(await repo.getAccounts()).toEqual([newAccount]);
+    });
+  });
+
   describe('exportAll / importAll', () => {
     it('exports every object store currently in the schema, keyed by store name', async () => {
       const account: Account = {

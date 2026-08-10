@@ -2,7 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Account } from '../models/account';
 import { SimpleFinAuthError } from '../simplefin/simplefin-adapter';
 import { computeBackfillChunks, computeNormalSyncStartDate, MAX_SYNC_LOOKBACK_DAYS } from './sync-window';
-import { fetchNormalSyncWindow, reconcileSyncedAccounts, resyncKnownAccounts } from './resync-known-accounts';
+import {
+  fetchNormalSyncWindow,
+  reconcileOrphanedAccounts,
+  reconcileSyncedAccounts,
+  resyncKnownAccounts,
+} from './resync-known-accounts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = new Date('2026-07-29T12:00:00Z');
@@ -28,6 +33,7 @@ describe('resyncKnownAccounts', () => {
     getLastSyncedAt: ReturnType<typeof vi.fn>;
     getOldestFetchedAt: ReturnType<typeof vi.fn>;
     saveOldestFetchedAt: ReturnType<typeof vi.fn>;
+    reidAccount: ReturnType<typeof vi.fn>;
   };
   let simplefin: { fetchAccounts: ReturnType<typeof vi.fn> };
 
@@ -44,6 +50,7 @@ describe('resyncKnownAccounts', () => {
       // Recent by default so existing/unrelated tests don't incidentally trigger backfill.
       getOldestFetchedAt: vi.fn().mockResolvedValue(new Date(NOW.getTime() - 10 * DAY_MS)),
       saveOldestFetchedAt: vi.fn(),
+      reidAccount: vi.fn(),
     };
     simplefin = { fetchAccounts: vi.fn().mockResolvedValue([]) };
   });
@@ -429,6 +436,28 @@ describe('resyncKnownAccounts', () => {
       expect(expectedStartDate.getTime()).not.toBe(syncFloor.getTime());
       expect(simplefin.fetchAccounts).toHaveBeenNthCalledWith(1, ACCESS_URL, expectedStartDate);
     });
+
+    it('re-keys an account SimpleFIN returns under a new id, matched by name + institutionName against the needs-reauth account', async () => {
+      const reissued = { ...known, id: 'acc-reissued', balance: 999 };
+      simplefin.fetchAccounts.mockResolvedValue([{ account: reissued, transactions: [] }]);
+
+      await resyncKnownAccounts(storage as never, simplefin as never);
+
+      expect(storage.reidAccount).toHaveBeenCalledWith(
+        'acc-1',
+        expect.objectContaining({ id: 'acc-reissued', balance: 999, name: 'Checking', institutionName: 'Bank' }),
+      );
+    });
+
+    it('never re-keys during an ordinary (non-recovery) resync, even with an id mismatch', async () => {
+      storage.getAccounts.mockResolvedValue([known]); // healthy — no syncStatus at all
+      const reissued = { ...known, id: 'acc-reissued', balance: 999 };
+      simplefin.fetchAccounts.mockResolvedValue([{ account: reissued, transactions: [] }]);
+
+      await resyncKnownAccounts(storage as never, simplefin as never);
+
+      expect(storage.reidAccount).not.toHaveBeenCalled();
+    });
   });
 });
 
@@ -540,5 +569,125 @@ describe('reconcileSyncedAccounts', () => {
         institutionName: 'Bank',
       }),
     );
+  });
+});
+
+describe('reconcileOrphanedAccounts', () => {
+  let storage: {
+    getAccounts: ReturnType<typeof vi.fn>;
+    getCategorizationRules: ReturnType<typeof vi.fn>;
+    reidAccount: ReturnType<typeof vi.fn>;
+    upsertTransactions: ReturnType<typeof vi.fn>;
+  };
+
+  const needsReauthAccount: Account = { ...known, syncStatus: { kind: 'needs-reauth' } };
+  const orphan = {
+    account: {
+      id: 'acc-reissued',
+      name: known.name,
+      institutionName: known.institutionName,
+      balance: 999,
+      balanceDate: new Date('2026-07-29'),
+    },
+    transactions: [],
+  };
+
+  beforeEach(() => {
+    storage = {
+      getAccounts: vi.fn().mockResolvedValue([needsReauthAccount]),
+      getCategorizationRules: vi.fn().mockResolvedValue([]),
+      reidAccount: vi.fn(),
+      upsertTransactions: vi.fn(),
+    };
+  });
+
+  it('re-keys an unambiguous match by name + institutionName, preserving the locally-owned fields', async () => {
+    await reconcileOrphanedAccounts(storage as never, [orphan]);
+
+    expect(storage.reidAccount).toHaveBeenCalledWith(
+      'acc-1',
+      expect.objectContaining({
+        id: 'acc-reissued',
+        balance: 999,
+        name: known.name,
+        institutionName: known.institutionName,
+        expectedSign: known.expectedSign,
+        dryFloor: known.dryFloor,
+      }),
+    );
+  });
+
+  it('upserts the orphaned account’s transactions through the current Categorization Rules', async () => {
+    const transactions = [
+      {
+        id: 't1',
+        accountId: 'acc-reissued',
+        date: new Date('2026-07-24'),
+        amount: -10,
+        description: 'COFFEE SHOP',
+        matchedTarget: null,
+      },
+    ];
+    storage.getCategorizationRules.mockResolvedValue([
+      { matchText: 'coffee shop', target: { kind: 'flow', id: 'flow-coffee' } },
+    ]);
+
+    await reconcileOrphanedAccounts(storage as never, [{ ...orphan, transactions }]);
+
+    expect(storage.upsertTransactions).toHaveBeenCalledWith([
+      { ...transactions[0], matchedTarget: { kind: 'flow', id: 'flow-coffee' } },
+    ]);
+  });
+
+  it('does nothing when no needs-reauth account shares the name', async () => {
+    storage.getAccounts.mockResolvedValue([{ ...needsReauthAccount, name: 'Some Other Account' }]);
+
+    await reconcileOrphanedAccounts(storage as never, [orphan]);
+
+    expect(storage.reidAccount).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when the name matches but institutionName does not', async () => {
+    storage.getAccounts.mockResolvedValue([{ ...needsReauthAccount, institutionName: 'A Different Bank' }]);
+
+    await reconcileOrphanedAccounts(storage as never, [orphan]);
+
+    expect(storage.reidAccount).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when more than one needs-reauth account shares the same name + institutionName — ambiguous', async () => {
+    storage.getAccounts.mockResolvedValue([
+      needsReauthAccount,
+      { ...needsReauthAccount, id: 'acc-2' },
+    ]);
+
+    await reconcileOrphanedAccounts(storage as never, [orphan]);
+
+    expect(storage.reidAccount).not.toHaveBeenCalled();
+  });
+
+  it('ignores a same-named account that is not currently needs-reauth', async () => {
+    storage.getAccounts.mockResolvedValue([{ ...known, syncStatus: { kind: 'ok' } }]);
+
+    await reconcileOrphanedAccounts(storage as never, [orphan]);
+
+    expect(storage.reidAccount).not.toHaveBeenCalled();
+  });
+
+  it('depletes a matched candidate so a second orphaned item cannot also claim it', async () => {
+    const secondOrphan = { ...orphan, account: { ...orphan.account, id: 'acc-reissued-2' } };
+
+    await reconcileOrphanedAccounts(storage as never, [orphan, secondOrphan]);
+
+    expect(storage.reidAccount).toHaveBeenCalledTimes(1);
+    expect(storage.reidAccount).toHaveBeenCalledWith('acc-1', expect.objectContaining({ id: 'acc-reissued' }));
+  });
+
+  it('does nothing and reads nothing from storage for an empty orphaned list', async () => {
+    await reconcileOrphanedAccounts(storage as never, []);
+
+    expect(storage.getAccounts).not.toHaveBeenCalled();
+    expect(storage.reidAccount).not.toHaveBeenCalled();
+    expect(storage.upsertTransactions).not.toHaveBeenCalled();
   });
 });

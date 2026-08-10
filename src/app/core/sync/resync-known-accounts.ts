@@ -49,6 +49,52 @@ export async function reconcileSyncedAccounts(
   return { newAccounts };
 }
 
+/**
+ * Recovers accounts SimpleFIN reports under a new `id` that `reconcileSyncedAccounts` couldn't
+ * match — `id` isn't durable across a bank-side relink even when the connection's Access URL
+ * stays valid (issue #102's investigation: a fully-reauthorized connection can still hand back a
+ * clean, error-free response for an account under an id Streams has never seen). Matches on exact
+ * `name` **and** `institutionName` equality against Accounts still marked Needs Reauthentication
+ * — both required, since the candidate pool during recovery is the user's entire account list
+ * (ADR-0003's connection-wide fan-out), not a narrow subset, so `name` alone risks a false-
+ * positive merge between two differently-institutioned accounts that happen to share a generic
+ * name. Re-keys only when exactly one candidate matches, and removes it from the pool immediately
+ * after, so a second orphaned account in the same resync can't also claim it. Deliberately narrow
+ * (only ever runs during reauth recovery, never an ordinary resync) and conservative (an empty or
+ * ambiguous match falls through to `orphaned`, i.e. today's existing "new account" treatment,
+ * untouched, rather than risking a wrong merge).
+ */
+export async function reconcileOrphanedAccounts(
+  storage: StorageRepository,
+  orphaned: SyncedAccount[],
+): Promise<void> {
+  if (orphaned.length === 0) return;
+
+  const needsReauthAccounts = (await storage.getAccounts()).filter(
+    (account) => account.syncStatus?.kind === 'needs-reauth',
+  );
+  const rules = await storage.getCategorizationRules();
+
+  for (const item of orphaned) {
+    const candidates = needsReauthAccounts.filter(
+      (account) =>
+        account.name === item.account.name && account.institutionName === item.account.institutionName,
+    );
+    if (candidates.length !== 1) continue;
+    const [previous] = candidates;
+    needsReauthAccounts.splice(needsReauthAccounts.indexOf(previous), 1);
+
+    await storage.reidAccount(previous.id, {
+      ...item.account,
+      name: previous.name,
+      institutionName: previous.institutionName,
+      expectedSign: previous.expectedSign,
+      dryFloor: previous.dryFloor,
+    });
+    await storage.upsertTransactions(categorizeTransactions(item.transactions, rules));
+  }
+}
+
 export interface NormalSyncResult {
   synced: SyncedAccount[];
   /** The backfill cursor as of this call — freshly bootstrapped if this connection never had one. */
@@ -198,6 +244,11 @@ async function isRecoveringFromNeedsReauth(storage: StorageRepository): Promise<
  * fanned onto every stored Account as Needs Reauthentication rather than rethrown — that's
  * persisted sync state for the UI to render, not a transient operation error. It short-circuits
  * before backfill runs, since a broken connection can't fetch anything else either.
+ *
+ * While recovering from Needs Reauthentication specifically, anything `reconcileSyncedAccounts`
+ * couldn't match by id is given a second chance via `reconcileOrphanedAccounts` (SimpleFIN can
+ * hand back a new id for an account across a relink even though the connection stays valid — see
+ * that function's doc) before falling back to the ordinary "unmatched, so skipped" treatment.
  */
 export async function resyncKnownAccounts(
   storage: StorageRepository,
@@ -218,7 +269,10 @@ export async function resyncKnownAccounts(
       accessUrl,
       recoveringFromNeedsReauth,
     );
-    await reconcileSyncedAccounts(storage, normalSync.synced);
+    const { newAccounts } = await reconcileSyncedAccounts(storage, normalSync.synced);
+    if (recoveringFromNeedsReauth) {
+      await reconcileOrphanedAccounts(storage, newAccounts);
+    }
     await reconcileBackfillCursor(
       storage,
       simplefin,

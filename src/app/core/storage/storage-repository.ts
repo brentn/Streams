@@ -239,6 +239,41 @@ export class StorageRepository {
     return db.getAll('accounts');
   }
 
+  /**
+   * Re-keys an Account from `oldId` to `account.id` — SimpleFIN's account `id` isn't durable
+   * across a bank-side relink even when the connection's Access URL stays valid (issue #102's
+   * investigation). Atomic: writes `account` under its new id, removes the stale `oldId` record,
+   * and rewrites every Transaction/Flow's `accountId` and every Transfer's
+   * `fromAccountId`/`toAccountId` that pointed at `oldId`, so nothing already synced under the
+   * old id is orphaned.
+   */
+  async reidAccount(oldId: string, account: Account): Promise<void> {
+    const db = await this.dbPromise;
+    const tx = db.transaction(['accounts', 'transactions', 'flows', 'transfers'], 'readwrite');
+    const [transactions, flows, transfers] = await Promise.all([
+      tx.objectStore('transactions').index('accountId').getAll(oldId),
+      tx.objectStore('flows').index('accountId').getAll(oldId),
+      tx.objectStore('transfers').getAll(),
+    ]);
+
+    await Promise.all([
+      tx.objectStore('accounts').delete(oldId),
+      tx.objectStore('accounts').put(account),
+      ...transactions.map((t) => tx.objectStore('transactions').put({ ...t, accountId: account.id })),
+      ...flows.map((f) => tx.objectStore('flows').put({ ...f, accountId: account.id })),
+      ...transfers
+        .filter((t) => t.fromAccountId === oldId || t.toAccountId === oldId)
+        .map((t) =>
+          tx.objectStore('transfers').put({
+            ...t,
+            fromAccountId: t.fromAccountId === oldId ? account.id : t.fromAccountId,
+            toAccountId: t.toAccountId === oldId ? account.id : t.toAccountId,
+          }),
+        ),
+      tx.done,
+    ]);
+  }
+
   async getTransactionsForAccount(accountId: string): Promise<Transaction[]> {
     const db = await this.dbPromise;
     return db.getAllFromIndex('transactions', 'accountId', accountId);
