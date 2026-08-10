@@ -1,4 +1,4 @@
-import { Component, computed, DestroyRef, effect, inject, signal } from '@angular/core';
+import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { CurrencyPipe } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { Account } from '../../core/models/account';
@@ -26,8 +26,7 @@ import {
 } from '../../core/charting/date-window';
 import { laneHeightsFor, NARROW_BREAKPOINT_PX } from '../../core/charting/lane-heights';
 import { bannerPresentation, connectionBannerState } from '../../core/sync/sync-presentation';
-import { SyncCoordinator } from '../../core/sync/sync-coordinator';
-import { openSimpleFinBridge } from '../../core/simplefin/reconnect';
+import { reloadOnSyncComplete, SyncCoordinator } from '../../core/sync/sync-coordinator';
 import { StorageRepository } from '../../core/storage/storage-repository';
 import { CalendarChip } from '../../shared/calendar-chip/calendar-chip';
 import { DragScrub } from '../../shared/drag-scrub/drag-scrub.directive';
@@ -193,16 +192,10 @@ export class MultiAccountStream {
   constructor() {
     void this.load();
 
-    // Reflects a sync that finished elsewhere — e.g. ADR-0004's app-open auto-resync,
-    // already in flight by the time this view mounts — without the user taking any action.
-    let wasSyncing = false;
-    effect(() => {
-      const syncing = this.isSyncing();
-      if (wasSyncing && !syncing) {
-        void this.load();
-      }
-      wasSyncing = syncing;
-    });
+    // Reflects a sync that finished elsewhere — e.g. ADR-0004's app-open auto-resync or
+    // SyncCoordinator's own return-to-tab retry after Reauthorize, both already in flight by the
+    // time this view mounts — without the user taking any action in this view.
+    reloadOnSyncComplete(this.syncCoordinator, () => void this.load());
 
     if (typeof matchMedia === 'function') {
       const query = matchMedia(`(max-width: ${NARROW_BREAKPOINT_PX}px)`);
@@ -257,11 +250,12 @@ export class MultiAccountStream {
     await this.load();
   }
 
-  /** The banner's action button follows whichever state is showing (see `bannerPresentation`) — Reauthorize additionally opens the SimpleFIN Bridge to re-link, but always resyncs: the connection's setup token stays valid through a bank-side re-link, so a plain resync is enough to clear needs-reauth once it's fixed there. */
+  /** The banner's action button follows whichever state is showing (see `bannerPresentation`) — Reauthorize additionally opens the SimpleFIN Bridge to re-link and, per `SyncCoordinator.reauthorize`, keeps retrying on this tab's own return until it clears; a plain Retry just resyncs once. */
   protected onBannerAction(): void {
     if (this.bannerState().kind === 'needs-reauth') {
-      openSimpleFinBridge();
+      void this.syncCoordinator.reauthorize().then(() => this.load());
+    } else {
+      void this.resync();
     }
-    void this.resync();
   }
 }

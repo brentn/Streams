@@ -1,5 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { isAutoResyncDue, SyncCoordinator } from './sync-coordinator';
+
+/** Simulates the app tab regaining focus, the trigger `reauthorize`'s auto-retry listens for. */
+function returnToTab(): void {
+  Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+  document.dispatchEvent(new Event('visibilitychange'));
+}
 
 describe('isAutoResyncDue', () => {
   const now = new Date('2026-07-25T12:00:00Z');
@@ -150,6 +156,78 @@ describe('SyncCoordinator', () => {
       await coordinator.resync();
 
       expect(simplefin.fetchAccounts.mock.calls.length).toBeGreaterThan(1);
+    });
+  });
+
+  describe('reauthorize', () => {
+    const needsReauthAccount = {
+      id: 'acc-1',
+      name: 'Checking',
+      institutionName: 'Bank',
+      balance: 1000,
+      balanceDate: new Date('2026-07-25T00:00:00Z'),
+      expectedSign: 1,
+      dryFloor: 0,
+      syncStatus: { kind: 'needs-reauth' as const },
+    };
+
+    beforeEach(() => {
+      vi.stubGlobal('open', vi.fn());
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+    });
+
+    it('opens the SimpleFIN Bridge and attempts an immediate resync', async () => {
+      await coordinator.reauthorize();
+
+      expect(window.open).toHaveBeenCalledWith(
+        'https://beta-bridge.simplefin.org/my-account',
+        '_blank',
+        'noopener,noreferrer',
+      );
+      expect(simplefin.fetchAccounts).toHaveBeenCalledOnce();
+    });
+
+    it('retries automatically when the tab becomes visible again while still needs-reauth', async () => {
+      // The initial resync (fired before the user's done anything at the Bridge) still sees it.
+      storage.getAccounts.mockResolvedValue([needsReauthAccount]);
+
+      await coordinator.reauthorize();
+      expect(simplefin.fetchAccounts).toHaveBeenCalledOnce();
+
+      returnToTab();
+      await new Promise((resolve) => setTimeout(resolve)); // let the fire-and-forget retry settle
+
+      expect(simplefin.fetchAccounts).toHaveBeenCalledTimes(2);
+    });
+
+    it('stops retrying once a resync observes every account clear of needs-reauth', async () => {
+      storage.getAccounts.mockResolvedValue([needsReauthAccount]);
+      await coordinator.reauthorize();
+      expect(coordinator.reauthPending()).toBe(true);
+
+      // The user's fixed it at the Bridge by the time they return to this tab.
+      storage.getAccounts.mockResolvedValue([{ ...needsReauthAccount, syncStatus: { kind: 'ok' } }]);
+      returnToTab();
+      await new Promise((resolve) => setTimeout(resolve));
+
+      expect(coordinator.reauthPending()).toBe(false);
+      expect(simplefin.fetchAccounts).toHaveBeenCalledTimes(2);
+
+      returnToTab(); // an ordinary later tab-focus, now that it's resolved
+      await new Promise((resolve) => setTimeout(resolve));
+
+      expect(simplefin.fetchAccounts).toHaveBeenCalledTimes(2); // no further retry
+    });
+
+    it('does not resync on an ordinary tab focus when no Reauthorize is pending', async () => {
+      returnToTab();
+      await new Promise((resolve) => setTimeout(resolve));
+
+      expect(simplefin.fetchAccounts).not.toHaveBeenCalled();
     });
   });
 });
