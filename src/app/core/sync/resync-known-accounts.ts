@@ -1,4 +1,5 @@
 import { categorizeTransactions } from '../categorization/categorization';
+import { Account } from '../models/account';
 import { SimpleFinAdapter, SimpleFinAuthError, SyncedAccount } from '../simplefin/simplefin-adapter';
 import { StorageRepository } from '../storage/storage-repository';
 import { computeBackfillChunks, computeNormalSyncStartDate, hasDormantGap, initialBackfillCursor } from './sync-window';
@@ -6,6 +7,23 @@ import { computeBackfillChunks, computeNormalSyncStartDate, hasDormantGap, initi
 export interface ReconcileResult {
   /** Accounts SimpleFIN returned with no local counterpart — still need the connect flow's sign-confirmation step, so they're handed back rather than persisted. */
   newAccounts: SyncedAccount[];
+}
+
+/**
+ * The fields the app treats as locally owned once an account is known — `expectedSign` and
+ * `dryFloor` (SimpleFIN knows neither), plus `name` and `institutionName` (SimpleFIN's values
+ * seed them only at first-confirmation time; after that, neither a resync nor a recovery re-key
+ * may clobber a local rename). Shared by `reconcileSyncedAccounts` and `reconcileOrphanedAccounts`
+ * so the same four fields can't drift apart between the two reconciliation paths.
+ */
+function withLocalFieldsPreserved(incoming: Omit<Account, 'expectedSign' | 'dryFloor'>, previous: Account): Account {
+  return {
+    ...incoming,
+    name: previous.name,
+    institutionName: previous.institutionName,
+    expectedSign: previous.expectedSign,
+    dryFloor: previous.dryFloor,
+  };
 }
 
 /**
@@ -36,13 +54,7 @@ export async function reconcileSyncedAccounts(
       newAccounts.push(item);
       continue;
     }
-    await storage.upsertAccount({
-      ...item.account,
-      name: previous.name,
-      institutionName: previous.institutionName,
-      expectedSign: previous.expectedSign,
-      dryFloor: previous.dryFloor,
-    });
+    await storage.upsertAccount(withLocalFieldsPreserved(item.account, previous));
     await storage.upsertTransactions(categorizeTransactions(item.transactions, rules));
   }
 
@@ -70,7 +82,7 @@ export async function reconcileOrphanedAccounts(
 ): Promise<void> {
   if (orphaned.length === 0) return;
 
-  const needsReauthAccounts = (await storage.getAccounts()).filter(
+  let needsReauthAccounts = (await storage.getAccounts()).filter(
     (account) => account.syncStatus?.kind === 'needs-reauth',
   );
   const rules = await storage.getCategorizationRules();
@@ -82,15 +94,9 @@ export async function reconcileOrphanedAccounts(
     );
     if (candidates.length !== 1) continue;
     const [previous] = candidates;
-    needsReauthAccounts.splice(needsReauthAccounts.indexOf(previous), 1);
+    needsReauthAccounts = needsReauthAccounts.filter((account) => account !== previous);
 
-    await storage.reidAccount(previous.id, {
-      ...item.account,
-      name: previous.name,
-      institutionName: previous.institutionName,
-      expectedSign: previous.expectedSign,
-      dryFloor: previous.dryFloor,
-    });
+    await storage.reidAccount(previous.id, withLocalFieldsPreserved(item.account, previous));
     await storage.upsertTransactions(categorizeTransactions(item.transactions, rules));
   }
 }

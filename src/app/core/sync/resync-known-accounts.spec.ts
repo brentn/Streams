@@ -1,6 +1,8 @@
+import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Account } from '../models/account';
 import { SimpleFinAuthError } from '../simplefin/simplefin-adapter';
+import { StorageRepository } from '../storage/storage-repository';
 import { computeBackfillChunks, computeNormalSyncStartDate, MAX_SYNC_LOOKBACK_DAYS } from './sync-window';
 import {
   fetchNormalSyncWindow,
@@ -689,5 +691,81 @@ describe('reconcileOrphanedAccounts', () => {
     expect(storage.getAccounts).not.toHaveBeenCalled();
     expect(storage.reidAccount).not.toHaveBeenCalled();
     expect(storage.upsertTransactions).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Drives `reconcileOrphanedAccounts` against a real `StorageRepository` (real IndexedDB, via
+ * `fake-indexeddb`) rather than mocks — proves the match-then-`reidAccount` pipeline actually
+ * writes and relinks correctly end to end, not just that each piece is individually called right.
+ */
+describe('reconcileOrphanedAccounts, against real storage', () => {
+  let repo: StorageRepository;
+
+  beforeEach(() => {
+    repo = new StorageRepository();
+  });
+
+  afterEach(async () => {
+    await repo.close();
+    await new Promise<void>((resolve, reject) => {
+      const req = indexedDB.deleteDatabase('streams');
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+      req.onblocked = () => resolve();
+    });
+  });
+
+  it('re-keys a real stored account and relinks its real Transactions when SimpleFIN reissues its id', async () => {
+    await repo.upsertAccount({ ...known, syncStatus: { kind: 'needs-reauth' } });
+    await repo.upsertTransactions([
+      {
+        id: 'txn-old',
+        accountId: 'acc-1',
+        date: new Date('2026-07-20'),
+        amount: -20,
+        description: 'Old transaction',
+        matchedTarget: null,
+      },
+    ]);
+
+    await reconcileOrphanedAccounts(repo, [
+      {
+        account: {
+          id: 'acc-reissued',
+          name: known.name,
+          institutionName: known.institutionName,
+          balance: 3098.77,
+          balanceDate: new Date('2026-08-10'),
+        },
+        transactions: [
+          {
+            id: 'txn-new',
+            accountId: 'acc-reissued',
+            date: new Date('2026-08-09'),
+            amount: -15,
+            description: 'New transaction',
+            matchedTarget: null,
+          },
+        ],
+      },
+    ]);
+
+    const accounts = await repo.getAccounts();
+    expect(accounts).toEqual([
+      expect.objectContaining({
+        id: 'acc-reissued',
+        balance: 3098.77,
+        name: known.name,
+        institutionName: known.institutionName,
+        expectedSign: known.expectedSign,
+        dryFloor: known.dryFloor,
+      }),
+    ]);
+
+    const transactions = await repo.getTransactionsForAccount('acc-reissued');
+    expect(transactions).toContainEqual(expect.objectContaining({ id: 'txn-old', accountId: 'acc-reissued' }));
+    expect(transactions).toContainEqual(expect.objectContaining({ id: 'txn-new', accountId: 'acc-reissued' }));
+    expect(await repo.getTransactionsForAccount('acc-1')).toEqual([]);
   });
 });
