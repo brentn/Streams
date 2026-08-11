@@ -15,7 +15,12 @@ import {
   withOutstandingOccurrences,
 } from './projection-engine';
 
-const account = { id: 'acc-1', balance: 1000, balanceDate: new Date('2026-07-25T12:00:00Z') };
+const account = {
+  id: 'acc-1',
+  balance: 1000,
+  balanceDate: new Date('2026-07-25T12:00:00Z'),
+  expectedSign: 1 as const,
+};
 const otherAccount = { id: 'acc-2', balance: 500, balanceDate: new Date('2026-07-25T12:00:00Z') };
 
 const weeklyCadence: Cadence = {
@@ -387,6 +392,13 @@ describe('runningDryAlert', () => {
       date: new Date('2026-07-31T12:00:00Z'),
       balance: 900,
     });
+  });
+
+  it('returns null for a liability account even when the balance crosses below the Dry Floor', () => {
+    const dryAccount = { ...account, expectedSign: -1 as const, dryFloor: 950 };
+    const flows = [recurringFlow({ amount: 100, direction: 'out' })];
+
+    expect(runningDryAlert(dryAccount, [], flows, [], today)).toBeNull();
   });
 });
 

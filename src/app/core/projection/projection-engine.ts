@@ -207,16 +207,18 @@ export interface RunningDryAlert {
  * The earliest date within the Projection Horizon (inclusive of `today`) at which the
  * Account's projected balance is expected to cross below its Dry Floor, or null if it doesn't.
  * Scans day by day rather than only at period boundaries, since a budget-kind Flow's prorated
- * contribution moves continuously rather than only stepping at period edges.
+ * contribution moves continuously rather than only stepping at period edges. Always null for a
+ * liability Account (`expectedSign: -1`), which has no Dry Floor to cross.
  */
 export function runningDryAlert(
-  account: Pick<Account, 'id' | 'balance' | 'balanceDate' | 'dryFloor'>,
+  account: Pick<Account, 'id' | 'balance' | 'balanceDate' | 'dryFloor' | 'expectedSign'>,
   transactions: Transaction[],
   flows: Flow[],
   transfers: Transfer[],
   today: Date,
   horizonDays: number = PROJECTION_HORIZON_DAYS,
 ): RunningDryAlert | null {
+  if (account.expectedSign === -1) return null;
   for (let offset = 0; offset <= horizonDays; offset++) {
     const date = addDays(today, offset);
     const balance = balanceAtDate(account, transactions, date, flows, transfers);
