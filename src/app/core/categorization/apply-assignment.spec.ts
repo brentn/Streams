@@ -30,6 +30,7 @@ describe('applyAssignment', () => {
       upsertDirectCategorization: vi.fn(),
       deleteDirectCategorization: vi.fn(),
       upsertTransactions: vi.fn(),
+      upsertIgnoredTransaction: vi.fn(),
     };
   }
 
@@ -163,6 +164,30 @@ describe('applyAssignment', () => {
       });
 
       expect(result).toEqual([{ ...unmatched, matchedTarget: null }]);
+    });
+  });
+
+  describe('ignore mode', () => {
+    it('upserts an Ignored Transaction for just the named Transaction and leaves matchedTarget untouched', async () => {
+      const storage = storageStub();
+
+      const result = await applyAssignment(storage as never, [unmatched, otherCoffee], {
+        mode: 'ignore',
+        transactionId: 'txn-1',
+      });
+
+      expect(storage.upsertIgnoredTransaction).toHaveBeenCalledWith({ transactionId: 'txn-1' });
+      expect(result).toEqual([unmatched, otherCoffee]);
+    });
+
+    it('does not upsert Transactions or touch Categorization Rules/Direct Categorization', async () => {
+      const storage = storageStub();
+
+      await applyAssignment(storage as never, [unmatched], { mode: 'ignore', transactionId: 'txn-1' });
+
+      expect(storage.upsertTransactions).not.toHaveBeenCalled();
+      expect(storage.upsertCategorizationRule).not.toHaveBeenCalled();
+      expect(storage.upsertDirectCategorization).not.toHaveBeenCalled();
     });
   });
 });

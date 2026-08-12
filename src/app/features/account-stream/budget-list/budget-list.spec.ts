@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { describe, expect, it } from 'vitest';
 import { BudgetFlow, Flow, RecurringFlow } from '../../../core/models/flow';
+import { IgnoredTransaction } from '../../../core/models/ignored-transaction';
 import { Transaction } from '../../../core/models/transaction';
 import { BudgetList } from './budget-list';
 
@@ -71,12 +72,14 @@ describe('BudgetList', () => {
     flows: Flow[] = [],
     transactions: Transaction[] = [],
     selectedDate: Date = new Date(),
+    ignoredTransactions: IgnoredTransaction[] = [],
   ) {
     await TestBed.configureTestingModule({ imports: [BudgetList] }).compileComponents();
     const fixture = TestBed.createComponent(BudgetList);
     fixture.componentRef.setInput('flows', flows);
     fixture.componentRef.setInput('transactions', transactions);
     fixture.componentRef.setInput('selectedDate', selectedDate);
+    fixture.componentRef.setInput('ignoredTransactions', ignoredTransactions);
     fixture.detectChanges();
     return fixture;
   }
@@ -109,6 +112,18 @@ describe('BudgetList', () => {
     expect(fill.style.width).toBe('100%');
     const pct = fixture.nativeElement.querySelector('.pct') as HTMLElement;
     expect(pct.textContent).toContain('150%');
+  });
+
+  it('excludes an Ignored Transaction from a row\'s used amount (ADR-0019)', async () => {
+    const fixture = await createComponent(
+      [groceries],
+      [matchedTxn('t1', -100, groceries.id)],
+      new Date(),
+      [{ transactionId: 't1' }],
+    );
+
+    const fill = fixture.nativeElement.querySelector('.progress-fill') as HTMLElement;
+    expect(fill.style.width).toBe('0%');
   });
 
   it('emits budgetClick with the Flow when a row is clicked', async () => {
@@ -317,6 +332,23 @@ describe('BudgetList', () => {
       const incomeLine = fixture.nativeElement.querySelector('.income-line') as HTMLElement;
       expect(incomeLine.classList.contains('over')).toBe(false);
       expect(incomeLine.textContent).toContain('under');
+    });
+
+    it('excludes an Ignored Transaction from both the spending total and the average income (ADR-0019)', async () => {
+      const fixture = await createComponent(
+        [groceries],
+        [
+          matchedTxn('t1', -300, groceries.id, new Date(2026, 6, 10)),
+          oldHistoryTxn,
+          incomeTxn('i1', 900),
+        ],
+        scrubDate,
+        [{ transactionId: 't1' }, { transactionId: 'i1' }],
+      );
+      const amounts = fixture.nativeElement.querySelector('.amounts') as HTMLElement;
+      expect(amounts.textContent).toContain('$0');
+      const incomeLine = fixture.nativeElement.querySelector('.income-line') as HTMLElement;
+      expect(incomeLine.textContent).toContain('$0');
     });
 
     it('is over when the aggregate allocation is zero but usage is positive', async () => {

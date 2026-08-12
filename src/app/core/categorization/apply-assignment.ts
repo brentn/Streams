@@ -19,7 +19,8 @@ export type Assignment =
       /** Set when the chosen Flow was just created inline and doesn't exist in storage yet. */
       newFlow?: Flow;
     }
-  | { mode: 'remove-direct'; transactionId: string };
+  | { mode: 'remove-direct'; transactionId: string }
+  | { mode: 'ignore'; transactionId: string };
 
 /**
  * Persists an Assignment and returns the given Transactions with `matchedTarget` brought up to
@@ -33,6 +34,9 @@ export type Assignment =
  * Transaction and updates only that one Transaction's `matchedTarget` — a Direct Categorization
  * can't affect any other Transaction's matching by definition (ADR-0018), so there's nothing else
  * to re-derive.
+ *
+ * Ignore mode upserts an Ignored Transaction (ADR-0019) and returns `transactions` unchanged —
+ * Ignored is orthogonal to `matchedTarget`, so nothing about matching is re-derived.
  *
  * Shared by `TransactionReview` and `TributaryPanel`, the two places a Transaction gets
  * (re)categorized, so neither duplicates this orchestration.
@@ -53,6 +57,11 @@ export async function applyAssignment(
     const recategorized = categorizeTransactions(transactions, rules, directCategorizations);
     await storage.upsertTransactions(recategorized);
     return recategorized;
+  }
+
+  if (assignment.mode === 'ignore') {
+    await storage.upsertIgnoredTransaction({ transactionId: assignment.transactionId });
+    return transactions;
   }
 
   const { transactionId } = assignment;

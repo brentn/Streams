@@ -45,7 +45,8 @@ export type AssignFlowDialogResult =
       /** Set when the chosen Flow was just created in this dialog and doesn't exist in storage yet — the caller persists it before the Direct Categorization. */
       newFlow?: Flow;
     }
-  | { mode: 'remove-direct'; transactionId: string };
+  | { mode: 'remove-direct'; transactionId: string }
+  | { mode: 'ignore'; transactionId: string };
 
 /** A focused dialog for assigning/correcting one Transaction's Flow or Transfer — surfaced right where the user clicked, instead of an inline form buried at the bottom of a long list. */
 @Component({
@@ -145,6 +146,11 @@ export class AssignFlowDialog {
 
   protected removeDirectCategorization(): void {
     this.dialogRef.close({ mode: 'remove-direct', transactionId: this.data.transaction.id });
+  }
+
+  /** Suppresses this Transaction from every categorization-facing list/total (ADR-0019) without touching `matchedTarget` — available regardless of whether the Transaction is already matched. */
+  protected ignoreTransaction(): void {
+    this.dialogRef.close({ mode: 'ignore', transactionId: this.data.transaction.id });
   }
 
   protected cancel(): void {

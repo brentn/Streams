@@ -8,9 +8,11 @@ import {
   Tolerance,
   signedFlowAmount,
 } from '../models/flow';
+import { IgnoredTransaction } from '../models/ignored-transaction';
 import { SkippedOccurrence } from '../models/skipped-occurrence';
 import { Transaction } from '../models/transaction';
 import { Transfer } from '../models/transfer';
+import { isIgnored } from '../categorization/ignored-transactions';
 import { amountAtDate } from './amount-timeline';
 import { budgetContribution, currentPeriod, previousCompletedPeriod } from './budget-period';
 import { lastCompletedPeriod, mostRecentOccurrence, occurrencesInRange } from './cadence';
@@ -248,13 +250,16 @@ export function toleranceAmount(tolerance: Tolerance, expectedMagnitude: number)
  * A Flow's actual total for `(startExclusive, endInclusive]`, normalized to the same positive
  * magnitude its expected amount is expressed in — matched Transactions summed, then flipped
  * back through `direction`'s sign (the same multiply-by-±1 `signedFlowAmount` uses to go the
- * other way, and self-inverse since the sign is always ±1).
+ * other way, and self-inverse since the sign is always ±1). An Ignored Transaction (ADR-0019) is
+ * excluded from the sum even though it's still matched underneath — Ignored governs suppression,
+ * not what a Transaction resolves to.
  */
 function actualFlowMagnitude(
   flow: Flow,
   transactions: Transaction[],
   startExclusive: Date,
   endInclusive: Date,
+  ignoredTransactions: IgnoredTransaction[] = [],
 ): number {
   const upperBoundExclusive = addDays(endInclusive, 1);
   const signedTotal = transactions
@@ -263,7 +268,8 @@ function actualFlowMagnitude(
         txn.matchedTarget?.kind === 'flow' &&
         txn.matchedTarget.id === flow.id &&
         txn.date.getTime() > startExclusive.getTime() &&
-        txn.date.getTime() < upperBoundExclusive.getTime(),
+        txn.date.getTime() < upperBoundExclusive.getTime() &&
+        !isIgnored(txn.id, ignoredTransactions),
     )
     .reduce((sum, txn) => sum + txn.amount, 0);
   return signedFlowAmount(signedTotal, flow.direction);
@@ -281,6 +287,7 @@ export function varianceAlert(
   flow: Flow,
   transactions: Transaction[],
   today: Date,
+  ignoredTransactions: IgnoredTransaction[] = [],
 ): VarianceAlert | null {
   if (!flow.tolerance) return null;
 
@@ -293,7 +300,7 @@ export function varianceAlert(
   const { startExclusive, endInclusive } = period;
   const changes = flow.amountChanges ?? [];
   const expected = expectedFlowMagnitude(flow, changes, startExclusive, endInclusive);
-  const actual = actualFlowMagnitude(flow, transactions, startExclusive, endInclusive);
+  const actual = actualFlowMagnitude(flow, transactions, startExclusive, endInclusive, ignoredTransactions);
 
   const tolerance = toleranceAmount(flow.tolerance, expected);
   const diff = actual - expected;
@@ -416,9 +423,13 @@ export function budgetProgress(
   flow: BudgetFlow,
   transactions: Transaction[],
   today: Date,
+  ignoredTransactions: IgnoredTransaction[] = [],
 ): { used: number; limit: number } {
   const { startExclusive, endInclusive } = currentPeriod(flow.period, today);
-  const used = Math.max(0, actualFlowMagnitude(flow, transactions, startExclusive, endInclusive));
+  const used = Math.max(
+    0,
+    actualFlowMagnitude(flow, transactions, startExclusive, endInclusive, ignoredTransactions),
+  );
   const limit = amountAtDate(flow.limit, flow.amountChanges ?? [], today);
   return { used, limit };
 }
@@ -461,12 +472,13 @@ export function aggregateBudgetProgress(
   flows: Flow[],
   transactions: Transaction[],
   today: Date,
+  ignoredTransactions: IgnoredTransaction[] = [],
 ): { used: number; limit: number } {
   return flows
     .filter((flow): flow is BudgetFlow => flow.kind === 'budget' && flow.direction === 'out')
     .reduce(
       (totals, flow) => {
-        const { used, limit } = budgetProgress(flow, transactions, today);
+        const { used, limit } = budgetProgress(flow, transactions, today, ignoredTransactions);
         const factor = MONTHLY_PRORATION_FACTOR[flow.period];
         return { used: totals.used + used * factor, limit: totals.limit + limit * factor };
       },
@@ -487,9 +499,16 @@ const AVG_DAYS_PER_MONTH = 30;
  * Divides by however much of the window the Account's transaction history actually spans
  * (found from `transactions` as a whole, not just the in-window income ones), capped at
  * `windowMonths` — a newer Account's figure reflects a genuine monthly average rather than
- * being divided by a fixed window regardless of how much history exists.
+ * being divided by a fixed window regardless of how much history exists. An Ignored Transaction
+ * (ADR-0019) is excluded from the income sum, but still counts toward the history span — Ignored
+ * says "this shouldn't count," not "this account has less history than it does."
  */
-export function averageMonthlyIncome(transactions: Transaction[], asOf: Date, windowMonths: number): number {
+export function averageMonthlyIncome(
+  transactions: Transaction[],
+  asOf: Date,
+  windowMonths: number,
+  ignoredTransactions: IgnoredTransaction[] = [],
+): number {
   const windowStart = addDays(asOf, -windowMonths * AVG_DAYS_PER_MONTH);
 
   const earliestOverall = transactions.reduce<Date | null>(
@@ -508,7 +527,8 @@ export function averageMonthlyIncome(transactions: Transaction[], asOf: Date, wi
         txn.date.getTime() > windowStart.getTime() &&
         txn.date.getTime() <= asOf.getTime() &&
         txn.amount >= 0 &&
-        txn.matchedTarget?.kind !== 'transfer',
+        txn.matchedTarget?.kind !== 'transfer' &&
+        !isIgnored(txn.id, ignoredTransactions),
     )
     .reduce((sum, txn) => sum + txn.amount, 0);
 

@@ -16,6 +16,7 @@ import { deleteTransferCascade } from '../../core/categorization/delete-transfer
 import { Account } from '../../core/models/account';
 import { DirectCategorization } from '../../core/models/direct-categorization';
 import { BudgetFlow, Flow, isOneTimeFlow } from '../../core/models/flow';
+import { IgnoredTransaction } from '../../core/models/ignored-transaction';
 import { SkippedOccurrence } from '../../core/models/skipped-occurrence';
 import { Transaction } from '../../core/models/transaction';
 import { Transfer } from '../../core/models/transfer';
@@ -94,6 +95,7 @@ export class AccountStream {
   protected readonly transfers = signal<Transfer[]>([]);
   protected readonly skippedOccurrences = signal<SkippedOccurrence[]>([]);
   protected readonly directCategorizations = signal<DirectCategorization[]>([]);
+  protected readonly ignoredTransactions = signal<IgnoredTransaction[]>([]);
   protected readonly dayOffset = signal(0);
   protected readonly isSyncing = this.syncCoordinator.isSyncing;
   protected readonly operationError = this.syncCoordinator.operationError;
@@ -195,7 +197,7 @@ export class AccountStream {
         account.id,
         this.selectedDate(),
       ),
-      ...buildUncategorizedTributaries(this.transactions(), this.selectedDate()),
+      ...buildUncategorizedTributaries(this.transactions(), this.selectedDate(), this.ignoredTransactions()),
     ];
     return withOutstandingTributaries(
       base,
@@ -237,6 +239,7 @@ export class AccountStream {
     this.transfers.set(account ? await this.storage.getTransfersForAccount(id) : []);
     this.skippedOccurrences.set(account ? await this.storage.getSkippedOccurrences() : []);
     this.directCategorizations.set(account ? await this.storage.getDirectCategorizations() : []);
+    this.ignoredTransactions.set(account ? await this.storage.getIgnoredTransactions() : []);
   }
 
   protected async reloadFlows(): Promise<void> {
@@ -259,13 +262,18 @@ export class AccountStream {
     this.directCategorizations.set(await this.storage.getDirectCategorizations());
   }
 
-  /** A Transaction assignment can also create a Flow inline (AssignFlowDialog) or a Direct Categorization, and the drill-in panel can edit either kind, so reload everything mutable. */
+  protected async reloadIgnoredTransactions(): Promise<void> {
+    this.ignoredTransactions.set(await this.storage.getIgnoredTransactions());
+  }
+
+  /** A Transaction assignment can also create a Flow inline (AssignFlowDialog), a Direct Categorization, or an Ignored Transaction (ADR-0019), and the drill-in panel can edit any of these, so reload everything mutable. */
   protected async reloadAll(): Promise<void> {
     await Promise.all([
       this.reloadFlows(),
       this.reloadTransfers(),
       this.reloadTransactions(),
       this.reloadDirectCategorizations(),
+      this.reloadIgnoredTransactions(),
     ]);
   }
 

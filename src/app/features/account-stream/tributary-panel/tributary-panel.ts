@@ -4,9 +4,11 @@ import { afterNextRender, Component, computed, ElementRef, inject, input, output
 import { applyAssignment } from '../../../core/categorization/apply-assignment';
 import { deleteFlowCascade } from '../../../core/categorization/delete-flow-cascade';
 import { deleteTransferCascade } from '../../../core/categorization/delete-transfer-cascade';
+import { isIgnored } from '../../../core/categorization/ignored-transactions';
 import { Account } from '../../../core/models/account';
 import { DirectCategorization } from '../../../core/models/direct-categorization';
 import { Flow } from '../../../core/models/flow';
+import { IgnoredTransaction } from '../../../core/models/ignored-transaction';
 import { Transaction } from '../../../core/models/transaction';
 import { Transfer } from '../../../core/models/transfer';
 import { transferLabel } from '../../../core/models/transfer-label';
@@ -50,6 +52,7 @@ export class TributaryPanel {
   readonly accounts = input.required<Account[]>();
   readonly transactions = input.required<Transaction[]>();
   readonly directCategorizations = input.required<DirectCategorization[]>();
+  readonly ignoredTransactions = input.required<IgnoredTransaction[]>();
   readonly selectedDate = input.required<Date>();
 
   readonly closed = output<void>();
@@ -72,14 +75,17 @@ export class TributaryPanel {
     return transfer ? transferLabel(transfer, this.accountId(), this.accounts()) : '';
   });
 
+  /** An Ignored Transaction (ADR-0019) is excluded even though it's still matched underneath. */
   private readonly matchingTransactions = computed(() => {
     const t = this.tributary();
-    return this.transactions().filter((txn) =>
-      t.kind === 'flow'
-        ? txn.matchedTarget?.kind === 'flow' && txn.matchedTarget.id === t.flowId
-        : t.kind === 'transfer'
-          ? txn.matchedTarget?.kind === 'transfer' && txn.matchedTarget.id === t.transferId
-          : false,
+    return this.transactions().filter(
+      (txn) =>
+        !isIgnored(txn.id, this.ignoredTransactions()) &&
+        (t.kind === 'flow'
+          ? txn.matchedTarget?.kind === 'flow' && txn.matchedTarget.id === t.flowId
+          : t.kind === 'transfer'
+            ? txn.matchedTarget?.kind === 'transfer' && txn.matchedTarget.id === t.transferId
+            : false),
     );
   });
 

@@ -38,6 +38,8 @@ describe('AccountStream', () => {
     getDirectCategorizations: ReturnType<typeof vi.fn>;
     upsertDirectCategorization: ReturnType<typeof vi.fn>;
     deleteDirectCategorization: ReturnType<typeof vi.fn>;
+    getIgnoredTransactions: ReturnType<typeof vi.fn>;
+    upsertIgnoredTransaction: ReturnType<typeof vi.fn>;
     getAccessUrl: ReturnType<typeof vi.fn>;
     upsertAccount: ReturnType<typeof vi.fn>;
     upsertTransactions: ReturnType<typeof vi.fn>;
@@ -68,6 +70,8 @@ describe('AccountStream', () => {
       getDirectCategorizations: vi.fn().mockResolvedValue([]),
       upsertDirectCategorization: vi.fn(),
       deleteDirectCategorization: vi.fn(),
+      getIgnoredTransactions: vi.fn().mockResolvedValue([]),
+      upsertIgnoredTransaction: vi.fn(),
       getAccessUrl: vi.fn(),
       upsertAccount: vi.fn(),
       upsertTransactions: vi.fn(),

@@ -426,4 +426,14 @@ describe('AssignFlowDialog', () => {
       expect(dialogRef.close).toHaveBeenCalledWith({ mode: 'remove-direct', transactionId: 'txn-1' });
     });
   });
+
+  describe('ignoring a Transaction', () => {
+    it('closes with an ignore result for the current Transaction, regardless of match state', () => {
+      const component = createComponent({ transaction: matched, flows: [coffeeFlow] });
+
+      component['ignoreTransaction']();
+
+      expect(dialogRef.close).toHaveBeenCalledWith({ mode: 'ignore', transactionId: 'txn-2' });
+    });
+  });
 });

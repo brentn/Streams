@@ -82,12 +82,14 @@
       [transfers]="transfers()"
       [accounts]="allAccounts()"
       [directCategorizations]="directCategorizations()"
+      [ignoredTransactions]="ignoredTransactions()"
       (changed)="reloadAll()"
     />
 
     <app-budget-list
       [flows]="flows()"
       [transactions]="transactions()"
+      [ignoredTransactions]="ignoredTransactions()"
       [selectedDate]="selectedDate()"
       (budgetClick)="onBudgetClick($event)"
     />
@@ -106,6 +108,7 @@
         [accounts]="allAccounts()"
         [transactions]="transactions()"
         [directCategorizations]="directCategorizations()"
+        [ignoredTransactions]="ignoredTransactions()"
         [selectedDate]="selectedDate()"
         (closed)="closeTributaryPanel()"
         (changed)="reloadAll()"

@@ -5,6 +5,7 @@ import { Account } from '../models/account';
 import { CategorizationRule } from '../models/categorization-rule';
 import { DirectCategorization } from '../models/direct-categorization';
 import { Flow } from '../models/flow';
+import { IgnoredTransaction } from '../models/ignored-transaction';
 import { SkippedOccurrence } from '../models/skipped-occurrence';
 import { Transaction } from '../models/transaction';
 import { Transfer } from '../models/transfer';
@@ -40,6 +41,10 @@ interface StreamsDb extends DBSchema {
   directCategorizations: {
     key: string;
     value: DirectCategorization;
+  };
+  ignoredTransactions: {
+    key: string;
+    value: IgnoredTransaction;
   };
   settings: {
     key: string;
@@ -105,7 +110,7 @@ export class StorageRepository {
   private readonly dbPromise: Promise<IDBPDatabase<StreamsDb>>;
 
   constructor() {
-    this.dbPromise = openDB<StreamsDb>('streams', 17, {
+    this.dbPromise = openDB<StreamsDb>('streams', 18, {
       async upgrade(db, oldVersion, _newVersion, transaction) {
         if (oldVersion < 1) {
           db.createObjectStore('accounts', { keyPath: 'id' });
@@ -203,6 +208,14 @@ export class StorageRepository {
         // freshly-fetched wire data on every resync, which would silently drop any such field.
         if (oldVersion < 17) {
           db.createObjectStore('directCategorizations', { keyPath: 'transactionId' });
+        }
+        // v18: new ignoredTransactions store, keyed on `transactionId` — marks a single
+        // Transaction as suppressed from every categorization-facing list/total (issue #104,
+        // ADR-0019). Kept separate from `transactions`, same reasoning as v17's
+        // `directCategorizations`: a resync's full-record `put` would silently drop a field
+        // added to `Transaction` itself.
+        if (oldVersion < 18) {
+          db.createObjectStore('ignoredTransactions', { keyPath: 'transactionId' });
         }
       },
     });
@@ -378,6 +391,17 @@ export class StorageRepository {
   async deleteDirectCategorization(transactionId: string): Promise<void> {
     const db = await this.dbPromise;
     await db.delete('directCategorizations', transactionId);
+  }
+
+  /** Keyed on `transactionId`, so ignoring the same Transaction twice overwrites in place rather than duplicating. */
+  async upsertIgnoredTransaction(ignoredTransaction: IgnoredTransaction): Promise<void> {
+    const db = await this.dbPromise;
+    await db.put('ignoredTransactions', ignoredTransaction);
+  }
+
+  async getIgnoredTransactions(): Promise<IgnoredTransaction[]> {
+    const db = await this.dbPromise;
+    return db.getAll('ignoredTransactions');
   }
 
   async close(): Promise<void> {

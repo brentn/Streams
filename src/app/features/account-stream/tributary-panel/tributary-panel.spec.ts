@@ -6,6 +6,7 @@ import { Tributary } from '../../../core/charting/tributaries';
 import { Account } from '../../../core/models/account';
 import { DirectCategorization } from '../../../core/models/direct-categorization';
 import { RecurringFlow } from '../../../core/models/flow';
+import { IgnoredTransaction } from '../../../core/models/ignored-transaction';
 import { Transaction } from '../../../core/models/transaction';
 import { Transfer } from '../../../core/models/transfer';
 import { StorageRepository } from '../../../core/storage/storage-repository';
@@ -101,6 +102,7 @@ describe('TributaryPanel', () => {
     flows?: RecurringFlow[];
     transfers?: Transfer[];
     directCategorizations?: DirectCategorization[];
+    ignoredTransactions?: IgnoredTransaction[];
     selectedDate?: Date;
   }) {
     storage = {
@@ -136,6 +138,7 @@ describe('TributaryPanel', () => {
     fixture.componentRef.setInput('accounts', accounts);
     fixture.componentRef.setInput('transactions', opts.transactions ?? []);
     fixture.componentRef.setInput('directCategorizations', opts.directCategorizations ?? []);
+    fixture.componentRef.setInput('ignoredTransactions', opts.ignoredTransactions ?? []);
     fixture.componentRef.setInput('selectedDate', opts.selectedDate ?? new Date(2026, 6, 15));
     fixture.detectChanges();
     return { component: fixture.componentInstance, fixture };
@@ -177,6 +180,19 @@ describe('TributaryPanel', () => {
     expect(groups[0].date).toEqual(new Date(2026, 6, 1));
     expect(groups[1].date).toEqual(new Date(2026, 5, 1));
     expect(groups[0].transactions).toEqual([t2, t1]);
+  });
+
+  it('excludes an Ignored Transaction even though it matches this Flow (ADR-0019)', async () => {
+    const t1 = txn({ id: 't1', matchedTarget: { kind: 'flow', id: 'flow-rent' } });
+    const t2 = txn({ id: 't2', matchedTarget: { kind: 'flow', id: 'flow-rent' } });
+
+    const { component } = await createComponent({
+      tributary: flowTributary,
+      transactions: [t1, t2],
+      ignoredTransactions: [{ transactionId: 't2' }],
+    });
+
+    expect(component['dayGroups']()).toEqual([{ date: new Date(2026, 6, 1), transactions: [t1] }]);
   });
 
   it('filters to only Transactions matching this Transfer', async () => {

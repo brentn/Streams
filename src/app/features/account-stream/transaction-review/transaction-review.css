@@ -73,3 +73,23 @@ h2 {
   padding: 0.3rem 0.65rem;
   color: var(--color-ink-secondary);
 }
+
+.row-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.confirm-ignore {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  font-size: var(--text-body);
+  color: var(--color-ink-secondary);
+}
+
+.confirm-ignore .ignore {
+  color: var(--color-critical);
+  border-color: var(--color-critical);
+}

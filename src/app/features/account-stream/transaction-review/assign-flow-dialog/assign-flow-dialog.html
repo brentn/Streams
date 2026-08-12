@@ -81,6 +81,7 @@
       <div class="form-actions">
         <button type="submit">Save</button>
         <button type="button" (click)="cancel()">Cancel</button>
+        <button type="button" class="ignore" (click)="ignoreTransaction()">Ignore</button>
         @if (data.hasDirectCategorization) {
           <button type="button" class="remove-direct" (click)="removeDirectCategorization()">
             Remove Direct Categorization

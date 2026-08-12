@@ -4,6 +4,7 @@ import { Account } from '../models/account';
 import { CategorizationRule } from '../models/categorization-rule';
 import { DirectCategorization } from '../models/direct-categorization';
 import { BudgetFlow, RecurringFlow } from '../models/flow';
+import { IgnoredTransaction } from '../models/ignored-transaction';
 import { SkippedOccurrence } from '../models/skipped-occurrence';
 import { Transaction } from '../models/transaction';
 import { Transfer } from '../models/transfer';
@@ -432,6 +433,21 @@ describe('StorageRepository', () => {
     expect(await repo.getDirectCategorizations()).toEqual([]);
   });
 
+  it('upserts and retrieves Ignored Transactions', async () => {
+    const ignored: IgnoredTransaction = { transactionId: 'txn-1' };
+
+    await repo.upsertIgnoredTransaction(ignored);
+
+    expect(await repo.getIgnoredTransactions()).toEqual([ignored]);
+  });
+
+  it('upserting the same transactionId again overwrites the Ignored Transaction in place rather than duplicating', async () => {
+    await repo.upsertIgnoredTransaction({ transactionId: 'txn-1' });
+    await repo.upsertIgnoredTransaction({ transactionId: 'txn-1' });
+
+    expect(await repo.getIgnoredTransactions()).toEqual([{ transactionId: 'txn-1' }]);
+  });
+
   describe('reidAccount', () => {
     const oldAccount: Account = {
       id: 'old-id',
@@ -565,6 +581,7 @@ describe('StorageRepository', () => {
           'categorizationRules',
           'directCategorizations',
           'flows',
+          'ignoredTransactions',
           'settings',
           'skippedOccurrences',
           'transactions',
@@ -581,7 +598,7 @@ describe('StorageRepository', () => {
     it('reports the current database version alongside the dumped stores', async () => {
       const { dbVersion } = await repo.exportAll();
 
-      expect(dbVersion).toBe(17);
+      expect(dbVersion).toBe(18);
     });
 
     it('importAll replaces the contents of every named store, leaving stores absent from the bundle untouched', async () => {

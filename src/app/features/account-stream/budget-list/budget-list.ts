@@ -1,6 +1,7 @@
 import { Component, computed, input, output } from '@angular/core';
 import { CurrencyPipe, DecimalPipe } from '@angular/common';
 import { BudgetFlow, Flow } from '../../../core/models/flow';
+import { IgnoredTransaction } from '../../../core/models/ignored-transaction';
 import { Transaction } from '../../../core/models/transaction';
 import {
   aggregateBudgetProgress,
@@ -70,6 +71,7 @@ export interface BudgetSummary {
 export class BudgetList {
   readonly flows = input.required<Flow[]>();
   readonly transactions = input.required<Transaction[]>();
+  readonly ignoredTransactions = input.required<IgnoredTransaction[]>();
   /** The stream's scrub position — which Budget Period's actuals each progress bar reflects. See ADR-0011. */
   readonly selectedDate = input.required<Date>();
 
@@ -84,9 +86,10 @@ export class BudgetList {
   protected readonly summary = computed<BudgetSummary>(() => {
     const today = this.selectedDate();
     const transactions = this.transactions();
-    const { used, limit } = aggregateBudgetProgress(this.flows(), transactions, today);
+    const ignoredTransactions = this.ignoredTransactions();
+    const { used, limit } = aggregateBudgetProgress(this.flows(), transactions, today, ignoredTransactions);
     const { displayPct, pct } = progressPct(used, limit);
-    const avgIncome = averageMonthlyIncome(transactions, today, INCOME_WINDOW_MONTHS);
+    const avgIncome = averageMonthlyIncome(transactions, today, INCOME_WINDOW_MONTHS, ignoredTransactions);
     const overIncome = limit > avgIncome;
     const status: BudgetProgressStatus =
       limit <= 0
@@ -114,10 +117,11 @@ export class BudgetList {
   protected readonly rows = computed<BudgetRow[]>(() => {
     const today = this.selectedDate();
     const transactions = this.transactions();
+    const ignoredTransactions = this.ignoredTransactions();
     return this.flows()
       .filter((flow): flow is BudgetFlow => flow.kind === 'budget')
       .map((flow) => {
-        const { used, limit } = budgetProgress(flow, transactions, today);
+        const { used, limit } = budgetProgress(flow, transactions, today, ignoredTransactions);
         const { displayPct, pct } = progressPct(used, limit);
         return {
           flow,

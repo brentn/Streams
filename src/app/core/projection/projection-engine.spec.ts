@@ -497,6 +497,19 @@ describe('varianceAlert', () => {
       ];
       expect(varianceAlert(flow, transactions, today)).toBeNull();
     });
+
+    it('excludes an Ignored Transaction from the actual total (ADR-0019)', () => {
+      const flow = recurringFlow({
+        amount: 100,
+        direction: 'in',
+        tolerance: { kind: 'fixed', value: 10 },
+      });
+      const transactions = [
+        matchedTxn('t1', '2026-07-08T09:00:00Z', 100, flow.id),
+        matchedTxn('t2', '2026-07-08T09:00:00Z', 5000, flow.id),
+      ];
+      expect(varianceAlert(flow, transactions, today, [{ transactionId: 't2' }])).toBeNull();
+    });
   });
 
   describe('budget-kind Flow (single-directional, mirroring direction)', () => {
@@ -585,6 +598,18 @@ describe('budgetProgress', () => {
     });
     expect(budgetProgress(flow, [], today)).toEqual({ used: 0, limit: 500 });
   });
+
+  it('excludes an Ignored Transaction from used (ADR-0019)', () => {
+    const flow = budgetFlow({ limit: 400, direction: 'out' });
+    const transactions = [
+      matchedTxn('t1', '2026-07-03T09:00:00Z', -30, flow.id),
+      matchedTxn('t2', '2026-07-10T09:00:00Z', -70, flow.id),
+    ];
+    expect(budgetProgress(flow, transactions, today, [{ transactionId: 't2' }])).toEqual({
+      used: 30,
+      limit: 400,
+    });
+  });
 });
 
 describe('aggregateBudgetProgress', () => {
@@ -620,6 +645,14 @@ describe('aggregateBudgetProgress', () => {
   it('returns zero totals when there are no out-direction budget-kind Flows', () => {
     const incomeBudget = budgetFlow({ id: 'b3', limit: 2000, direction: 'in', period: 'month' });
     expect(aggregateBudgetProgress([incomeBudget], [], today)).toEqual({ used: 0, limit: 0 });
+  });
+
+  it('excludes an Ignored Transaction from the combined total (ADR-0019)', () => {
+    const groceries = budgetFlow({ id: 'b1', limit: 400, direction: 'out', period: 'month' });
+    const transactions = [matchedTxn('t1', '2026-07-03T09:00:00Z', -100, 'b1')];
+    expect(
+      aggregateBudgetProgress([groceries], transactions, today, [{ transactionId: 't1' }]),
+    ).toEqual({ used: 0, limit: 400 });
   });
 });
 
@@ -668,6 +701,12 @@ describe('averageMonthlyIncome', () => {
 
   it('returns zero when there are no transactions at all', () => {
     expect(averageMonthlyIncome([], asOf, 3)).toBe(0);
+  });
+
+  it('excludes an Ignored Transaction from the income sum (ADR-0019)', () => {
+    const oldTxn = txn('old', daysBefore(400), -50);
+    const income = txn('i1', daysBefore(10), 900);
+    expect(averageMonthlyIncome([oldTxn, income], asOf, 3, [{ transactionId: 'i1' }])).toBeCloseTo(0);
   });
 });
 

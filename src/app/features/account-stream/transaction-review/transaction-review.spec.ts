@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Account } from '../../../core/models/account';
 import { DirectCategorization } from '../../../core/models/direct-categorization';
 import { Flow, RecurringFlow } from '../../../core/models/flow';
+import { IgnoredTransaction } from '../../../core/models/ignored-transaction';
 import { Transaction } from '../../../core/models/transaction';
 import { Transfer } from '../../../core/models/transfer';
 import { StorageRepository } from '../../../core/storage/storage-repository';
@@ -58,6 +59,7 @@ describe('TransactionReview', () => {
     upsertDirectCategorization: ReturnType<typeof vi.fn>;
     deleteDirectCategorization: ReturnType<typeof vi.fn>;
     upsertFlow: ReturnType<typeof vi.fn>;
+    upsertIgnoredTransaction: ReturnType<typeof vi.fn>;
   };
   let dialog: { open: ReturnType<typeof vi.fn> };
   let dialogClosed: Subject<AssignFlowDialogResult | undefined>;
@@ -71,6 +73,7 @@ describe('TransactionReview', () => {
       upsertDirectCategorization: vi.fn(),
       deleteDirectCategorization: vi.fn(),
       upsertFlow: vi.fn(),
+      upsertIgnoredTransaction: vi.fn(),
     };
     dialogClosed = new Subject<AssignFlowDialogResult | undefined>();
     dialog = { open: vi.fn().mockReturnValue({ closed: dialogClosed }) };
@@ -90,6 +93,7 @@ describe('TransactionReview', () => {
     transfers: Transfer[] = [],
     accounts: Account[] = [],
     directCategorizations: DirectCategorization[] = [],
+    ignoredTransactions: IgnoredTransaction[] = [],
   ) {
     const fixture = TestBed.createComponent(TransactionReview);
     fixture.componentRef.setInput('transactions', transactions);
@@ -97,6 +101,7 @@ describe('TransactionReview', () => {
     fixture.componentRef.setInput('transfers', transfers);
     fixture.componentRef.setInput('accounts', accounts);
     fixture.componentRef.setInput('directCategorizations', directCategorizations);
+    fixture.componentRef.setInput('ignoredTransactions', ignoredTransactions);
     return fixture.componentInstance;
   }
 
@@ -104,6 +109,19 @@ describe('TransactionReview', () => {
     const component = createComponent([matched, unmatched]);
 
     expect(component['unmatched']()).toEqual([unmatched]);
+  });
+
+  it('excludes an Ignored Transaction even though it is otherwise unmatched (ADR-0019)', () => {
+    const component = createComponent(
+      [unmatched],
+      [],
+      [],
+      [],
+      [],
+      [{ transactionId: unmatched.id }],
+    );
+
+    expect(component['unmatched']()).toEqual([]);
   });
 
   it('opens the Assign Flow dialog with the Transaction, Flows, Transfers, and Accounts', () => {
@@ -248,5 +266,39 @@ describe('TransactionReview', () => {
 
     expect(storage.upsertCategorizationRule).not.toHaveBeenCalled();
     expect(storage.upsertTransactions).not.toHaveBeenCalled();
+  });
+
+  describe('ignoring a row (two-step inline confirm)', () => {
+    it('does not ignore anything until the confirm step is taken', () => {
+      const component = createComponent([unmatched]);
+
+      component['startIgnore'](unmatched.id);
+
+      expect(component['confirmingIgnoreId']()).toBe(unmatched.id);
+      expect(storage.upsertIgnoredTransaction).not.toHaveBeenCalled();
+    });
+
+    it('cancelling leaves the row unignored', () => {
+      const component = createComponent([unmatched]);
+      component['startIgnore'](unmatched.id);
+
+      component['cancelIgnore']();
+
+      expect(component['confirmingIgnoreId']()).toBeNull();
+      expect(storage.upsertIgnoredTransaction).not.toHaveBeenCalled();
+    });
+
+    it('confirming persists an Ignored Transaction and emits changed', async () => {
+      const component = createComponent([unmatched]);
+      const changed = vi.fn();
+      component.changed.subscribe(changed);
+      component['startIgnore'](unmatched.id);
+
+      await component['confirmIgnore'](unmatched);
+
+      expect(storage.upsertIgnoredTransaction).toHaveBeenCalledWith({ transactionId: unmatched.id });
+      expect(component['confirmingIgnoreId']()).toBeNull();
+      expect(changed).toHaveBeenCalled();
+    });
   });
 });

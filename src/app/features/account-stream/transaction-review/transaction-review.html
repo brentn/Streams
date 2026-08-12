@@ -8,7 +8,18 @@
             <span class="description">{{ txn.description }}</span>
             <span class="detail">{{ txn.date | date: 'mediumDate' }} · {{ txn.amount | currency }}</span>
           </div>
-          <button type="button" (click)="openAssignForm(txn)">Assign</button>
+          @if (confirmingIgnoreId() === txn.id) {
+            <span class="confirm-ignore">
+              <span>Ignore this transaction?</span>
+              <button type="button" class="ignore" (click)="confirmIgnore(txn)">Confirm</button>
+              <button type="button" (click)="cancelIgnore()">Cancel</button>
+            </span>
+          } @else {
+            <span class="row-actions">
+              <button type="button" (click)="openAssignForm(txn)">Assign</button>
+              <button type="button" (click)="startIgnore(txn.id)">Ignore</button>
+            </span>
+          }
         </li>
       }
     </ul>

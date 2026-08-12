@@ -1,8 +1,10 @@
 import { Account } from '../models/account';
 import { AmountChange, BudgetFlow, BudgetPeriod, Flow, FlowDirection, RecurringFlow } from '../models/flow';
+import { IgnoredTransaction } from '../models/ignored-transaction';
 import { SkippedOccurrence } from '../models/skipped-occurrence';
 import { Transaction } from '../models/transaction';
 import { Transfer } from '../models/transfer';
+import { isIgnored } from '../categorization/ignored-transactions';
 import { amountAtDate } from '../projection/amount-timeline';
 import { occurrencesInRange } from '../projection/cadence';
 import { OutstandingAlert, outstandingAlert } from '../projection/projection-engine';
@@ -183,18 +185,20 @@ export function buildTributaries(
  * (see ADR-0007). Direction follows each Transaction's own signed amount, the same convention
  * `signedFlowAmount` uses for a Flow: positive is `in`, negative is `out`. A bucket is positioned
  * on the 1st of its month and sized by the summed absolute amount of its Transactions; a
- * `(direction, month)` combination with no unmatched Transactions renders nothing.
+ * `(direction, month)` combination with no unmatched Transactions renders nothing. An Ignored
+ * Transaction (ADR-0019) is excluded from every bucket it would otherwise fall into.
  */
 export function buildUncategorizedTributaries(
   transactions: Transaction[],
   selectedDate: Date,
+  ignoredTransactions: IgnoredTransaction[] = [],
 ): Tributary[] {
   const bounds = windowBounds(selectedDate);
 
   const buckets = new Map<string, { direction: FlowDirection; date: Date; total: number }>();
 
   for (const t of transactions) {
-    if (t.matchedTarget !== null) continue;
+    if (t.matchedTarget !== null || isIgnored(t.id, ignoredTransactions)) continue;
 
     const direction: FlowDirection = t.amount >= 0 ? 'in' : 'out';
     const monthStart = periodStart('month', t.date);

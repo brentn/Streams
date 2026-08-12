@@ -252,6 +252,26 @@ describe('buildUncategorizedTributaries', () => {
 
     expect(result).toEqual([]);
   });
+
+  it('excludes an Ignored Transaction from the bucket it would otherwise fall into', () => {
+    const result = buildUncategorizedTributaries(
+      [txn({ id: 't1', amount: -10 }), txn({ id: 't2', amount: -32 })],
+      d('2026-07-10'),
+      [{ transactionId: 't2' }],
+    );
+
+    expect(result).toEqual([expect.objectContaining({ amount: 10 })]);
+  });
+
+  it('renders nothing when every unmatched Transaction in a bucket is Ignored', () => {
+    const result = buildUncategorizedTributaries(
+      [txn({ id: 't1', amount: -10 })],
+      d('2026-07-10'),
+      [{ transactionId: 't1' }],
+    );
+
+    expect(result).toEqual([]);
+  });
 });
 
 describe('withOutstandingTributaries (#88)', () => {
