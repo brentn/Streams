@@ -291,6 +291,27 @@ describe('StreamBand', () => {
       expect(emitted).toHaveBeenCalledWith(cluster.find((t) => t.id === 'a'));
       expect(fixture.nativeElement.querySelector('.group-list')).toBeNull();
     });
+
+    it('closes the open list when a tap lands outside it (#108)', async () => {
+      const cluster = [tributaryAt({ id: 'a', x: 10 }), tributaryAt({ id: 'b', x: 11 })];
+      const { fixture } = await createComponent(cluster, 60);
+      tap(fixture, '[data-group-id]');
+      expect(fixture.nativeElement.querySelector('.group-list')).toBeTruthy();
+
+      tap(fixture, 'svg');
+
+      expect(fixture.nativeElement.querySelector('.group-list')).toBeNull();
+    });
+
+    it('leaves the open list open for a tap inside it that lands on no actionable element, e.g. the header total (#108)', async () => {
+      const cluster = [tributaryAt({ id: 'a', x: 10 }), tributaryAt({ id: 'b', x: 11 })];
+      const { fixture } = await createComponent(cluster, 60);
+      tap(fixture, '[data-group-id]');
+
+      tap(fixture, '.group-list-header span');
+
+      expect(fixture.nativeElement.querySelector('.group-list')).toBeTruthy();
+    });
   });
 
   describe('proximity clustering (#66)', () => {

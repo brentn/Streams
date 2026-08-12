@@ -270,7 +270,10 @@ export class StreamBand {
    * native click bindings of its own at all. `DragScrub`'s `tap` output, carrying the
    * pointerdown's real target, is the *only* interaction channel — a DragScrub-wrapped consumer
    * forwards it here; this method resolves the target back to the tributary/group/list-row it
-   * belongs to via `data-*` attributes and dispatches exactly once.
+   * belongs to via `data-*` attributes and dispatches exactly once. The one exception is the
+   * trailing click-off-to-close fallthrough (#108), which checks containment against the
+   * `.group-list` class rather than a `data-*` marker, since it's asking "is this tap inside the
+   * list at all," not resolving to one specific marked row within it.
    */
   handleTap(target: HTMLElement): void {
     // `.closest()`, not a direct `dataset` read: the real pointerdown target can be a child of
@@ -293,6 +296,12 @@ export class StreamBand {
     const tributary = target.closest<HTMLElement>('[data-tributary-id]');
     if (tributary) {
       this.onTributaryClick(tributary.dataset['tributaryId']!);
+      return;
+    }
+    // Nothing matched: an open group list closes on a tap anywhere off of it, e.g. the chart
+    // background — but not on a tap that lands inside the list on non-actionable space (#108).
+    if (this.expandedGroupId() !== null && !target.closest('.group-list')) {
+      this.closeGroupList();
     }
   }
 

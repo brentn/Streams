@@ -322,7 +322,12 @@
   cursor: pointer;
   font: inherit;
   color: inherit;
-  padding: 0;
+  /*
+   * Negative margin offsets the padding so the enlarged (~44px) touch target doesn't shift the
+   * space-between header layout — see #108.
+   */
+  padding: 1rem;
+  margin: -1rem;
   line-height: 1;
 }
 
