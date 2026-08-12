@@ -5,7 +5,7 @@ import { isSubstringMatch, normalizeMatchText } from '../../../../core/categoriz
 import { Account } from '../../../../core/models/account';
 import { Flow, isOneTimeFlow } from '../../../../core/models/flow';
 import { MatchedTarget, Transaction } from '../../../../core/models/transaction';
-import { transferLabel } from '../../../../core/models/transfer-label';
+import { transferOptionLabel } from '../../../../core/models/transfer-label';
 import { Transfer } from '../../../../core/models/transfer';
 import { FlowForm } from '../../flow-form/flow-form';
 
@@ -87,7 +87,12 @@ export class AssignFlowDialog {
   }
 
   protected transferLabel(transfer: Transfer): string {
-    return transferLabel(transfer, this.data.transaction.accountId, this.data.accounts);
+    return transferOptionLabel(
+      transfer,
+      this.data.transaction.accountId,
+      this.data.accounts,
+      this.data.transaction.date,
+    );
   }
 
   protected onSubmit(event: Event): void {

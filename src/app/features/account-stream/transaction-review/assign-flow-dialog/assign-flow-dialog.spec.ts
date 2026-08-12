@@ -113,10 +113,12 @@ describe('AssignFlowDialog', () => {
     expect(component['selectedTarget']()).toEqual({ kind: 'transfer', id: 'transfer-1' });
   });
 
-  it('labels a Transfer by the other Account, from this Transaction\'s Account point of view', () => {
+  it('labels a Transfer by the other Account and its nearest occurrence to this Transaction\'s date', () => {
     const component = createComponent({ transaction: unmatched, transfers: [toSavings] });
 
-    expect(component['transferLabel'](toSavings)).toBe('Transfer to Savings');
+    // toSavings is monthly on the 1st; unmatched is dated 2026-07-20, so the nearest
+    // at-or-before occurrence is 2026-07-01.
+    expect(component['transferLabel'](toSavings)).toBe('Transfer to Savings — Jul 1, 2026');
   });
 
   it('closes with the normalized match text and chosen Flow target on submit', () => {

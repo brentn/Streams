@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Account } from './account';
-import { transferLabel } from './transfer-label';
+import { transferLabel, transferOptionLabel } from './transfer-label';
 import { Transfer } from './transfer';
 
 function account(id: string, name: string): Account {
@@ -36,5 +36,40 @@ describe('transferLabel', () => {
 
   it('falls back gracefully when the other Account is not in the given list', () => {
     expect(transferLabel(transfer, 'acc-1', [])).toBe('Transfer to (unknown account)');
+  });
+});
+
+describe('transferOptionLabel', () => {
+  // Local-midnight construction (not `new Date(iso)`, which parses a date-only string as UTC
+  // and would drift a day off when formatted — see cadence.spec.ts's `d()` helper).
+  const asOfDate = new Date(2026, 6, 20);
+
+  it('appends the most-recent occurrence at or before asOfDate', () => {
+    // Monthly on the 1st — most recent occurrence at/before Jul 20 is Jul 1.
+    expect(transferOptionLabel(transfer, 'acc-1', accounts, asOfDate)).toBe(
+      'Transfer to Savings — Jul 1, 2026',
+    );
+  });
+
+  it('falls back to the next occurrence when asOfDate predates the Transfer\'s first occurrence', () => {
+    const oneTime: Transfer = {
+      ...transfer,
+      cadence: { period: 'once', date: new Date(2026, 8, 15) },
+    };
+    expect(transferOptionLabel(oneTime, 'acc-1', accounts, asOfDate)).toBe(
+      'Transfer to Savings — Sep 15, 2026',
+    );
+  });
+
+  it('preserves the "to"/"from" framing from transferLabel', () => {
+    expect(transferOptionLabel(transfer, 'acc-2', accounts, asOfDate)).toBe(
+      'Transfer from Checking — Jul 1, 2026',
+    );
+  });
+
+  it('preserves the unknown-account fallback from transferLabel', () => {
+    expect(transferOptionLabel(transfer, 'acc-1', [], asOfDate)).toBe(
+      'Transfer to (unknown account) — Jul 1, 2026',
+    );
   });
 });
