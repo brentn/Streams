@@ -43,6 +43,22 @@ describe('App', () => {
     expect(compiled.querySelector('h1')?.textContent).toContain('Streams');
   });
 
+  it('links the brand (logo + name) to the accounts home page', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const compiled = fixture.nativeElement as HTMLElement;
+    const brand = compiled.querySelector('.brand');
+    expect(brand?.tagName).toBe('A');
+    expect(brand?.getAttribute('href')).toBe('/accounts');
+  });
+
+  it('keeps the header pinned to the top of the viewport while scrolling', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const header = fixture.nativeElement.querySelector('.app-header');
+    expect(getComputedStyle(header).position).toBe('sticky');
+  });
+
   it('renders the settings entry point as a labeled cog icon', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
