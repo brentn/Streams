@@ -4,6 +4,7 @@ import { Subject } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { Tributary } from '../../../core/charting/tributaries';
 import { Account } from '../../../core/models/account';
+import { DirectCategorization } from '../../../core/models/direct-categorization';
 import { RecurringFlow } from '../../../core/models/flow';
 import { Transaction } from '../../../core/models/transaction';
 import { Transfer } from '../../../core/models/transfer';
@@ -83,6 +84,9 @@ describe('TributaryPanel', () => {
     upsertTransfer: ReturnType<typeof vi.fn>;
     upsertCategorizationRule: ReturnType<typeof vi.fn>;
     getCategorizationRules: ReturnType<typeof vi.fn>;
+    getDirectCategorizations: ReturnType<typeof vi.fn>;
+    upsertDirectCategorization: ReturnType<typeof vi.fn>;
+    deleteDirectCategorization: ReturnType<typeof vi.fn>;
     upsertTransactions: ReturnType<typeof vi.fn>;
     deleteCategorizationRule: ReturnType<typeof vi.fn>;
     deleteFlow: ReturnType<typeof vi.fn>;
@@ -96,6 +100,7 @@ describe('TributaryPanel', () => {
     transactions?: Transaction[];
     flows?: RecurringFlow[];
     transfers?: Transfer[];
+    directCategorizations?: DirectCategorization[];
     selectedDate?: Date;
   }) {
     storage = {
@@ -103,6 +108,9 @@ describe('TributaryPanel', () => {
       upsertTransfer: vi.fn().mockResolvedValue(undefined),
       upsertCategorizationRule: vi.fn().mockResolvedValue(undefined),
       getCategorizationRules: vi.fn().mockResolvedValue([]),
+      getDirectCategorizations: vi.fn().mockResolvedValue([]),
+      upsertDirectCategorization: vi.fn().mockResolvedValue(undefined),
+      deleteDirectCategorization: vi.fn().mockResolvedValue(undefined),
       upsertTransactions: vi.fn().mockResolvedValue(undefined),
       deleteCategorizationRule: vi.fn().mockResolvedValue(undefined),
       deleteFlow: vi.fn().mockResolvedValue(undefined),
@@ -127,6 +135,7 @@ describe('TributaryPanel', () => {
     fixture.componentRef.setInput('transfers', opts.transfers ?? [savingsTransfer]);
     fixture.componentRef.setInput('accounts', accounts);
     fixture.componentRef.setInput('transactions', opts.transactions ?? []);
+    fixture.componentRef.setInput('directCategorizations', opts.directCategorizations ?? []);
     fixture.componentRef.setInput('selectedDate', opts.selectedDate ?? new Date(2026, 6, 15));
     fixture.detectChanges();
     return { component: fixture.componentInstance, fixture };
@@ -377,10 +386,11 @@ describe('TributaryPanel', () => {
         transfers: [savingsTransfer],
         accounts,
         transactions: [matching],
+        hasDirectCategorization: false,
       },
     });
 
-    closed.next({ matchText: 'rent payment', target: { kind: 'flow', id: 'flow-rent' } });
+    closed.next({ mode: 'rule', matchText: 'rent payment', target: { kind: 'flow', id: 'flow-rent' } });
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(storage.upsertCategorizationRule).toHaveBeenCalled();

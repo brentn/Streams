@@ -21,6 +21,7 @@ describe('ConnectAccount', () => {
     upsertAccount: ReturnType<typeof vi.fn>;
     upsertTransactions: ReturnType<typeof vi.fn>;
     getCategorizationRules: ReturnType<typeof vi.fn>;
+    getDirectCategorizations: ReturnType<typeof vi.fn>;
     getLastSyncedAt: ReturnType<typeof vi.fn>;
     getOldestFetchedAt: ReturnType<typeof vi.fn>;
     saveOldestFetchedAt: ReturnType<typeof vi.fn>;
@@ -36,6 +37,7 @@ describe('ConnectAccount', () => {
       upsertAccount: vi.fn(),
       upsertTransactions: vi.fn(),
       getCategorizationRules: vi.fn().mockResolvedValue([]),
+      getDirectCategorizations: vi.fn().mockResolvedValue([]),
       getLastSyncedAt: vi.fn().mockResolvedValue(undefined),
       getOldestFetchedAt: vi.fn().mockResolvedValue(new Date('2026-07-20T12:00:00Z')),
       saveOldestFetchedAt: vi.fn(),

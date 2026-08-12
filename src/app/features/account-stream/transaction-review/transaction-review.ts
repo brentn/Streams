@@ -3,6 +3,7 @@ import { Dialog } from '@angular/cdk/dialog';
 import { Component, computed, inject, input, output } from '@angular/core';
 import { applyAssignment } from '../../../core/categorization/apply-assignment';
 import { Account } from '../../../core/models/account';
+import { DirectCategorization } from '../../../core/models/direct-categorization';
 import { Flow } from '../../../core/models/flow';
 import { Transaction } from '../../../core/models/transaction';
 import { Transfer } from '../../../core/models/transfer';
@@ -35,6 +36,7 @@ export class TransactionReview {
   readonly flows = input.required<Flow[]>();
   readonly transfers = input.required<Transfer[]>();
   readonly accounts = input.required<Account[]>();
+  readonly directCategorizations = input.required<DirectCategorization[]>();
   readonly changed = output<void>();
 
   /** Nothing matched any Categorization Rule — needs a human decision. Paired 1:1 with the aggregate uncategorized tributary on the chart above: both are absent together when this is empty. */
@@ -52,6 +54,7 @@ export class TransactionReview {
         transfers: this.transfers(),
         accounts: this.accounts(),
         transactions: this.transactions(),
+        hasDirectCategorization: this.directCategorizations().some((d) => d.transactionId === transaction.id),
       },
     });
 

@@ -43,8 +43,12 @@ _Avoid_: Seasonal template, schedule override
 ### Categorization
 
 **Categorization Rule**:
-A case-insensitive substring match on a Transaction's merchant/description text, mapping it to a Flow or a Transfer (its target). Exactly one rule exists per match text — correcting a Transaction's target overwrites that rule in place rather than adding a competing one. When multiple rules' match text fits the same Transaction, the longest (most specific) match wins. See ADR-0008.
+A case-insensitive substring match on a Transaction's merchant/description text, mapping it to a Flow or a Transfer (its target). Exactly one rule exists per match text — correcting a Transaction's target overwrites that rule in place rather than adding a competing one. When multiple rules' match text fits the same Transaction, the longest (most specific) match wins. Distinct from Direct Categorization, which assigns a single Transaction directly with no rule involved. See ADR-0008.
 _Avoid_: Mapping, auto-tag
+
+**Direct Categorization**:
+A `{transactionId, target}` record assigning one specific, already-existing Transaction to a Flow-or-Transfer target directly, bypassing Categorization Rule matching entirely. Stored in its own store, keyed by Transaction id — never merged into the Transaction record itself, so it survives the full-record overwrite every resync performs. Always takes absolute precedence over Categorization Rule matching for that Transaction, for as long as it exists: the matching pipeline checks for a Direct Categorization before running rule-matching at all, not as a length-based tiebreak alongside it. Removable — deleting it falls back to whatever Categorization Rule matching (or nothing) would otherwise derive. Exists for Transactions whose description is too generic to safely turn into a rule (e.g. "Transfer Out") without misassigning unrelated Transactions that happen to share that text. See ADR-0018.
+_Avoid_: Manual Assignment (too close to the existing rule-creating "assign" verb), Category Assignment / Explicit Categorization (collide with the Flow entry's "Avoid: Category" and don't distinguish from Categorization Rule, which is equally explicit), Pinned Categorization, Exception
 
 ### Sync
 

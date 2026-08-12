@@ -73,7 +73,14 @@ describe('AssignFlowDialog', () => {
 
   function createComponent(data: Partial<AssignFlowDialogData> & { transaction: Transaction }) {
     dialogRef = { close: vi.fn() };
-    const fullData: AssignFlowDialogData = { flows: [], transfers: [], accounts, transactions: [], ...data };
+    const fullData: AssignFlowDialogData = {
+      flows: [],
+      transfers: [],
+      accounts,
+      transactions: [],
+      hasDirectCategorization: false,
+      ...data,
+    };
     TestBed.configureTestingModule({
       imports: [AssignFlowDialog],
       providers: [
@@ -129,6 +136,7 @@ describe('AssignFlowDialog', () => {
     component['onSubmit'](new Event('submit'));
 
     expect(dialogRef.close).toHaveBeenCalledWith({
+      mode: 'rule',
       matchText: 'coffee shop',
       target: { kind: 'flow', id: 'flow-coffee' },
       newFlow: undefined,
@@ -143,6 +151,7 @@ describe('AssignFlowDialog', () => {
     component['onSubmit'](new Event('submit'));
 
     expect(dialogRef.close).toHaveBeenCalledWith({
+      mode: 'rule',
       matchText: 'coffee shop',
       target: { kind: 'transfer', id: 'transfer-1' },
       newFlow: undefined,
@@ -216,6 +225,7 @@ describe('AssignFlowDialog', () => {
       component['onSubmit'](new Event('submit'));
 
       expect(dialogRef.close).toHaveBeenCalledWith({
+        mode: 'rule',
         matchText: 'coffee shop',
         target: { kind: 'flow', id: 'flow-new' },
         newFlow,
@@ -231,6 +241,7 @@ describe('AssignFlowDialog', () => {
       component['onSubmit'](new Event('submit'));
 
       expect(dialogRef.close).toHaveBeenCalledWith({
+        mode: 'rule',
         matchText: 'coffee shop',
         target: { kind: 'flow', id: 'flow-coffee' },
         newFlow: undefined,
@@ -261,6 +272,7 @@ describe('AssignFlowDialog', () => {
       component['onSubmit'](new Event('submit'));
 
       expect(dialogRef.close).toHaveBeenCalledWith({
+        mode: 'rule',
         matchText: 'coffee shop',
         target: { kind: 'flow', id: 'flow-new' },
         newFlow,
@@ -326,6 +338,92 @@ describe('AssignFlowDialog', () => {
       });
 
       expect(component['selectedTarget']()).toEqual({ kind: 'flow', id: 'flow-coffee' });
+    });
+  });
+
+  describe('mode', () => {
+    it('defaults to rule mode', () => {
+      const component = createComponent({ transaction: unmatched, flows: [coffeeFlow] });
+
+      expect(component['mode']()).toBe('rule');
+    });
+
+    it('closes with a direct-mode result — no matchText — when mode is direct', () => {
+      const component = createComponent({ transaction: unmatched, flows: [coffeeFlow] });
+      component['mode'].set('direct');
+      component['selectedTarget'].set({ kind: 'flow', id: 'flow-coffee' });
+
+      component['onSubmit'](new Event('submit'));
+
+      expect(dialogRef.close).toHaveBeenCalledWith({
+        mode: 'direct',
+        transactionId: 'txn-1',
+        target: { kind: 'flow', id: 'flow-coffee' },
+      });
+    });
+
+    it('does not require match text to be a substring of the description when in direct mode', () => {
+      const component = createComponent({ transaction: unmatched, flows: [coffeeFlow] });
+      component['mode'].set('direct');
+      component['matchText'].set('totally unrelated text');
+      component['selectedTarget'].set({ kind: 'flow', id: 'flow-coffee' });
+
+      component['onSubmit'](new Event('submit'));
+
+      expect(dialogRef.close).toHaveBeenCalledWith({
+        mode: 'direct',
+        transactionId: 'txn-1',
+        target: { kind: 'flow', id: 'flow-coffee' },
+      });
+    });
+
+    it('includes a Flow created inline in the direct-mode result when it is still selected at submit time', () => {
+      const newFlow: RecurringFlow = {
+        id: 'flow-new',
+        accountId: 'acc-1',
+        name: 'Coffee',
+        direction: 'out',
+        kind: 'recurring',
+        amount: 5,
+        cadence: { period: 'week', interval: 1, anchors: [{ dayOfWeek: 1 }], anchorDate: new Date('2026-01-05') },
+      };
+      const component = createComponent({ transaction: unmatched, flows: [coffeeFlow] });
+      component['onFlowCreated'](newFlow);
+      component['mode'].set('direct');
+
+      component['onSubmit'](new Event('submit'));
+
+      expect(dialogRef.close).toHaveBeenCalledWith({
+        mode: 'direct',
+        transactionId: 'txn-1',
+        target: { kind: 'flow', id: 'flow-new' },
+        newFlow,
+      });
+    });
+
+    it('does not close in direct mode when no target is selected', () => {
+      const component = createComponent({ transaction: unmatched, flows: [], transfers: [] });
+      component['mode'].set('direct');
+
+      component['onSubmit'](new Event('submit'));
+
+      expect(dialogRef.close).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('removing a Direct Categorization', () => {
+    it('does not offer removal when the Transaction has no Direct Categorization', () => {
+      const component = createComponent({ transaction: unmatched, flows: [coffeeFlow], hasDirectCategorization: false });
+
+      expect(component['data'].hasDirectCategorization).toBe(false);
+    });
+
+    it('closes with a remove-direct result', () => {
+      const component = createComponent({ transaction: unmatched, flows: [coffeeFlow], hasDirectCategorization: true });
+
+      component['removeDirectCategorization']();
+
+      expect(dialogRef.close).toHaveBeenCalledWith({ mode: 'remove-direct', transactionId: 'txn-1' });
     });
   });
 });

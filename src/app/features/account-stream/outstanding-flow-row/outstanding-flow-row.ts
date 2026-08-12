@@ -85,6 +85,7 @@ export class OutstandingFlowRow {
   private async applyResolution(result: ResolveOutstandingDialogResult): Promise<void> {
     if (result.kind === 'assign') {
       await applyAssignment(this.storage, this.transactions(), {
+        mode: 'rule',
         matchText: result.matchText,
         target: result.target,
       });

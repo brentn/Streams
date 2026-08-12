@@ -11,14 +11,39 @@
     }
 
     <form (submit)="onSubmit($event)">
-      <label>
-        Match text
-        <input
-          type="text"
-          [value]="matchText()"
-          (input)="matchText.set($any($event.target).value)"
-        />
-      </label>
+      <fieldset class="mode-choice">
+        <label>
+          <input
+            type="radio"
+            name="mode"
+            value="rule"
+            [checked]="mode() === 'rule'"
+            (change)="mode.set('rule')"
+          />
+          Create a rule for transactions like this
+        </label>
+        <label>
+          <input
+            type="radio"
+            name="mode"
+            value="direct"
+            [checked]="mode() === 'direct'"
+            (change)="mode.set('direct')"
+          />
+          Just this transaction
+        </label>
+      </fieldset>
+
+      @if (mode() === 'rule') {
+        <label>
+          Match text
+          <input
+            type="text"
+            [value]="matchText()"
+            (input)="matchText.set($any($event.target).value)"
+          />
+        </label>
+      }
       <label>
         Flow or Transfer
         <select
@@ -56,6 +81,11 @@
       <div class="form-actions">
         <button type="submit">Save</button>
         <button type="button" (click)="cancel()">Cancel</button>
+        @if (data.hasDirectCategorization) {
+          <button type="button" class="remove-direct" (click)="removeDirectCategorization()">
+            Remove Direct Categorization
+          </button>
+        }
       </div>
     </form>
   } @else {

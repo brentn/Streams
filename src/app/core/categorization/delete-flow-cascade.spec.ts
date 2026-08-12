@@ -25,6 +25,8 @@ describe('deleteFlowCascade', () => {
     return {
       getCategorizationRules: vi.fn().mockResolvedValue([]),
       deleteCategorizationRule: vi.fn().mockResolvedValue(undefined),
+      getDirectCategorizations: vi.fn().mockResolvedValue([]),
+      deleteDirectCategorization: vi.fn().mockResolvedValue(undefined),
       upsertTransactions: vi.fn().mockResolvedValue(undefined),
       deleteFlow: vi.fn().mockResolvedValue(undefined),
     };
@@ -61,6 +63,20 @@ describe('deleteFlowCascade', () => {
     await deleteFlowCascade(storage as never, [unrelatedTxn], 'flow-rent');
 
     expect(storage.upsertTransactions).not.toHaveBeenCalled();
+  });
+
+  it('deletes every Direct Categorization targeting the Flow, leaving others alone', async () => {
+    const storage = storageStub();
+    storage.getDirectCategorizations.mockResolvedValue([
+      { transactionId: 'txn-1', target: { kind: 'flow', id: 'flow-rent' } },
+      { transactionId: 'txn-2', target: { kind: 'flow', id: 'flow-coffee' } },
+      { transactionId: 'txn-3', target: { kind: 'transfer', id: 'flow-rent' } },
+    ]);
+
+    await deleteFlowCascade(storage as never, [], 'flow-rent');
+
+    expect(storage.deleteDirectCategorization).toHaveBeenCalledTimes(1);
+    expect(storage.deleteDirectCategorization).toHaveBeenCalledWith('txn-1');
   });
 
   it('deletes the Flow itself', async () => {

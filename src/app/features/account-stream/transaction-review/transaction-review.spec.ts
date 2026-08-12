@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { Subject } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Account } from '../../../core/models/account';
+import { DirectCategorization } from '../../../core/models/direct-categorization';
 import { Flow, RecurringFlow } from '../../../core/models/flow';
 import { Transaction } from '../../../core/models/transaction';
 import { Transfer } from '../../../core/models/transfer';
@@ -53,6 +54,9 @@ describe('TransactionReview', () => {
     upsertCategorizationRule: ReturnType<typeof vi.fn>;
     upsertTransactions: ReturnType<typeof vi.fn>;
     getCategorizationRules: ReturnType<typeof vi.fn>;
+    getDirectCategorizations: ReturnType<typeof vi.fn>;
+    upsertDirectCategorization: ReturnType<typeof vi.fn>;
+    deleteDirectCategorization: ReturnType<typeof vi.fn>;
     upsertFlow: ReturnType<typeof vi.fn>;
   };
   let dialog: { open: ReturnType<typeof vi.fn> };
@@ -63,6 +67,9 @@ describe('TransactionReview', () => {
       upsertCategorizationRule: vi.fn(),
       upsertTransactions: vi.fn(),
       getCategorizationRules: vi.fn().mockResolvedValue([]),
+      getDirectCategorizations: vi.fn().mockResolvedValue([]),
+      upsertDirectCategorization: vi.fn(),
+      deleteDirectCategorization: vi.fn(),
       upsertFlow: vi.fn(),
     };
     dialogClosed = new Subject<AssignFlowDialogResult | undefined>();
@@ -82,12 +89,14 @@ describe('TransactionReview', () => {
     flows: Flow[] = [],
     transfers: Transfer[] = [],
     accounts: Account[] = [],
+    directCategorizations: DirectCategorization[] = [],
   ) {
     const fixture = TestBed.createComponent(TransactionReview);
     fixture.componentRef.setInput('transactions', transactions);
     fixture.componentRef.setInput('flows', flows);
     fixture.componentRef.setInput('transfers', transfers);
     fixture.componentRef.setInput('accounts', accounts);
+    fixture.componentRef.setInput('directCategorizations', directCategorizations);
     return fixture.componentInstance;
   }
 
@@ -106,8 +115,32 @@ describe('TransactionReview', () => {
     component['openAssignForm'](unmatched);
 
     expect(dialog.open).toHaveBeenCalledWith(AssignFlowDialog, {
-      data: { transaction: unmatched, flows: [payrollFlow], transfers: [], accounts, transactions: [unmatched] },
+      data: {
+        transaction: unmatched,
+        flows: [payrollFlow],
+        transfers: [],
+        accounts,
+        transactions: [unmatched],
+        hasDirectCategorization: false,
+      },
     });
+  });
+
+  it('flags hasDirectCategorization when the Transaction has one in the given list', () => {
+    const component = createComponent(
+      [unmatched],
+      [],
+      [],
+      [],
+      [{ transactionId: unmatched.id, target: { kind: 'flow', id: 'flow-coffee' } }],
+    );
+
+    component['openAssignForm'](unmatched);
+
+    expect(dialog.open).toHaveBeenCalledWith(
+      AssignFlowDialog,
+      expect.objectContaining({ data: expect.objectContaining({ hasDirectCategorization: true }) }),
+    );
   });
 
   it('assigning a Flow upserts a Categorization Rule and updates the Transaction, then emits changed', async () => {
@@ -119,7 +152,7 @@ describe('TransactionReview', () => {
     ]);
 
     component['openAssignForm'](unmatched);
-    dialogClosed.next({ matchText: 'coffee shop', target: { kind: 'flow', id: 'flow-coffee' } });
+    dialogClosed.next({ mode: 'rule', matchText: 'coffee shop', target: { kind: 'flow', id: 'flow-coffee' } });
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(storage.upsertCategorizationRule).toHaveBeenCalledWith({
@@ -149,6 +182,7 @@ describe('TransactionReview', () => {
 
     component['openAssignForm'](unmatched);
     dialogClosed.next({
+      mode: 'rule',
       matchText: 'coffee shop',
       target: { kind: 'flow', id: 'flow-new' },
       newFlow: brandNewFlow,
@@ -177,7 +211,7 @@ describe('TransactionReview', () => {
     ]);
 
     component['openAssignForm'](unmatched);
-    dialogClosed.next({ matchText: 'coffee shop', target: { kind: 'flow', id: 'flow-coffee' } });
+    dialogClosed.next({ mode: 'rule', matchText: 'coffee shop', target: { kind: 'flow', id: 'flow-coffee' } });
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(storage.upsertTransactions).toHaveBeenCalledWith([
@@ -193,7 +227,7 @@ describe('TransactionReview', () => {
     ]);
 
     component['openAssignForm'](unmatched);
-    dialogClosed.next({ matchText: 'coffee shop', target: { kind: 'transfer', id: 'transfer-1' } });
+    dialogClosed.next({ mode: 'rule', matchText: 'coffee shop', target: { kind: 'transfer', id: 'transfer-1' } });
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(storage.upsertCategorizationRule).toHaveBeenCalledWith({

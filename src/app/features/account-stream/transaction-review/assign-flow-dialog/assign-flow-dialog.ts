@@ -16,7 +16,11 @@ export interface AssignFlowDialogData {
   accounts: Account[];
   /** Used to exclude an already-used one-time Flow from the options — see `availableFlows`. */
   transactions: Transaction[];
+  /** Whether `transaction` currently has a Direct Categorization — governs whether "Remove Direct Categorization" is offered. */
+  hasDirectCategorization: boolean;
 }
+
+export type AssignMode = 'rule' | 'direct';
 
 /** A one-time Flow is a single, non-repeating occurrence — once any Transaction is matched to it, it's used up and shouldn't be offered again, not even to the Transaction it's already assigned to. */
 function isUsedOneTimeFlow(flow: Flow, transactions: Transaction[]): boolean {
@@ -26,12 +30,22 @@ function isUsedOneTimeFlow(flow: Flow, transactions: Transaction[]): boolean {
   );
 }
 
-export interface AssignFlowDialogResult {
-  matchText: string;
-  target: MatchedTarget;
-  /** Set when the chosen Flow was just created in this dialog and doesn't exist in storage yet — the caller persists it before the Categorization Rule. */
-  newFlow?: Flow;
-}
+export type AssignFlowDialogResult =
+  | {
+      mode: 'rule';
+      matchText: string;
+      target: MatchedTarget;
+      /** Set when the chosen Flow was just created in this dialog and doesn't exist in storage yet — the caller persists it before the Categorization Rule. */
+      newFlow?: Flow;
+    }
+  | {
+      mode: 'direct';
+      transactionId: string;
+      target: MatchedTarget;
+      /** Set when the chosen Flow was just created in this dialog and doesn't exist in storage yet — the caller persists it before the Direct Categorization. */
+      newFlow?: Flow;
+    }
+  | { mode: 'remove-direct'; transactionId: string };
 
 /** A focused dialog for assigning/correcting one Transaction's Flow or Transfer — surfaced right where the user clicked, instead of an inline form buried at the bottom of a long list. */
 @Component({
@@ -51,6 +65,8 @@ export class AssignFlowDialog {
       .filter((flow) => !isUsedOneTimeFlow(flow, this.data.transactions))
       .sort((a, b) => a.name.localeCompare(b.name)),
   );
+  /** 'rule' (the historical default) generalizes to every Transaction sharing the match text; 'direct' assigns just this one Transaction, no rule involved. */
+  protected readonly mode = signal<AssignMode>('rule');
   protected readonly matchText = signal(this.data.transaction.description);
   protected readonly selectedTarget = signal<MatchedTarget | null>(
     this.data.transaction.matchedTarget ??
@@ -98,9 +114,21 @@ export class AssignFlowDialog {
   protected onSubmit(event: Event): void {
     event.preventDefault();
 
-    const matchText = normalizeMatchText(this.matchText());
     const target = this.selectedTarget();
-    if (!matchText || !target) return;
+    if (!target) return;
+
+    if (this.mode() === 'direct') {
+      this.dialogRef.close({
+        mode: 'direct',
+        transactionId: this.data.transaction.id,
+        target,
+        newFlow: target.kind === 'flow' ? this.pendingNewFlows.get(target.id) : undefined,
+      });
+      return;
+    }
+
+    const matchText = normalizeMatchText(this.matchText());
+    if (!matchText) return;
 
     if (!isSubstringMatch(this.data.transaction.description, matchText)) {
       this.formError.set("Match text must appear within this transaction's description.");
@@ -108,10 +136,15 @@ export class AssignFlowDialog {
     }
 
     this.dialogRef.close({
+      mode: 'rule',
       matchText,
       target,
       newFlow: target.kind === 'flow' ? this.pendingNewFlows.get(target.id) : undefined,
     });
+  }
+
+  protected removeDirectCategorization(): void {
+    this.dialogRef.close({ mode: 'remove-direct', transactionId: this.data.transaction.id });
   }
 
   protected cancel(): void {

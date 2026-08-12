@@ -3,6 +3,7 @@ import { DBSchema, IDBPDatabase, IDBPTransaction, openDB, StoreNames } from 'idb
 import { normalizeMatchText } from '../categorization/categorization';
 import { Account } from '../models/account';
 import { CategorizationRule } from '../models/categorization-rule';
+import { DirectCategorization } from '../models/direct-categorization';
 import { Flow } from '../models/flow';
 import { SkippedOccurrence } from '../models/skipped-occurrence';
 import { Transaction } from '../models/transaction';
@@ -35,6 +36,10 @@ interface StreamsDb extends DBSchema {
   skippedOccurrences: {
     key: [string, Date];
     value: SkippedOccurrence;
+  };
+  directCategorizations: {
+    key: string;
+    value: DirectCategorization;
   };
   settings: {
     key: string;
@@ -100,7 +105,7 @@ export class StorageRepository {
   private readonly dbPromise: Promise<IDBPDatabase<StreamsDb>>;
 
   constructor() {
-    this.dbPromise = openDB<StreamsDb>('streams', 16, {
+    this.dbPromise = openDB<StreamsDb>('streams', 17, {
       async upgrade(db, oldVersion, _newVersion, transaction) {
         if (oldVersion < 1) {
           db.createObjectStore('accounts', { keyPath: 'id' });
@@ -191,6 +196,14 @@ export class StorageRepository {
         // `reconcileOrphanedAccounts`'s `?? name`/`?? institutionName` fallback already treats as
         // "not yet known, match on the locally-owned field instead" — i.e. today's pre-existing
         // behavior, unaffected.
+        // v17: new directCategorizations store, keyed on `transactionId` — assigns a single
+        // Transaction to a Flow/Transfer directly, bypassing Categorization Rule matching
+        // entirely (issue #105, ADR-0018). Kept separate from `transactions` rather than a field
+        // on Transaction, since `upsertTransactions` does a full-record `put` sourced from
+        // freshly-fetched wire data on every resync, which would silently drop any such field.
+        if (oldVersion < 17) {
+          db.createObjectStore('directCategorizations', { keyPath: 'transactionId' });
+        }
       },
     });
   }
@@ -349,6 +362,22 @@ export class StorageRepository {
   async getSkippedOccurrences(): Promise<SkippedOccurrence[]> {
     const db = await this.dbPromise;
     return db.getAll('skippedOccurrences');
+  }
+
+  /** Keyed on `transactionId`, so a second Direct Categorization for the same Transaction overwrites in place rather than duplicating. */
+  async upsertDirectCategorization(directCategorization: DirectCategorization): Promise<void> {
+    const db = await this.dbPromise;
+    await db.put('directCategorizations', directCategorization);
+  }
+
+  async getDirectCategorizations(): Promise<DirectCategorization[]> {
+    const db = await this.dbPromise;
+    return db.getAll('directCategorizations');
+  }
+
+  async deleteDirectCategorization(transactionId: string): Promise<void> {
+    const db = await this.dbPromise;
+    await db.delete('directCategorizations', transactionId);
   }
 
   async close(): Promise<void> {

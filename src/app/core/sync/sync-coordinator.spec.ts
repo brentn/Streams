@@ -31,6 +31,7 @@ describe('SyncCoordinator', () => {
     saveLastSyncedAt: ReturnType<typeof vi.fn>;
     getAccounts: ReturnType<typeof vi.fn>;
     getCategorizationRules: ReturnType<typeof vi.fn>;
+    getDirectCategorizations: ReturnType<typeof vi.fn>;
     getOldestFetchedAt: ReturnType<typeof vi.fn>;
     saveOldestFetchedAt: ReturnType<typeof vi.fn>;
   };
@@ -44,6 +45,7 @@ describe('SyncCoordinator', () => {
       saveLastSyncedAt: vi.fn(),
       getAccounts: vi.fn().mockResolvedValue([]),
       getCategorizationRules: vi.fn().mockResolvedValue([]),
+      getDirectCategorizations: vi.fn().mockResolvedValue([]),
       getOldestFetchedAt: vi.fn().mockResolvedValue(new Date('2026-07-20T12:00:00Z')),
       saveOldestFetchedAt: vi.fn(),
     };

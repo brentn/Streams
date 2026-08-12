@@ -39,6 +39,7 @@ describe('OutstandingFlowRow', () => {
   let storage: {
     getCategorizationRules: ReturnType<typeof vi.fn>;
     upsertCategorizationRule: ReturnType<typeof vi.fn>;
+    getDirectCategorizations: ReturnType<typeof vi.fn>;
     upsertTransactions: ReturnType<typeof vi.fn>;
     upsertSkippedOccurrence: ReturnType<typeof vi.fn>;
   };
@@ -47,6 +48,7 @@ describe('OutstandingFlowRow', () => {
   beforeEach(() => {
     storage = {
       getCategorizationRules: vi.fn().mockResolvedValue([]),
+      getDirectCategorizations: vi.fn().mockResolvedValue([]),
       upsertCategorizationRule: vi.fn().mockResolvedValue(undefined),
       upsertTransactions: vi.fn().mockResolvedValue(undefined),
       upsertSkippedOccurrence: vi.fn().mockResolvedValue(undefined),

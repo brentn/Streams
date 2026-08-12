@@ -81,6 +81,7 @@
       [flows]="flows()"
       [transfers]="transfers()"
       [accounts]="allAccounts()"
+      [directCategorizations]="directCategorizations()"
       (changed)="reloadAll()"
     />
 
@@ -104,6 +105,7 @@
         [transfers]="transfers()"
         [accounts]="allAccounts()"
         [transactions]="transactions()"
+        [directCategorizations]="directCategorizations()"
         [selectedDate]="selectedDate()"
         (closed)="closeTributaryPanel()"
         (changed)="reloadAll()"

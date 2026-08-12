@@ -14,6 +14,7 @@ import { Dialog } from '@angular/cdk/dialog';
 import { deleteFlowCascade } from '../../core/categorization/delete-flow-cascade';
 import { deleteTransferCascade } from '../../core/categorization/delete-transfer-cascade';
 import { Account } from '../../core/models/account';
+import { DirectCategorization } from '../../core/models/direct-categorization';
 import { BudgetFlow, Flow, isOneTimeFlow } from '../../core/models/flow';
 import { SkippedOccurrence } from '../../core/models/skipped-occurrence';
 import { Transaction } from '../../core/models/transaction';
@@ -92,6 +93,7 @@ export class AccountStream {
   protected readonly flows = signal<Flow[]>([]);
   protected readonly transfers = signal<Transfer[]>([]);
   protected readonly skippedOccurrences = signal<SkippedOccurrence[]>([]);
+  protected readonly directCategorizations = signal<DirectCategorization[]>([]);
   protected readonly dayOffset = signal(0);
   protected readonly isSyncing = this.syncCoordinator.isSyncing;
   protected readonly operationError = this.syncCoordinator.operationError;
@@ -234,6 +236,7 @@ export class AccountStream {
     this.flows.set(account ? await this.storage.getFlowsForAccount(id) : []);
     this.transfers.set(account ? await this.storage.getTransfersForAccount(id) : []);
     this.skippedOccurrences.set(account ? await this.storage.getSkippedOccurrences() : []);
+    this.directCategorizations.set(account ? await this.storage.getDirectCategorizations() : []);
   }
 
   protected async reloadFlows(): Promise<void> {
@@ -252,9 +255,18 @@ export class AccountStream {
     this.skippedOccurrences.set(await this.storage.getSkippedOccurrences());
   }
 
-  /** A Transaction assignment can also create a Flow inline (AssignFlowDialog), and the drill-in panel can edit either kind, so reload everything mutable. */
+  protected async reloadDirectCategorizations(): Promise<void> {
+    this.directCategorizations.set(await this.storage.getDirectCategorizations());
+  }
+
+  /** A Transaction assignment can also create a Flow inline (AssignFlowDialog) or a Direct Categorization, and the drill-in panel can edit either kind, so reload everything mutable. */
   protected async reloadAll(): Promise<void> {
-    await Promise.all([this.reloadFlows(), this.reloadTransfers(), this.reloadTransactions()]);
+    await Promise.all([
+      this.reloadFlows(),
+      this.reloadTransfers(),
+      this.reloadTransactions(),
+      this.reloadDirectCategorizations(),
+    ]);
   }
 
   /** Resolving an Outstanding tile (#97) either re-categorizes a Transaction or persists a Skip — never creates a Flow/Transfer, so only these two need refreshing. */

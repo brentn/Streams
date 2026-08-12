@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CategorizationRule } from '../models/categorization-rule';
+import { DirectCategorization } from '../models/direct-categorization';
 import { Transaction } from '../models/transaction';
 import { categorizeTransactions, matchTarget, normalizeMatchText } from './categorization';
 
@@ -108,6 +109,52 @@ describe('categorizeTransactions', () => {
 
     expect(categorizeTransactions(transactions, rules)).toEqual([
       { ...transactions[0], matchedTarget: { kind: 'transfer', id: 'transfer-1' } },
+    ]);
+  });
+
+  it('a Direct Categorization for a Transaction wins over a Categorization Rule that also matches it', () => {
+    const rules: CategorizationRule[] = [
+      { matchText: 'transfer out', target: { kind: 'flow', id: 'flow-wrong' } },
+    ];
+    const directCategorizations: DirectCategorization[] = [
+      { transactionId: 't1', target: { kind: 'flow', id: 'flow-right' } },
+    ];
+    const transactions: Transaction[] = [
+      {
+        id: 't1',
+        accountId: 'acc-1',
+        date: new Date('2026-07-20'),
+        amount: -50,
+        description: 'TRANSFER OUT',
+        matchedTarget: null,
+      },
+    ];
+
+    expect(categorizeTransactions(transactions, rules, directCategorizations)).toEqual([
+      { ...transactions[0], matchedTarget: { kind: 'flow', id: 'flow-right' } },
+    ]);
+  });
+
+  it('falls back to rule-matching for a Transaction with no Direct Categorization', () => {
+    const rules: CategorizationRule[] = [
+      { matchText: 'transfer out', target: { kind: 'flow', id: 'flow-wrong' } },
+    ];
+    const directCategorizations: DirectCategorization[] = [
+      { transactionId: 'some-other-transaction', target: { kind: 'flow', id: 'flow-right' } },
+    ];
+    const transactions: Transaction[] = [
+      {
+        id: 't1',
+        accountId: 'acc-1',
+        date: new Date('2026-07-20'),
+        amount: -50,
+        description: 'TRANSFER OUT',
+        matchedTarget: null,
+      },
+    ];
+
+    expect(categorizeTransactions(transactions, rules, directCategorizations)).toEqual([
+      { ...transactions[0], matchedTarget: { kind: 'flow', id: 'flow-wrong' } },
     ]);
   });
 });

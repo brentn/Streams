@@ -43,6 +43,8 @@ describe('deleteTransferCascade', () => {
     return {
       getCategorizationRules: vi.fn().mockResolvedValue([]),
       deleteCategorizationRule: vi.fn().mockResolvedValue(undefined),
+      getDirectCategorizations: vi.fn().mockResolvedValue([]),
+      deleteDirectCategorization: vi.fn().mockResolvedValue(undefined),
       getTransactionsForAccount: vi.fn().mockResolvedValue([]),
       upsertTransactions: vi.fn().mockResolvedValue(undefined),
       deleteTransfer: vi.fn().mockResolvedValue(undefined),
@@ -95,6 +97,20 @@ describe('deleteTransferCascade', () => {
     await deleteTransferCascade(storage as never, transfer);
 
     expect(storage.upsertTransactions).not.toHaveBeenCalled();
+  });
+
+  it('deletes every Direct Categorization targeting the Transfer, leaving others alone', async () => {
+    const storage = storageStub();
+    storage.getDirectCategorizations.mockResolvedValue([
+      { transactionId: 'txn-1', target: { kind: 'transfer', id: 'transfer-savings' } },
+      { transactionId: 'txn-2', target: { kind: 'flow', id: 'transfer-savings' } },
+      { transactionId: 'txn-3', target: { kind: 'transfer', id: 'other-transfer' } },
+    ]);
+
+    await deleteTransferCascade(storage as never, transfer);
+
+    expect(storage.deleteDirectCategorization).toHaveBeenCalledTimes(1);
+    expect(storage.deleteDirectCategorization).toHaveBeenCalledWith('txn-1');
   });
 
   it('deletes the Transfer itself', async () => {

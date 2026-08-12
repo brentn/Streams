@@ -1,4 +1,5 @@
 import { CategorizationRule } from '../models/categorization-rule';
+import { DirectCategorization } from '../models/direct-categorization';
 import { MatchedTarget, Transaction } from '../models/transaction';
 
 /** Canonical form for a Categorization Rule's match text — the key that makes exactly one rule exist per text. */
@@ -30,10 +31,23 @@ export function matchTarget(description: string, rules: CategorizationRule[]): M
   return best?.target ?? null;
 }
 
-/** Re-derives every Transaction's `matchedTarget` from the current rule set — the one place sync and manual-correction call sites share this logic. */
+/**
+ * Re-derives every Transaction's `matchedTarget` from the current rule set — the one place sync
+ * and manual-correction call sites share this logic. A Transaction with a Direct Categorization
+ * always resolves to that target, checked before rule-matching runs at all — never as a tiebreak
+ * alongside it, since Direct Categorization has absolute precedence for as long as it exists (see
+ * ADR-0018).
+ */
 export function categorizeTransactions(
   transactions: Transaction[],
   rules: CategorizationRule[],
+  directCategorizations: DirectCategorization[] = [],
 ): Transaction[] {
-  return transactions.map((t) => ({ ...t, matchedTarget: matchTarget(t.description, rules) }));
+  const directTargetByTransactionId = new Map(
+    directCategorizations.map((d) => [d.transactionId, d.target]),
+  );
+  return transactions.map((t) => ({
+    ...t,
+    matchedTarget: directTargetByTransactionId.get(t.id) ?? matchTarget(t.description, rules),
+  }));
 }

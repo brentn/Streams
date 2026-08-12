@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Account } from '../models/account';
 import { CategorizationRule } from '../models/categorization-rule';
+import { DirectCategorization } from '../models/direct-categorization';
 import { BudgetFlow, RecurringFlow } from '../models/flow';
 import { SkippedOccurrence } from '../models/skipped-occurrence';
 import { Transaction } from '../models/transaction';
@@ -403,6 +404,34 @@ describe('StorageRepository', () => {
     expect(stored).toContainEqual(second);
   });
 
+  it('upserts and retrieves Direct Categorizations', async () => {
+    const directCategorization: DirectCategorization = {
+      transactionId: 'txn-1',
+      target: { kind: 'flow', id: 'flow-1' },
+    };
+
+    await repo.upsertDirectCategorization(directCategorization);
+
+    expect(await repo.getDirectCategorizations()).toEqual([directCategorization]);
+  });
+
+  it('upserting the same transactionId again overwrites the Direct Categorization in place rather than duplicating', async () => {
+    await repo.upsertDirectCategorization({ transactionId: 'txn-1', target: { kind: 'flow', id: 'flow-1' } });
+    await repo.upsertDirectCategorization({ transactionId: 'txn-1', target: { kind: 'flow', id: 'flow-2' } });
+
+    expect(await repo.getDirectCategorizations()).toEqual([
+      { transactionId: 'txn-1', target: { kind: 'flow', id: 'flow-2' } },
+    ]);
+  });
+
+  it('deletes a Direct Categorization by transactionId', async () => {
+    await repo.upsertDirectCategorization({ transactionId: 'txn-1', target: { kind: 'flow', id: 'flow-1' } });
+
+    await repo.deleteDirectCategorization('txn-1');
+
+    expect(await repo.getDirectCategorizations()).toEqual([]);
+  });
+
   describe('reidAccount', () => {
     const oldAccount: Account = {
       id: 'old-id',
@@ -534,6 +563,7 @@ describe('StorageRepository', () => {
         [
           'accounts',
           'categorizationRules',
+          'directCategorizations',
           'flows',
           'settings',
           'skippedOccurrences',
@@ -551,7 +581,7 @@ describe('StorageRepository', () => {
     it('reports the current database version alongside the dumped stores', async () => {
       const { dbVersion } = await repo.exportAll();
 
-      expect(dbVersion).toBe(16);
+      expect(dbVersion).toBe(17);
     });
 
     it('importAll replaces the contents of every named store, leaving stores absent from the bundle untouched', async () => {

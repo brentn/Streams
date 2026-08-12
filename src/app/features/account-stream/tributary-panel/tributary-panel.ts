@@ -5,6 +5,7 @@ import { applyAssignment } from '../../../core/categorization/apply-assignment';
 import { deleteFlowCascade } from '../../../core/categorization/delete-flow-cascade';
 import { deleteTransferCascade } from '../../../core/categorization/delete-transfer-cascade';
 import { Account } from '../../../core/models/account';
+import { DirectCategorization } from '../../../core/models/direct-categorization';
 import { Flow } from '../../../core/models/flow';
 import { Transaction } from '../../../core/models/transaction';
 import { Transfer } from '../../../core/models/transfer';
@@ -48,6 +49,7 @@ export class TributaryPanel {
   readonly transfers = input.required<Transfer[]>();
   readonly accounts = input.required<Account[]>();
   readonly transactions = input.required<Transaction[]>();
+  readonly directCategorizations = input.required<DirectCategorization[]>();
   readonly selectedDate = input.required<Date>();
 
   readonly closed = output<void>();
@@ -183,6 +185,7 @@ export class TributaryPanel {
         transfers: this.transfers(),
         accounts: this.accounts(),
         transactions: this.transactions(),
+        hasDirectCategorization: this.directCategorizations().some((d) => d.transactionId === transaction.id),
       },
     });
     ref.closed.subscribe((result) => {

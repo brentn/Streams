@@ -32,6 +32,7 @@ describe('resyncKnownAccounts', () => {
     upsertAccount: ReturnType<typeof vi.fn>;
     upsertTransactions: ReturnType<typeof vi.fn>;
     getCategorizationRules: ReturnType<typeof vi.fn>;
+    getDirectCategorizations: ReturnType<typeof vi.fn>;
     getLastSyncedAt: ReturnType<typeof vi.fn>;
     getOldestFetchedAt: ReturnType<typeof vi.fn>;
     saveOldestFetchedAt: ReturnType<typeof vi.fn>;
@@ -48,6 +49,7 @@ describe('resyncKnownAccounts', () => {
       upsertAccount: vi.fn(),
       upsertTransactions: vi.fn(),
       getCategorizationRules: vi.fn().mockResolvedValue([]),
+      getDirectCategorizations: vi.fn().mockResolvedValue([]),
       getLastSyncedAt: vi.fn().mockResolvedValue(undefined),
       // Recent by default so existing/unrelated tests don't incidentally trigger backfill.
       getOldestFetchedAt: vi.fn().mockResolvedValue(new Date(NOW.getTime() - 10 * DAY_MS)),
@@ -178,6 +180,32 @@ describe('resyncKnownAccounts', () => {
     expect(storage.upsertTransactions).toHaveBeenCalledWith([
       { ...transactions[0], matchedTarget: { kind: 'flow', id: 'flow-coffee' } },
       { ...transactions[1], matchedTarget: null },
+    ]);
+  });
+
+  it('respects an existing Direct Categorization over a matching Categorization Rule when re-matching synced transactions', async () => {
+    const transactions = [
+      {
+        id: 't1',
+        accountId: 'acc-1',
+        date: new Date('2026-07-24'),
+        amount: -10,
+        description: 'COFFEE SHOP #42',
+        matchedTarget: null,
+      },
+    ];
+    simplefin.fetchAccounts.mockResolvedValue([{ account: known, transactions }]);
+    storage.getCategorizationRules.mockResolvedValue([
+      { matchText: 'coffee shop', target: { kind: 'flow', id: 'flow-wrong' } },
+    ]);
+    storage.getDirectCategorizations.mockResolvedValue([
+      { transactionId: 't1', target: { kind: 'flow', id: 'flow-right' } },
+    ]);
+
+    await resyncKnownAccounts(storage as never, simplefin as never);
+
+    expect(storage.upsertTransactions).toHaveBeenCalledWith([
+      { ...transactions[0], matchedTarget: { kind: 'flow', id: 'flow-right' } },
     ]);
   });
 
@@ -550,6 +578,7 @@ describe('reconcileSyncedAccounts', () => {
     upsertAccount: ReturnType<typeof vi.fn>;
     upsertTransactions: ReturnType<typeof vi.fn>;
     getCategorizationRules: ReturnType<typeof vi.fn>;
+    getDirectCategorizations: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
@@ -558,6 +587,7 @@ describe('reconcileSyncedAccounts', () => {
       upsertAccount: vi.fn(),
       upsertTransactions: vi.fn(),
       getCategorizationRules: vi.fn().mockResolvedValue([]),
+      getDirectCategorizations: vi.fn().mockResolvedValue([]),
     };
   });
 
@@ -607,6 +637,7 @@ describe('reconcileOrphanedAccounts', () => {
   let storage: {
     getAccounts: ReturnType<typeof vi.fn>;
     getCategorizationRules: ReturnType<typeof vi.fn>;
+    getDirectCategorizations: ReturnType<typeof vi.fn>;
     reidAccount: ReturnType<typeof vi.fn>;
     upsertTransactions: ReturnType<typeof vi.fn>;
   };
@@ -627,6 +658,7 @@ describe('reconcileOrphanedAccounts', () => {
     storage = {
       getAccounts: vi.fn().mockResolvedValue([needsReauthAccount]),
       getCategorizationRules: vi.fn().mockResolvedValue([]),
+      getDirectCategorizations: vi.fn().mockResolvedValue([]),
       reidAccount: vi.fn(),
       upsertTransactions: vi.fn(),
     };
@@ -708,6 +740,31 @@ describe('reconcileOrphanedAccounts', () => {
 
     expect(storage.upsertTransactions).toHaveBeenCalledWith([
       { ...transactions[0], matchedTarget: { kind: 'flow', id: 'flow-coffee' } },
+    ]);
+  });
+
+  it('respects an existing Direct Categorization over a matching Categorization Rule for the orphaned account’s transactions', async () => {
+    const transactions = [
+      {
+        id: 't1',
+        accountId: 'acc-reissued',
+        date: new Date('2026-07-24'),
+        amount: -10,
+        description: 'COFFEE SHOP',
+        matchedTarget: null,
+      },
+    ];
+    storage.getCategorizationRules.mockResolvedValue([
+      { matchText: 'coffee shop', target: { kind: 'flow', id: 'flow-wrong' } },
+    ]);
+    storage.getDirectCategorizations.mockResolvedValue([
+      { transactionId: 't1', target: { kind: 'flow', id: 'flow-right' } },
+    ]);
+
+    await reconcileOrphanedAccounts(storage as never, [{ ...orphan, transactions }]);
+
+    expect(storage.upsertTransactions).toHaveBeenCalledWith([
+      { ...transactions[0], matchedTarget: { kind: 'flow', id: 'flow-right' } },
     ]);
   });
 

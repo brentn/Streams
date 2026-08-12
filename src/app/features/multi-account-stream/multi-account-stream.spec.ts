@@ -40,6 +40,7 @@ describe('MultiAccountStream', () => {
     upsertAccount: ReturnType<typeof vi.fn>;
     upsertTransactions: ReturnType<typeof vi.fn>;
     getCategorizationRules: ReturnType<typeof vi.fn>;
+    getDirectCategorizations: ReturnType<typeof vi.fn>;
     saveLastSyncedAt: ReturnType<typeof vi.fn>;
     getLastSyncedAt: ReturnType<typeof vi.fn>;
     getOldestFetchedAt: ReturnType<typeof vi.fn>;
@@ -59,6 +60,7 @@ describe('MultiAccountStream', () => {
       upsertAccount: vi.fn(),
       upsertTransactions: vi.fn(),
       getCategorizationRules: vi.fn().mockResolvedValue([]),
+      getDirectCategorizations: vi.fn().mockResolvedValue([]),
       saveLastSyncedAt: vi.fn(),
       getLastSyncedAt: vi.fn().mockResolvedValue(undefined),
       getOldestFetchedAt: vi.fn().mockResolvedValue(new Date('2026-07-20T12:00:00Z')),

@@ -55,7 +55,10 @@ export async function reconcileSyncedAccounts(
   synced: SyncedAccount[],
 ): Promise<ReconcileResult> {
   const existing = await storage.getAccounts();
-  const rules = await storage.getCategorizationRules();
+  const [rules, directCategorizations] = await Promise.all([
+    storage.getCategorizationRules(),
+    storage.getDirectCategorizations(),
+  ]);
   const newAccounts: SyncedAccount[] = [];
 
   for (const item of synced) {
@@ -65,7 +68,7 @@ export async function reconcileSyncedAccounts(
       continue;
     }
     await storage.upsertAccount(withLocalFieldsPreserved(item.account, previous));
-    await storage.upsertTransactions(categorizeTransactions(item.transactions, rules));
+    await storage.upsertTransactions(categorizeTransactions(item.transactions, rules, directCategorizations));
   }
 
   return { newAccounts };
@@ -98,7 +101,10 @@ export async function reconcileOrphanedAccounts(
   let needsReauthAccounts = (await storage.getAccounts()).filter(
     (account) => account.syncStatus?.kind === 'needs-reauth',
   );
-  const rules = await storage.getCategorizationRules();
+  const [rules, directCategorizations] = await Promise.all([
+    storage.getCategorizationRules(),
+    storage.getDirectCategorizations(),
+  ]);
 
   for (const item of orphaned) {
     const candidates = needsReauthAccounts.filter(
@@ -111,7 +117,7 @@ export async function reconcileOrphanedAccounts(
     needsReauthAccounts = needsReauthAccounts.filter((account) => account !== previous);
 
     await storage.reidAccount(previous.id, withLocalFieldsPreserved(item.account, previous));
-    await storage.upsertTransactions(categorizeTransactions(item.transactions, rules));
+    await storage.upsertTransactions(categorizeTransactions(item.transactions, rules, directCategorizations));
   }
 }
 
