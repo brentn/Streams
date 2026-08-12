@@ -14,6 +14,16 @@ const groceries: BudgetFlow = {
   period: 'month',
 };
 
+const incomeBudget: BudgetFlow = {
+  id: 'budget-income',
+  accountId: 'acc-1',
+  name: 'Salary Target',
+  direction: 'in',
+  kind: 'budget',
+  limit: 2000,
+  period: 'month',
+};
+
 const paycheck: RecurringFlow = {
   id: 'flow-1',
   accountId: 'acc-1',
@@ -42,6 +52,17 @@ function matchedTxn(
     amount,
     description: `txn-${id}`,
     matchedTarget: { kind: 'flow', id: flowId },
+  };
+}
+
+function unmatchedTxn(id: string, amount: number, date: Date): Transaction {
+  return {
+    id,
+    accountId: 'acc-1',
+    date,
+    amount,
+    description: `txn-${id}`,
+    matchedTarget: null,
   };
 }
 
@@ -168,5 +189,145 @@ describe('BudgetList', () => {
       (el) => (el as HTMLElement).textContent,
     );
     expect(names).toEqual(['Apples', 'Groceries', 'Zebra Fund']);
+  });
+
+  describe('summary (#103)', () => {
+    const scrubDate = new Date(2026, 6, 15);
+    // Well before the trailing 3-month income window, so the window is fully spanned (avg = sum / 3).
+    const oldHistoryTxn = unmatchedTxn('old-history', -10, new Date(2025, 0, 1));
+
+    function incomeTxn(id: string, amount: number): Transaction {
+      return unmatchedTxn(id, amount, new Date(2026, 6, 10));
+    }
+
+    it('totals used/allocated across out-direction budgets only, excluding in-direction budgets', async () => {
+      const fixture = await createComponent(
+        [groceries, incomeBudget],
+        [
+          matchedTxn('t1', -300, groceries.id, new Date(2026, 6, 10)),
+          matchedTxn('t2', 500, incomeBudget.id, new Date(2026, 6, 10)),
+        ],
+        scrubDate,
+      );
+      const amounts = fixture.nativeElement.querySelector('.amounts') as HTMLElement;
+      expect(amounts.textContent).toContain('$300');
+      expect(amounts.textContent).toContain('$400');
+    });
+
+    it("prorates a year-period budget's contribution to the aggregate total by 1/12", async () => {
+      const insurance: BudgetFlow = { ...groceries, id: 'budget-insurance', period: 'year', limit: 1200 };
+      const fixture = await createComponent(
+        [insurance],
+        [matchedTxn('t1', -600, insurance.id, new Date(2026, 6, 10))],
+        scrubDate,
+      );
+      const amounts = fixture.nativeElement.querySelector('.amounts') as HTMLElement;
+      expect(amounts.textContent).toContain('$50');
+      expect(amounts.textContent).toContain('$100');
+    });
+
+    it('sizes the summary bar fill by the aggregate used/limit ratio', async () => {
+      const fixture = await createComponent(
+        [groceries],
+        [matchedTxn('t1', -300, groceries.id, new Date(2026, 6, 10))],
+        scrubDate,
+      );
+      const fill = fixture.nativeElement.querySelector('.summary-bar .progress-fill') as HTMLElement;
+      expect(fill.style.width).toBe('75%');
+    });
+
+    it('caps the summary bar fill at 100% while the amounts text stays uncapped', async () => {
+      const fixture = await createComponent(
+        [groceries],
+        [matchedTxn('t1', -600, groceries.id, new Date(2026, 6, 10))],
+        scrubDate,
+      );
+      const fill = fixture.nativeElement.querySelector('.summary-bar .progress-fill') as HTMLElement;
+      expect(fill.style.width).toBe('100%');
+      const amounts = fixture.nativeElement.querySelector('.amounts') as HTMLElement;
+      expect(amounts.textContent).toContain('$600');
+      expect(amounts.textContent).toContain('$400');
+    });
+
+    it('is ok below 90% of the aggregate allocation', async () => {
+      const fixture = await createComponent(
+        [groceries],
+        [matchedTxn('t1', -300, groceries.id, new Date(2026, 6, 10))], // 75%
+        scrubDate,
+      );
+      const bar = fixture.nativeElement.querySelector('.summary-bar') as HTMLElement;
+      expect(bar.classList.contains('warn')).toBe(false);
+      expect(bar.classList.contains('over')).toBe(false);
+    });
+
+    it('is warn from 90% up to 100% of the aggregate allocation', async () => {
+      const fixture = await createComponent(
+        [groceries],
+        [matchedTxn('t1', -360, groceries.id, new Date(2026, 6, 10))], // exactly 90%
+        scrubDate,
+      );
+      const bar = fixture.nativeElement.querySelector('.summary-bar') as HTMLElement;
+      expect(bar.classList.contains('warn')).toBe(true);
+      expect(bar.classList.contains('over')).toBe(false);
+    });
+
+    it('is over past 100% of the aggregate allocation', async () => {
+      const fixture = await createComponent(
+        [groceries],
+        [matchedTxn('t1', -401, groceries.id, new Date(2026, 6, 10))], // just past 100%
+        scrubDate,
+      );
+      const bar = fixture.nativeElement.querySelector('.summary-bar') as HTMLElement;
+      expect(bar.classList.contains('warn')).toBe(false);
+      expect(bar.classList.contains('over')).toBe(true);
+    });
+
+    it('shows average monthly income and flags the total allocation as over when it exceeds income', async () => {
+      const fixture = await createComponent(
+        [groceries],
+        [matchedTxn('t1', -300, groceries.id, new Date(2026, 6, 10)), oldHistoryTxn, incomeTxn('i1', 900)], // avg income = 300, limit = 400
+        scrubDate,
+      );
+      const incomeLine = fixture.nativeElement.querySelector('.income-line') as HTMLElement;
+      expect(incomeLine.classList.contains('over')).toBe(true);
+      expect(incomeLine.textContent).toContain('$300');
+      expect(incomeLine.textContent).toContain('$100');
+      expect(incomeLine.textContent).toContain('over');
+    });
+
+    it('flags the total allocation as under when it does not exceed average income', async () => {
+      const fixture = await createComponent(
+        [groceries],
+        [matchedTxn('t1', -300, groceries.id, new Date(2026, 6, 10)), oldHistoryTxn, incomeTxn('i1', 1500)], // avg income = 500, limit = 400
+        scrubDate,
+      );
+      const incomeLine = fixture.nativeElement.querySelector('.income-line') as HTMLElement;
+      expect(incomeLine.classList.contains('over')).toBe(false);
+      expect(incomeLine.textContent).toContain('$500');
+      expect(incomeLine.textContent).toContain('$100');
+      expect(incomeLine.textContent).toContain('under');
+    });
+
+    it('renders neutral, not critical, when the total allocation exactly equals average income', async () => {
+      const fixture = await createComponent(
+        [groceries],
+        [matchedTxn('t1', -300, groceries.id, new Date(2026, 6, 10)), oldHistoryTxn, incomeTxn('i1', 1200)], // avg income = 400, limit = 400
+        scrubDate,
+      );
+      const incomeLine = fixture.nativeElement.querySelector('.income-line') as HTMLElement;
+      expect(incomeLine.classList.contains('over')).toBe(false);
+      expect(incomeLine.textContent).toContain('under');
+    });
+
+    it('is over when the aggregate allocation is zero but usage is positive', async () => {
+      const zeroLimit: BudgetFlow = { ...groceries, limit: 0 };
+      const fixture = await createComponent(
+        [zeroLimit],
+        [matchedTxn('t1', -50, zeroLimit.id, new Date(2026, 6, 10))],
+        scrubDate,
+      );
+      const bar = fixture.nativeElement.querySelector('.summary-bar') as HTMLElement;
+      expect(bar.classList.contains('over')).toBe(true);
+    });
   });
 });

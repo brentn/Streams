@@ -16,8 +16,40 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  max-height: var(--list-max-height);
-  overflow-y: auto;
+}
+
+.summary {
+  margin-bottom: 0.75rem;
+}
+
+.income-line {
+  margin: 0 0 0.5rem;
+  font-size: var(--text-body);
+  color: var(--color-ink-secondary);
+}
+
+.income-line.over {
+  color: var(--color-critical);
+}
+
+/* Same full-width bar pattern as .budget-row below: text overlaid directly on the fill/track. */
+.summary-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.summary-bar.warn .progress-fill {
+  background: var(--color-warning);
+}
+
+.summary-bar.over .progress-fill {
+  background: var(--color-critical);
 }
 
 /* Full-width bar: name and percentage are text overlaid directly on the fill/track, not
@@ -55,6 +87,7 @@ h2 {
   background: var(--color-critical);
 }
 
+.amounts,
 .name,
 .pct {
   position: relative;

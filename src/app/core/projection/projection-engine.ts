@@ -444,3 +444,73 @@ export function budgetProgressStatus(
   if (used >= limit - amount) return 'warn';
   return 'ok';
 }
+
+/** A budget-kind Flow's Budget Period, expressed as its monthly-equivalent share — a year-period Budget's once-a-year limit spread over its 12 months, a month-period Budget as-is. */
+const MONTHLY_PRORATION_FACTOR: Record<BudgetFlow['period'], number> = { month: 1, year: 1 / 12 };
+
+/**
+ * The combined spending picture across every `direction: 'out'` budget-kind Flow — the
+ * Budgets list summary's total (#103). Reuses each Flow's own `budgetProgress` rather than
+ * re-deriving it, then prorates a year-period Budget's `used`/`limit` to its monthly-equivalent
+ * share (symmetrically, on both sides of the ratio) before summing, so a once-a-year expense
+ * contributes its monthly share rather than distorting the combined total. `direction: 'in'`
+ * budgets (income tracking) are excluded — they have no coherent "spent against" story to fold
+ * into a spending total.
+ */
+export function aggregateBudgetProgress(
+  flows: Flow[],
+  transactions: Transaction[],
+  today: Date,
+): { used: number; limit: number } {
+  return flows
+    .filter((flow): flow is BudgetFlow => flow.kind === 'budget' && flow.direction === 'out')
+    .reduce(
+      (totals, flow) => {
+        const { used, limit } = budgetProgress(flow, transactions, today);
+        const factor = MONTHLY_PRORATION_FACTOR[flow.period];
+        return { used: totals.used + used * factor, limit: totals.limit + limit * factor };
+      },
+      { used: 0, limit: 0 },
+    );
+}
+
+/** The average number of days in a month, for converting a day-based history span into a month count. */
+const AVG_DAYS_PER_MONTH = 30;
+
+/**
+ * The account's actual average monthly income over the trailing `windowMonths` back from
+ * `asOf` — the Budgets list summary's income comparison (#103). Included in the sum: every
+ * Transaction in the window with a non-negative amount, except one already matched to a
+ * Transfer (moving money between the user's own Accounts isn't income); an uncategorized
+ * Transaction is included, since real income may never get tied to a Flow at all.
+ *
+ * Divides by however much of the window the Account's transaction history actually spans
+ * (found from `transactions` as a whole, not just the in-window income ones), capped at
+ * `windowMonths` — a newer Account's figure reflects a genuine monthly average rather than
+ * being divided by a fixed window regardless of how much history exists.
+ */
+export function averageMonthlyIncome(transactions: Transaction[], asOf: Date, windowMonths: number): number {
+  const windowStart = addDays(asOf, -windowMonths * AVG_DAYS_PER_MONTH);
+
+  const earliestOverall = transactions.reduce<Date | null>(
+    (min, txn) => (min === null || txn.date.getTime() < min.getTime() ? txn.date : min),
+    null,
+  );
+  if (earliestOverall === null) return 0;
+
+  const effectiveStart = earliestOverall.getTime() > windowStart.getTime() ? earliestOverall : windowStart;
+  const spanDays = Math.max(1, (asOf.getTime() - effectiveStart.getTime()) / MS_PER_DAY);
+  const monthsSpanned = Math.min(windowMonths, spanDays / AVG_DAYS_PER_MONTH);
+
+  const income = transactions
+    .filter(
+      (txn) =>
+        txn.date.getTime() > windowStart.getTime() &&
+        txn.date.getTime() <= asOf.getTime() &&
+        txn.amount >= 0 &&
+        txn.matchedTarget?.kind !== 'transfer',
+    )
+    .reduce((sum, txn) => sum + txn.amount, 0);
+
+  return income / monthsSpanned;
+}

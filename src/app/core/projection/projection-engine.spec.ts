@@ -3,6 +3,8 @@ import { BudgetFlow, Cadence, RecurringFlow, Tolerance } from '../models/flow';
 import { Transaction } from '../models/transaction';
 import { Transfer } from '../models/transfer';
 import {
+  aggregateBudgetProgress,
+  averageMonthlyIncome,
   balanceAtDate,
   balanceSeries,
   budgetProgress,
@@ -582,6 +584,90 @@ describe('budgetProgress', () => {
       amountChanges: [{ type: 'step', effectiveDate: new Date(2026, 6, 10), amount: 500 }],
     });
     expect(budgetProgress(flow, [], today)).toEqual({ used: 0, limit: 500 });
+  });
+});
+
+describe('aggregateBudgetProgress', () => {
+  const today = new Date('2026-07-15T12:00:00Z');
+
+  it('sums used and limit across out-direction budget-kind Flows only, ignoring in-direction budgets', () => {
+    const groceries = budgetFlow({ id: 'b1', limit: 400, direction: 'out', period: 'month' });
+    const rent = budgetFlow({ id: 'b2', limit: 600, direction: 'out', period: 'month' });
+    const incomeBudget = budgetFlow({ id: 'b3', limit: 2000, direction: 'in', period: 'month' });
+    const transactions = [
+      matchedTxn('t1', '2026-07-03T09:00:00Z', -100, 'b1'),
+      matchedTxn('t2', '2026-07-05T09:00:00Z', -200, 'b2'),
+      matchedTxn('t3', '2026-07-05T09:00:00Z', 500, 'b3'),
+    ];
+    expect(aggregateBudgetProgress([groceries, rent, incomeBudget], transactions, today)).toEqual({
+      used: 300,
+      limit: 1000,
+    });
+  });
+
+  it("prorates a year-period budget's used and limit by 1/12 before folding it into the total", () => {
+    const insurance = budgetFlow({ id: 'b1', limit: 1200, direction: 'out', period: 'year' });
+    const transactions = [matchedTxn('t1', '2026-07-03T09:00:00Z', -600, 'b1')];
+    expect(aggregateBudgetProgress([insurance], transactions, today)).toEqual({ used: 50, limit: 100 });
+  });
+
+  it('mixes month- and year-period out budgets in one total', () => {
+    const groceries = budgetFlow({ id: 'b1', limit: 400, direction: 'out', period: 'month' });
+    const insurance = budgetFlow({ id: 'b2', limit: 1200, direction: 'out', period: 'year' });
+    expect(aggregateBudgetProgress([groceries, insurance], [], today)).toEqual({ used: 0, limit: 500 });
+  });
+
+  it('returns zero totals when there are no out-direction budget-kind Flows', () => {
+    const incomeBudget = budgetFlow({ id: 'b3', limit: 2000, direction: 'in', period: 'month' });
+    expect(aggregateBudgetProgress([incomeBudget], [], today)).toEqual({ used: 0, limit: 0 });
+  });
+});
+
+describe('averageMonthlyIncome', () => {
+  const asOf = new Date('2026-07-15T12:00:00Z');
+
+  function daysBefore(n: number): string {
+    return new Date(asOf.getTime() - n * 24 * 60 * 60 * 1000).toISOString();
+  }
+
+  function transferTxn(id: string, date: string, amount: number): Transaction {
+    return { ...txn(id, date, amount), matchedTarget: { kind: 'transfer', id: 'xfer-1' } };
+  }
+
+  it('divides by the full window length when account history predates the window', () => {
+    const oldTxn = txn('old', daysBefore(400), -50); // establishes history reaching well past the window
+    const income = txn('i1', daysBefore(10), 900);
+    expect(averageMonthlyIncome([oldTxn, income], asOf, 3)).toBeCloseTo(300);
+  });
+
+  it('includes an unmatched non-negative transaction in the income sum', () => {
+    const oldTxn = txn('old', daysBefore(400), -50);
+    const income = txn('i1', daysBefore(10), 900);
+    expect(income.matchedTarget).toBeNull();
+    expect(averageMonthlyIncome([oldTxn, income], asOf, 3)).toBeCloseTo(300);
+  });
+
+  it('excludes a transaction matched to a Transfer from the income sum', () => {
+    const oldTxn = txn('old', daysBefore(400), -50);
+    const transfer = transferTxn('xfer', daysBefore(10), 500);
+    const income = txn('i1', daysBefore(10), 300);
+    expect(averageMonthlyIncome([oldTxn, transfer, income], asOf, 3)).toBeCloseTo(100);
+  });
+
+  it('excludes a negative-amount transaction from the income sum', () => {
+    const oldTxn = txn('old', daysBefore(400), -50);
+    const expense = txn('e1', daysBefore(10), -200);
+    const income = txn('i1', daysBefore(10), 400);
+    expect(averageMonthlyIncome([oldTxn, expense, income], asOf, 3)).toBeCloseTo(400 / 3);
+  });
+
+  it('averages over the shorter actual span for an account with less than the full window of history', () => {
+    const income = txn('i1', daysBefore(45), 600); // account's oldest transaction — 1.5 months of history
+    expect(averageMonthlyIncome([income], asOf, 3)).toBeCloseTo(400);
+  });
+
+  it('returns zero when there are no transactions at all', () => {
+    expect(averageMonthlyIncome([], asOf, 3)).toBe(0);
   });
 });
 

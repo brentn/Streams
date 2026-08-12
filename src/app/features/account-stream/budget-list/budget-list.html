@@ -1,6 +1,26 @@
 @if (rows().length > 0) {
   <section class="budgets">
     <h2>Budgets</h2>
+    <div class="summary">
+      <p class="income-line" [class.over]="summary().overIncome">
+        Avg income {{ summary().avgIncome | currency: 'USD' : 'symbol' : '1.0-0' }}/mo —
+        {{ summary().overUnderAmount | currency: 'USD' : 'symbol' : '1.0-0' }}
+        {{ summary().overIncome ? 'over' : 'under' }}
+      </p>
+      <div
+        class="summary-bar"
+        [class.warn]="summary().status === 'warn'"
+        [class.over]="summary().status === 'over'"
+      >
+        <div class="progress-track">
+          <div class="progress-fill" [style.width.%]="summary().pct"></div>
+        </div>
+        <span class="amounts">
+          {{ summary().used | currency: 'USD' : 'symbol' : '1.0-0' }} /
+          {{ summary().limit | currency: 'USD' : 'symbol' : '1.0-0' }}
+        </span>
+      </div>
+    </div>
     <ul class="budget-rows">
       @for (row of rows(); track row.flow.id) {
         <li
