@@ -1,0 +1,91 @@
+<div class="prototype-banner">
+  PROTOTYPE — over-allocation indicator, variant {{ variant() }} (fabricated sample data)
+</div>
+
+@switch (variant()) {
+  @case ('B') {
+    <!-- Variant B: existing single spending bar + text, plus a small badge only when over. -->
+    <div class="summary">
+      <div class="summary-row">
+        <span class="summary-text"
+          >${{ totalOutUsed | number: '1.0-0' }} / ${{ totalOutLimit | number: '1.0-0' }}</span
+        >
+        @if (isOverAllocated) {
+          <span class="badge">⚠ ${{ overAllocatedBy | number: '1.0-0' }} over income</span>
+        }
+      </div>
+      <div class="bar-track">
+        <div
+          class="bar-fill"
+          [class.warn]="spendStatus === 'warn'"
+          [class.over]="spendStatus === 'over'"
+          [style.width.%]="spendFillPct"
+        ></div>
+      </div>
+    </div>
+  }
+  @case ('C') {
+    <!-- Variant C: single bar, scaled to total spending allocation, with a marker line at the income target. -->
+    <div class="summary">
+      <div class="summary-row">
+        <span class="summary-text"
+          >${{ totalOutUsed | number: '1.0-0' }} / ${{ totalOutLimit | number: '1.0-0' }}</span
+        >
+        @if (isOverAllocated) {
+          <span class="marker-note"
+            >income covers ${{ totalInLimit | number: '1.0-0' }} of this</span
+          >
+        }
+      </div>
+      <div class="bar-track marker-track">
+        <div
+          class="bar-fill"
+          [class.warn]="spendStatus === 'warn'"
+          [class.over]="spendStatus === 'over'"
+          [style.width.%]="spendFillPct"
+        ></div>
+        <div class="income-marker" [style.left.%]="incomeMarkerPctC"></div>
+      </div>
+    </div>
+  }
+  @default {
+    <!-- Variant A: two full bars on one shared scale — income capacity vs spending allocation. -->
+    <div class="summary summary-stacked">
+      <div class="stacked-row">
+        <span class="stacked-label">Income target</span>
+        <div class="bar-track">
+          <div class="bar-fill income" [style.width.%]="incomeWidthA"></div>
+        </div>
+        <span class="stacked-value">${{ totalInLimit | number: '1.0-0' }}</span>
+      </div>
+      <div class="stacked-row">
+        <span class="stacked-label">Spending allocated</span>
+        <div class="bar-track">
+          <div class="bar-fill" [style.width.%]="spendWithinIncomeWidthA"></div>
+          @if (spendOverflowWidthA > 0) {
+            <div
+              class="bar-fill over"
+              [style.width.%]="spendOverflowWidthA"
+              [style.left.%]="spendWithinIncomeWidthA"
+            ></div>
+          }
+        </div>
+        <span class="stacked-value">${{ totalOutLimit | number: '1.0-0' }}</span>
+      </div>
+      @if (isOverAllocated) {
+        <p class="over-note">${{ overAllocatedBy | number: '1.0-0' }} over your income target</p>
+      }
+    </div>
+  }
+}
+
+<ul class="sample-data">
+  <li>Out (spending) budgets, prorated monthly:</li>
+  @for (b of outBudgets; track b.name) {
+    <li>{{ b.name }} — {{ b.limit }}/{{ b.period }}, used {{ b.used }}</li>
+  }
+  <li>In (income) budgets, prorated monthly:</li>
+  @for (b of inBudgets; track b.name) {
+    <li>{{ b.name }} — {{ b.limit }}/{{ b.period }}</li>
+  }
+</ul>

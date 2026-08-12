@@ -3,13 +3,14 @@ import {
   computed,
   effect,
   ElementRef,
+  HostListener,
   inject,
   input,
   signal,
   viewChild,
 } from '@angular/core';
 import { CurrencyPipe, DatePipe } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Dialog } from '@angular/cdk/dialog';
 import { deleteFlowCascade } from '../../core/categorization/delete-flow-cascade';
 import { deleteTransferCascade } from '../../core/categorization/delete-transfer-cascade';
@@ -53,6 +54,7 @@ import { DragScrub } from '../../shared/drag-scrub/drag-scrub.directive';
 import { StatusBanner } from '../../shared/status-banner/status-banner';
 import { StreamBand } from '../../shared/stream-band/stream-band';
 import { BudgetList } from './budget-list/budget-list';
+import { PrototypeOverAllocation } from './budget-list/prototype-over-allocation/prototype-over-allocation';
 import { FlowFormDialog, FlowFormDialogResult } from './flow-form-dialog/flow-form-dialog';
 import { OutstandingFlowRow } from './outstanding-flow-row/outstanding-flow-row';
 import { TransferFormDialog, TransferFormDialogResult } from './transfer-form-dialog/transfer-form-dialog';
@@ -71,6 +73,7 @@ import { TributaryPanel } from './tributary-panel/tributary-panel';
     StreamBand,
     TransactionReview,
     BudgetList,
+    PrototypeOverAllocation,
     OutstandingFlowRow,
     TributaryPanel,
   ],
@@ -81,8 +84,12 @@ export class AccountStream {
   private readonly storage = inject(StorageRepository);
   private readonly syncCoordinator = inject(SyncCoordinator);
   private readonly dialog = inject(Dialog);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   readonly id = input.required<string>();
+  /** PROTOTYPE — throwaway, drives the over-allocation-indicator prototype below. Bound from ?variant= via withComponentInputBinding. */
+  readonly variant = input<string>('A');
 
   protected readonly windowDays = WINDOW_DAYS;
 
@@ -398,5 +405,29 @@ export class AccountStream {
     } else {
       void this.resync();
     }
+  }
+
+  // PROTOTYPE — throwaway switcher for the over-allocation-indicator prototype. Remove with the
+  // rest of this branch's prototype code once a variant is picked.
+  private static readonly PROTOTYPE_VARIANTS = ['A', 'B', 'C'];
+
+  protected cycleVariant(direction: 1 | -1): void {
+    const variants = AccountStream.PROTOTYPE_VARIANTS;
+    const index = variants.indexOf(this.variant());
+    const next = variants[(index + direction + variants.length) % variants.length];
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { variant: next },
+      queryParamsHandling: 'merge',
+    });
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  protected onPrototypeSwitcherKeydown(event: KeyboardEvent): void {
+    const target = event.target as HTMLElement | null;
+    if (target && ['INPUT', 'TEXTAREA'].includes(target.tagName)) return;
+    if (target?.isContentEditable) return;
+    if (event.key === 'ArrowLeft') this.cycleVariant(-1);
+    if (event.key === 'ArrowRight') this.cycleVariant(1);
   }
 }

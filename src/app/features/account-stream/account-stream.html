@@ -84,6 +84,8 @@
       (changed)="reloadAll()"
     />
 
+    <app-prototype-over-allocation [variant]="variant()" />
+
     <app-budget-list
       [flows]="flows()"
       [transactions]="transactions()"
@@ -110,6 +112,12 @@
       />
     }
   </section>
+
+  <div class="prototype-switcher">
+    <button type="button" (click)="cycleVariant(-1)" aria-label="Previous variant">←</button>
+    <span>Variant {{ variant() }}</span>
+    <button type="button" (click)="cycleVariant(1)" aria-label="Next variant">→</button>
+  </div>
 } @else {
   <p>Loading…</p>
 }

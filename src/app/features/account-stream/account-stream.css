@@ -169,3 +169,31 @@ h1 {
     margin-right: -1.5rem;
   }
 }
+
+/* PROTOTYPE — throwaway switcher bar for the over-allocation-indicator prototype. */
+.prototype-switcher {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--color-ink-primary);
+  color: var(--color-surface);
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.prototype-switcher button {
+  font: inherit;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: inherit;
+  padding: 0.15rem 0.4rem;
+}
